@@ -1,0 +1,190 @@
+syntax = "proto3";
+package proto;
+
+option go_package = "github.com/ScottDuckworth/WickedWinchProtocol/proto";
+
+message Path {
+  repeated PathSegment segments = 1;
+}
+
+message PathSegment {
+  fixed32 start_time = 1;
+  PostfixExpression expr = 2;
+}
+
+message PostfixExpression {
+  repeated Operation op = 1;
+  repeated int32 i = 2;
+  repeated float f = 3;
+}
+
+enum Operation {
+  Undefined = 0;
+
+  // n = popi()
+  // for 1 .. n
+  //   push(popf())
+  Push = 1;
+
+  // n = popi()
+  // popv(n)
+  Pop = 2;
+
+  // n = popi()
+  // push(stack[len(stack)-1-n])
+  Dup = 3;
+
+  // n = popi()
+  // r = popv(n-1)
+  // l = pop()
+  // push(r...)
+  // push(l)
+  RotL = 4;
+
+  // n = popi()
+  // r = pop()
+  // l = popv(n-1)
+  // push(r)
+  // push(l...)
+  RotR = 5;
+
+  // n = popi()
+  // push(reverse(popv(n)))
+  Rev = 6;
+
+  // rows = popi()
+  // cols = popi()
+  // m = popv(rows * cols)
+  // push(transpose(m))
+  Transpose = 7;
+
+  // rhs = pop()
+  // lhs = pop()
+  // push(lhs + rhs)
+  Add = 8;
+
+  // rhs = pop()
+  // lhs = pop()
+  // push(lhs - rhs)
+  Sub = 9;
+
+  // rhs = pop()
+  // lhs = pop()
+  // push(lhs * rhs)
+  Mul = 10;
+
+  // c = pop()
+  // b = pop()
+  // a = pop()
+  // push(a + b * c)
+  MulAdd = 11;
+
+  // rhs = pop()
+  // lhs = pop()
+  // push(lhs / rhs)
+  Div = 12;
+
+  // rhs = pop()
+  // lhs = pop()
+  // push(lhs % rhs)
+  Mod = 13;
+
+  // push(-pop())
+  Neg = 14;
+
+  // push(abs(pop()))
+  Abs = 15;
+
+  // push(1 / pop())
+  Inv = 16;
+
+  // exp = pop()
+  // base = pop()
+  // push(pow(base, exp))
+  Pow = 17;
+
+  // push(sqrt(pop()))
+  Sqrt = 18;
+
+  // push(exp(pop()))
+  Exp = 19;
+
+  // push(ln(pop()))
+  Ln = 20;
+
+  // push(sin(pop()))
+  Sin = 21;
+
+  // push(cos(pop()))
+  Cos = 22;
+
+  // push(tan(pop()))
+  Tan = 23;
+
+  // push(asin(pop()))
+  Asin = 24;
+
+  // push(acos(pop()))
+  Acos = 25;
+
+  // x = pop()
+  // y = pop()
+  // push(atan2(y, x))
+  Atan2 = 26;
+
+  // size = popi() >> 1 // bit 0 indicates implicit push(size)
+  // rhs = popv(size)
+  // lhs = popv(size)
+  // push(lhs + rhs)
+  AddVec = 27;
+
+  // size = popi() >> 1 // bit 0 indicates implicit push(size)
+  // rhs = popv(size)
+  // lhs = popv(size)
+  // push(lhs - rhs)
+  SubVec = 28;
+
+  // size = popi() >> 1 // bit 0 indicates implicit push(size)
+  // rhs = popv(size)
+  // lhs = popv(size)
+  // push(lhs * rhs)
+  MulVec = 29;
+
+  // size = popi() >> 1 // bit 0 indicates implicit push(size)
+  // coeff = popv(size)
+  // scale = pop()
+  // push(scale * coeff)
+  ScaleVec = 30;
+
+  // size = popi() >> 1 // bit 0 indicates implicit push(size)
+  // coeff = popv(size)
+  // push(norm(coeff))
+  NormVec = 31;
+
+  // size = popi() >> 1 // bit 0 indicates implicit push(size)
+  // coeff = popv(size)
+  // param = pop()
+  // push(sum(coeff[n] * param^n for n in 0 .. size-1))
+  PolyVec = 32;
+
+  // rows = popi()
+  // cols = popi() >> 1 // bit 0 indicates implicit push(rows * cols)
+  // coeff = popv(rows * cols)
+  // param = pop()
+  // for i := range rows
+  //   for j := range cols
+  //     result[j] += coeff[cols*i+j] * param^i
+  // push(result)
+  PolyMat = 33;
+
+  // size = popi()
+  // v1 = popv(size)
+  // v0 = popv(size)
+  // t = pop()
+  // push(lerp(t, v0, v1))
+  Lerp = 34;
+
+  Lut = 35;
+
+  // next: 36
+}
