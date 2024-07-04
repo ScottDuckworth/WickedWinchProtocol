@@ -6,6 +6,14 @@
 
 namespace wickedwinch::postfix {
 
-void Eval(const wickedwinch::proto::PostfixExpression& expr, std::vector<float>& stack);
+enum class EvalStatus {
+  Ok,
+	UndefinedOperation,
+	StackUnderflow,
+	IntLiteralsUnderflow,
+	FloatLiteralsUnderflow,
+};
+
+EvalStatus Eval(const wickedwinch::proto::PostfixExpression& expr, std::vector<float>& stack);
 
 }
