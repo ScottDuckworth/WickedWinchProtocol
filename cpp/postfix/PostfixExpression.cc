@@ -21,7 +21,7 @@ std::pair<int32_t, EvalStatus> implicitPushArg(int32_t multiple, int32_t n, std:
   n >>= 1;
   if (do_push) {
     int32_t size = multiple * n;
-    if (stack.size() < size) return std::make_pair(n, EvalStatus::StackUnderflow);
+    if (f.size() < size) return std::make_pair(n, EvalStatus::FloatLiteralsUnderflow);
     push(stack, f, size);
   }
   return std::make_pair(n, EvalStatus::Ok);
@@ -75,7 +75,7 @@ EvalStatus Eval(const wickedwinch::proto::PostfixExpression& expr, std::vector<f
       if (i.size() < 1) return EvalStatus::IntLiteralsUnderflow;
       int32_t n = popi();
       if (stack.size() < n+1) return EvalStatus::StackUnderflow;
-      float v = *(stack.end() - n);
+      float v = *(stack.end() - n - 1);
       stack.push_back(v);
       break;
     }
@@ -118,14 +118,14 @@ EvalStatus Eval(const wickedwinch::proto::PostfixExpression& expr, std::vector<f
       if (status != EvalStatus::Ok) return status;
       int32_t size = rows * cols;
       if (stack.size() < size) return EvalStatus::StackUnderflow;
-      std::vector<float> m = popv(size);
-      stack.resize(stack.size() + size);
-      std::span<float> t = peekv(size);
+      std::span<float> m = peekv(size);
+      std::vector<float> t(size);
       for (int32_t i = 0; i < rows; ++i) {
         for (int32_t j = 0; j < cols; ++j) {
-          t[rows*j+i] = m[cols*i*j];
+          t[rows*j+i] = m[cols*i+j];
         }
       }
+      std::copy(t.begin(), t.end(), m.begin());
       break;
     }
     case Operation::Add: {
