@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cmath>
 #include <span>
+#include <utility>
 #include <vector>
 
 namespace wickedwinch::postfix {
@@ -15,14 +16,15 @@ void push(std::vector<float>& stack, std::span<const float>& f, int32_t n) {
   f = std::span<const float>(f.data() + n, f.size() - n);
 };
 
-int32_t implicitPushArg(int32_t multiple, int32_t n, std::vector<float>& stack, std::span<const float>& f) {
+std::pair<int32_t, EvalStatus> implicitPushArg(int32_t multiple, int32_t n, std::vector<float>& stack, std::span<const float>& f) {
   bool do_push = n & 1;
   n >>= 1;
   if (do_push) {
     int32_t size = multiple * n;
+    if (stack.size() < size) return std::make_pair(n, EvalStatus::StackUnderflow);
     push(stack, f, size);
   }
-  return n;
+  return std::make_pair(n, EvalStatus::Ok);
 }
 
 }
@@ -112,7 +114,8 @@ EvalStatus Eval(const wickedwinch::proto::PostfixExpression& expr, std::vector<f
     case Operation::Transpose: {
       if (i.size() < 2) return EvalStatus::IntLiteralsUnderflow;
       int32_t rows = popi();
-      int32_t cols = implicitPushArg(rows, popi(), stack, f);
+      auto [cols, status] = implicitPushArg(rows, popi(), stack, f);
+      if (status != EvalStatus::Ok) return status;
       int32_t size = rows * cols;
       if (stack.size() < size) return EvalStatus::StackUnderflow;
       std::vector<float> m = popv(size);
@@ -245,7 +248,8 @@ EvalStatus Eval(const wickedwinch::proto::PostfixExpression& expr, std::vector<f
     }
     case Operation::PolyVec: {
       if (i.size() < 1) return EvalStatus::IntLiteralsUnderflow;
-      int32_t size = implicitPushArg(1, popi(), stack, f);
+      auto [size, status] = implicitPushArg(1, popi(), stack, f);
+      if (status != EvalStatus::Ok) return status;
       if (stack.size() < size+1) return EvalStatus::StackUnderflow;
       std::vector<float> coeff = popv(size);
       float param = pop();
@@ -261,7 +265,8 @@ EvalStatus Eval(const wickedwinch::proto::PostfixExpression& expr, std::vector<f
     case Operation::PolyMat: {
       if (i.size() < 2) return EvalStatus::IntLiteralsUnderflow;
       int32_t rows = popi();
-      int32_t cols = implicitPushArg(rows, popi(), stack, f);
+      auto [cols, status] = implicitPushArg(rows, popi(), stack, f);
+      if (status != EvalStatus::Ok) return status;
       int32_t size = rows * cols;
       if (stack.size() < size+1) return EvalStatus::StackUnderflow;
       std::vector<float> coeff = popv(size);
@@ -279,7 +284,8 @@ EvalStatus Eval(const wickedwinch::proto::PostfixExpression& expr, std::vector<f
     }
     case Operation::AddVec: {
       if (i.size() < 1) return EvalStatus::IntLiteralsUnderflow;
-      int32_t size = implicitPushArg(1, popi(), stack, f);
+      auto [size, status] = implicitPushArg(1, popi(), stack, f);
+      if (status != EvalStatus::Ok) return status;
       if (stack.size() < size*2) return EvalStatus::StackUnderflow;
       std::vector<float> rhs = popv(size);
       std::span<float> lhs = peekv(size);
@@ -290,7 +296,8 @@ EvalStatus Eval(const wickedwinch::proto::PostfixExpression& expr, std::vector<f
     }
     case Operation::SubVec: {
       if (i.size() < 1) return EvalStatus::IntLiteralsUnderflow;
-      int32_t size = implicitPushArg(1, popi(), stack, f);
+      auto [size, status] = implicitPushArg(1, popi(), stack, f);
+      if (status != EvalStatus::Ok) return status;
       if (stack.size() < size*2) return EvalStatus::StackUnderflow;
       std::vector<float> rhs = popv(size);
       std::span<float> lhs = peekv(size);
@@ -301,7 +308,8 @@ EvalStatus Eval(const wickedwinch::proto::PostfixExpression& expr, std::vector<f
     }
     case Operation::MulVec: {
       if (i.size() < 1) return EvalStatus::IntLiteralsUnderflow;
-      int32_t size = implicitPushArg(1, popi(), stack, f);
+      auto [size, status] = implicitPushArg(1, popi(), stack, f);
+      if (status != EvalStatus::Ok) return status;
       if (stack.size() < size*2) return EvalStatus::StackUnderflow;
       std::vector<float> rhs = popv(size);
       std::span<float> lhs = peekv(size);
@@ -312,7 +320,8 @@ EvalStatus Eval(const wickedwinch::proto::PostfixExpression& expr, std::vector<f
     }
     case Operation::ScaleVec: {
       if (i.size() < 1) return EvalStatus::IntLiteralsUnderflow;
-      int32_t size = implicitPushArg(1, popi(), stack, f);
+      auto [size, status] = implicitPushArg(1, popi(), stack, f);
+      if (status != EvalStatus::Ok) return status;
       if (stack.size() < size+1) return EvalStatus::StackUnderflow;
       std::vector<float> vec = popv(size);
       float scalar = pop();
@@ -325,7 +334,8 @@ EvalStatus Eval(const wickedwinch::proto::PostfixExpression& expr, std::vector<f
     }
     case Operation::NormVec: {
       if (i.size() < 1) return EvalStatus::IntLiteralsUnderflow;
-      int32_t size = implicitPushArg(1, popi(), stack, f);
+      auto [size, status] = implicitPushArg(1, popi(), stack, f);
+      if (status != EvalStatus::Ok) return status;
       if (stack.size() < size) return EvalStatus::StackUnderflow;
       std::vector<float> vec = popv(size);
       float result = 0;
@@ -337,7 +347,8 @@ EvalStatus Eval(const wickedwinch::proto::PostfixExpression& expr, std::vector<f
     }
     case Operation::Lerp: {
       if (i.size() < 1) return EvalStatus::IntLiteralsUnderflow;
-      int32_t size = implicitPushArg(1, popi(), stack, f);
+      auto [size, status] = implicitPushArg(1, popi(), stack, f);
+      if (status != EvalStatus::Ok) return status;
       if (stack.size() < size*2+1) return EvalStatus::StackUnderflow;
       std::vector<float> v1 = popv(size);
       std::vector<float> v0 = popv(size);
@@ -352,7 +363,8 @@ EvalStatus Eval(const wickedwinch::proto::PostfixExpression& expr, std::vector<f
     case Operation::Lut: {
       if (i.size() < 1) return EvalStatus::IntLiteralsUnderflow;
       int32_t rows = popi();
-      int32_t cols = implicitPushArg(rows, popi(), stack, f);
+      auto [cols, status] = implicitPushArg(rows, popi(), stack, f);
+      if (status != EvalStatus::Ok) return status;
       int32_t size = rows * cols;
       if (stack.size() < size+1) return EvalStatus::StackUnderflow;
       std::span<float> data = peekv(size+1);
