@@ -354,25 +354,38 @@ EvalStatus Eval(const wickedwinch::proto::PostfixExpression& expr, std::vector<f
       int32_t cols = implicitPushArg(rows, popi(), stack, f);
       int32_t size = rows * cols;
       if (f.size() < size+1) return EvalStatus::FloatLiteralsUnderflow;
-      std::vector<float> lut = popv(size);
-      float t = pop();
-      stack.resize(stack.size() + (cols-1));
-      std::span<float> result = peekv(size);
-      size_t ub = 0; // FIXME
-      if (ub == 0) {
-        std::copy_n(lut.begin() + 1, cols-1, result);
-      } else if (ub == rows) {
-        std::copy_n(lut.end() - (cols-1), cols-1, result);
+      std::span<float> data = peekv(size+1);
+      float t = data[0];
+      std::vector<std::span<float>> lut(rows);
+      for (int32_t i = 0; i < rows; ++i) {
+        lut[i] = std::span<float>(data.data() + (i*cols+1), cols - 1);
+      }
+      std::vector<float> result(cols-1);
+      struct FrontLess {
+        bool operator()(const std::span<float>& lhs, const std::span<float>& rhs) const {
+          return lhs.front() < rhs.front();
+        }
+      };
+      auto ub = std::upper_bound(lut.begin(), lut.end(), std::span<float>(&t, 1), FrontLess());
+      if (ub == lut.begin()) {
+        auto bound = lut.front();
+        std::copy(bound.begin() + 1, bound.end(), result.begin());
+      } else if (ub == lut.end()) {
+        auto bound = lut.back();
+        std::copy(bound.begin() + 1, bound.end(), result.begin());
       } else {
-        float t0 = lut[(ub-1)*cols];
-        float t1 = lut[ub*cols];
+        auto lb = ub - 1;
+        float t0 = (*lb)[0];
+        float t1 = (*ub)[0];
         t = (t - t0) / (t1 - t0);
-        std::span<const float> v0(lut.begin() + (ub-1)*cols+1, cols-1);
-        std::span<const float> v1(lut.begin() + ub*cols+1, cols-1);
+        std::span<const float> v0(lb->data(), cols-1);
+        std::span<const float> v1(ub->data(), cols-1);
         for (int32_t i = 0; i < size; ++i) {
           result[i] = (1-t)*v0[i] + t*v1[i];
         }
       }
+      stack.resize(stack.size() - (size + 1));
+      std::copy(result.begin(), result.end(), std::back_inserter(stack));
       break;
     }
     default:
