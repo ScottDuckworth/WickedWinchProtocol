@@ -543,3 +543,363 @@ TEST(EvalTest, Atan2StackUnderflow) {
   EXPECT_EQ(Eval(expr, stack), EvalStatus::StackUnderflow);
   EXPECT_THAT(stack, testing::ElementsAre(5));
 }
+
+TEST(EvalTest, PolyVec) {
+  PostfixExpression expr;
+  expr.add_op(Operation::PolyVec);
+  expr.add_i(4 << 1);
+  std::vector<float> stack = {0, 2, 3, 4, 5, 6};
+  EXPECT_EQ(Eval(expr, stack), EvalStatus::Ok);
+  EXPECT_THAT(stack, testing::ElementsAre(0, 79));
+}
+
+TEST(EvalTest, PolyVecStackUnderflow) {
+  PostfixExpression expr;
+  expr.add_op(Operation::PolyVec);
+  expr.add_i(3 << 1);
+  std::vector<float> stack = {2, 3, 4};
+  EXPECT_EQ(Eval(expr, stack), EvalStatus::StackUnderflow);
+  EXPECT_THAT(stack, testing::ElementsAre(2, 3, 4));
+}
+
+TEST(EvalTest, PolyVecIntUnderflow) {
+  PostfixExpression expr;
+  expr.add_op(Operation::PolyVec);
+  std::vector<float> stack = {0, 2, 3, 4, 5};
+  EXPECT_EQ(Eval(expr, stack), EvalStatus::IntLiteralsUnderflow);
+  EXPECT_THAT(stack, testing::ElementsAre(0, 2, 3, 4, 5));
+}
+
+TEST(EvalTest, PushPolyVec) {
+  PostfixExpression expr;
+  expr.add_op(Operation::PolyVec);
+  expr.add_i(4 << 1 | 1);
+  expr.add_f(3);
+  expr.add_f(4);
+  expr.add_f(5);
+  expr.add_f(6);
+  std::vector<float> stack = {0, 2};
+  EXPECT_EQ(Eval(expr, stack), EvalStatus::Ok);
+  EXPECT_THAT(stack, testing::ElementsAre(0, 79));
+}
+
+TEST(EvalTest, PushPolyVecFloatUnderflow) {
+  PostfixExpression expr;
+  expr.add_op(Operation::PolyVec);
+  expr.add_i(4 << 1 | 1);
+  expr.add_f(3);
+  expr.add_f(4);
+  expr.add_f(5);
+  std::vector<float> stack = {0, 2};
+  EXPECT_EQ(Eval(expr, stack), EvalStatus::FloatLiteralsUnderflow);
+  EXPECT_THAT(stack, testing::ElementsAre(0, 2));
+}
+
+TEST(EvalTest, PolyMat) {
+  PostfixExpression expr;
+  expr.add_op(Operation::PolyMat);
+  expr.add_i(4);
+  expr.add_i(2 << 1);
+  std::vector<float> stack = {0, 2, 3, 4, 5, 6, 7, 8, 9, 10};
+  EXPECT_EQ(Eval(expr, stack), EvalStatus::Ok);
+  EXPECT_THAT(stack, testing::ElementsAre(0, 3 + 2*5 + 4*7 + 8*9, 4 + 2*6 + 4*8 + 8*10));
+}
+
+TEST(EvalTest, PolyMatStackUnderflow) {
+  PostfixExpression expr;
+  expr.add_op(Operation::PolyMat);
+  expr.add_i(4);
+  expr.add_i(2 << 1);
+  std::vector<float> stack = {2, 3, 4, 5, 6, 7, 8, 9};
+  EXPECT_EQ(Eval(expr, stack), EvalStatus::StackUnderflow);
+  EXPECT_THAT(stack, testing::ElementsAre(2, 3, 4, 5, 6, 7, 8, 9));
+}
+
+TEST(EvalTest, PolyMatIntUnderflow) {
+  PostfixExpression expr;
+  expr.add_op(Operation::PolyMat);
+  expr.add_i(4);
+  std::vector<float> stack = {0, 2, 3, 4, 5, 6, 7, 8, 9, 10};
+  EXPECT_EQ(Eval(expr, stack), EvalStatus::IntLiteralsUnderflow);
+  EXPECT_THAT(stack, testing::ElementsAre(0, 2, 3, 4, 5, 6, 7, 8, 9, 10));
+}
+
+TEST(EvalTest, PushPolyMat) {
+  PostfixExpression expr;
+  expr.add_op(Operation::PolyMat);
+  expr.add_i(4);
+  expr.add_i(2 << 1 | 1);
+  expr.add_f(3);
+  expr.add_f(4);
+  expr.add_f(5);
+  expr.add_f(6);
+  expr.add_f(7);
+  expr.add_f(8);
+  expr.add_f(9);
+  expr.add_f(10);
+  std::vector<float> stack = {0, 2};
+  EXPECT_EQ(Eval(expr, stack), EvalStatus::Ok);
+  EXPECT_THAT(stack, testing::ElementsAre(0, 3 + 2*5 + 4*7 + 8*9, 4 + 2*6 + 4*8 + 8*10));
+}
+
+TEST(EvalTest, PushPolyMatFloatUnderflow) {
+  PostfixExpression expr;
+  expr.add_op(Operation::PolyMat);
+  expr.add_i(4);
+  expr.add_i(2 << 1 | 1);
+  expr.add_f(3);
+  expr.add_f(4);
+  expr.add_f(5);
+  expr.add_f(6);
+  expr.add_f(7);
+  expr.add_f(8);
+  expr.add_f(9);
+  std::vector<float> stack = {0, 2};
+  EXPECT_EQ(Eval(expr, stack), EvalStatus::FloatLiteralsUnderflow);
+  EXPECT_THAT(stack, testing::ElementsAre(0, 2));
+}
+
+TEST(EvalTest, AddVec) {
+  PostfixExpression expr;
+  expr.add_op(Operation::AddVec);
+  expr.add_i(3 << 1);
+  std::vector<float> stack = {0, 1, 2, 3, 4, 5, 6};
+  EXPECT_EQ(Eval(expr, stack), EvalStatus::Ok);
+  EXPECT_THAT(stack, testing::ElementsAre(0, 5, 7, 9));
+}
+
+TEST(EvalTest, AddVecStackUnderflow) {
+  PostfixExpression expr;
+  expr.add_op(Operation::AddVec);
+  expr.add_i(3 << 1);
+  std::vector<float> stack = {1, 2, 3, 4, 5};
+  EXPECT_EQ(Eval(expr, stack), EvalStatus::StackUnderflow);
+  EXPECT_THAT(stack, testing::ElementsAre(1, 2, 3, 4, 5));
+}
+
+TEST(EvalTest, AddVecIntUnderflow) {
+  PostfixExpression expr;
+  expr.add_op(Operation::AddVec);
+  std::vector<float> stack = {0, 1, 2, 3, 4, 5, 6};
+  EXPECT_EQ(Eval(expr, stack), EvalStatus::IntLiteralsUnderflow);
+  EXPECT_THAT(stack, testing::ElementsAre(0, 1, 2, 3, 4, 5, 6));
+}
+
+TEST(EvalTest, PushAddVec) {
+  PostfixExpression expr;
+  expr.add_op(Operation::AddVec);
+  expr.add_i(3 << 1 | 1);
+  expr.add_f(4);
+  expr.add_f(5);
+  expr.add_f(6);
+  std::vector<float> stack = {0, 1, 2, 3};
+  EXPECT_EQ(Eval(expr, stack), EvalStatus::Ok);
+  EXPECT_THAT(stack, testing::ElementsAre(0, 5, 7, 9));
+}
+
+TEST(EvalTest, PushAddVecFloatUnderflow) {
+  PostfixExpression expr;
+  expr.add_op(Operation::AddVec);
+  expr.add_i(3 << 1 | 1);
+  expr.add_f(4);
+  expr.add_f(5);
+  std::vector<float> stack = {0, 1, 2, 3};
+  EXPECT_EQ(Eval(expr, stack), EvalStatus::FloatLiteralsUnderflow);
+  EXPECT_THAT(stack, testing::ElementsAre(0, 1, 2, 3));
+}
+
+TEST(EvalTest, SubVec) {
+  PostfixExpression expr;
+  expr.add_op(Operation::SubVec);
+  expr.add_i(3 << 1);
+  std::vector<float> stack = {0, 1, 2, 3, 4, 2, 1};
+  EXPECT_EQ(Eval(expr, stack), EvalStatus::Ok);
+  EXPECT_THAT(stack, testing::ElementsAre(0, -3, 0, 2));
+}
+
+TEST(EvalTest, SubVecStackUnderflow) {
+  PostfixExpression expr;
+  expr.add_op(Operation::SubVec);
+  expr.add_i(3 << 1);
+  std::vector<float> stack = {1, 2, 3, 4, 5};
+  EXPECT_EQ(Eval(expr, stack), EvalStatus::StackUnderflow);
+  EXPECT_THAT(stack, testing::ElementsAre(1, 2, 3, 4, 5));
+}
+
+TEST(EvalTest, SubVecIntUnderflow) {
+  PostfixExpression expr;
+  expr.add_op(Operation::SubVec);
+  std::vector<float> stack = {0, 1, 2, 3, 4, 5, 6};
+  EXPECT_EQ(Eval(expr, stack), EvalStatus::IntLiteralsUnderflow);
+  EXPECT_THAT(stack, testing::ElementsAre(0, 1, 2, 3, 4, 5, 6));
+}
+
+TEST(EvalTest, PushSubVec) {
+  PostfixExpression expr;
+  expr.add_op(Operation::SubVec);
+  expr.add_i(3 << 1 | 1);
+  expr.add_f(4);
+  expr.add_f(2);
+  expr.add_f(1);
+  std::vector<float> stack = {0, 1, 2, 3};
+  EXPECT_EQ(Eval(expr, stack), EvalStatus::Ok);
+  EXPECT_THAT(stack, testing::ElementsAre(0, -3, 0, 2));
+}
+
+TEST(EvalTest, PushSubVecFloatUnderflow) {
+  PostfixExpression expr;
+  expr.add_op(Operation::SubVec);
+  expr.add_i(3 << 1 | 1);
+  expr.add_f(4);
+  expr.add_f(5);
+  std::vector<float> stack = {0, 1, 2, 3};
+  EXPECT_EQ(Eval(expr, stack), EvalStatus::FloatLiteralsUnderflow);
+  EXPECT_THAT(stack, testing::ElementsAre(0, 1, 2, 3));
+}
+
+TEST(EvalTest, MulVec) {
+  PostfixExpression expr;
+  expr.add_op(Operation::MulVec);
+  expr.add_i(3 << 1);
+  std::vector<float> stack = {0, 1, 2, 3, 4, 3, -1};
+  EXPECT_EQ(Eval(expr, stack), EvalStatus::Ok);
+  EXPECT_THAT(stack, testing::ElementsAre(0, 4, 6, -3));
+}
+
+TEST(EvalTest, MulVecStackUnderflow) {
+  PostfixExpression expr;
+  expr.add_op(Operation::MulVec);
+  expr.add_i(3 << 1);
+  std::vector<float> stack = {1, 2, 3, 4, 5};
+  EXPECT_EQ(Eval(expr, stack), EvalStatus::StackUnderflow);
+  EXPECT_THAT(stack, testing::ElementsAre(1, 2, 3, 4, 5));
+}
+
+TEST(EvalTest, MulVecIntUnderflow) {
+  PostfixExpression expr;
+  expr.add_op(Operation::MulVec);
+  std::vector<float> stack = {0, 1, 2, 3, 4, 5, 6};
+  EXPECT_EQ(Eval(expr, stack), EvalStatus::IntLiteralsUnderflow);
+  EXPECT_THAT(stack, testing::ElementsAre(0, 1, 2, 3, 4, 5, 6));
+}
+
+TEST(EvalTest, PushMulVec) {
+  PostfixExpression expr;
+  expr.add_op(Operation::MulVec);
+  expr.add_i(3 << 1 | 1);
+  expr.add_f(4);
+  expr.add_f(3);
+  expr.add_f(-1);
+  std::vector<float> stack = {0, 1, 2, 3};
+  EXPECT_EQ(Eval(expr, stack), EvalStatus::Ok);
+  EXPECT_THAT(stack, testing::ElementsAre(0, 4, 6, -3));
+}
+
+TEST(EvalTest, PushMulVecFloatUnderflow) {
+  PostfixExpression expr;
+  expr.add_op(Operation::MulVec);
+  expr.add_i(3 << 1 | 1);
+  expr.add_f(4);
+  expr.add_f(5);
+  std::vector<float> stack = {0, 1, 2, 3};
+  EXPECT_EQ(Eval(expr, stack), EvalStatus::FloatLiteralsUnderflow);
+  EXPECT_THAT(stack, testing::ElementsAre(0, 1, 2, 3));
+}
+
+TEST(EvalTest, ScaleVec) {
+  PostfixExpression expr;
+  expr.add_op(Operation::ScaleVec);
+  expr.add_i(3 << 1);
+  std::vector<float> stack = {0, 2, 3, 4, -2};
+  EXPECT_EQ(Eval(expr, stack), EvalStatus::Ok);
+  EXPECT_THAT(stack, testing::ElementsAre(0, 6, 8, -4));
+}
+
+TEST(EvalTest, ScaleVecStackUnderflow) {
+  PostfixExpression expr;
+  expr.add_op(Operation::ScaleVec);
+  expr.add_i(3 << 1);
+  std::vector<float> stack = {1, 2, 3};
+  EXPECT_EQ(Eval(expr, stack), EvalStatus::StackUnderflow);
+  EXPECT_THAT(stack, testing::ElementsAre(1, 2, 3));
+}
+
+TEST(EvalTest, ScaleVecIntUnderflow) {
+  PostfixExpression expr;
+  expr.add_op(Operation::ScaleVec);
+  std::vector<float> stack = {0, 1, 2, 3, 4};
+  EXPECT_EQ(Eval(expr, stack), EvalStatus::IntLiteralsUnderflow);
+  EXPECT_THAT(stack, testing::ElementsAre(0, 1, 2, 3, 4));
+}
+
+TEST(EvalTest, PushScaleVec) {
+  PostfixExpression expr;
+  expr.add_op(Operation::ScaleVec);
+  expr.add_i(3 << 1 | 1);
+  expr.add_f(3);
+  expr.add_f(4);
+  expr.add_f(-2);
+  std::vector<float> stack = {0, 2};
+  EXPECT_EQ(Eval(expr, stack), EvalStatus::Ok);
+  EXPECT_THAT(stack, testing::ElementsAre(0, 6, 8, -4));
+}
+
+TEST(EvalTest, PushScaleVecFloatUnderflow) {
+  PostfixExpression expr;
+  expr.add_op(Operation::ScaleVec);
+  expr.add_i(3 << 1 | 1);
+  expr.add_f(4);
+  expr.add_f(5);
+  std::vector<float> stack = {0, 2};
+  EXPECT_EQ(Eval(expr, stack), EvalStatus::FloatLiteralsUnderflow);
+  EXPECT_THAT(stack, testing::ElementsAre(0, 2));
+}
+
+TEST(EvalTest, NormVec) {
+  PostfixExpression expr;
+  expr.add_op(Operation::NormVec);
+  expr.add_i(3 << 1);
+  std::vector<float> stack = {0, 2, 3, 4};
+  EXPECT_EQ(Eval(expr, stack), EvalStatus::Ok);
+  EXPECT_THAT(stack, testing::ElementsAre(0, std::sqrt(2*2 + 3*3 + 4*4)));
+}
+
+TEST(EvalTest, NormVecStackUnderflow) {
+  PostfixExpression expr;
+  expr.add_op(Operation::NormVec);
+  expr.add_i(3 << 1);
+  std::vector<float> stack = {1, 2};
+  EXPECT_EQ(Eval(expr, stack), EvalStatus::StackUnderflow);
+  EXPECT_THAT(stack, testing::ElementsAre(1, 2));
+}
+
+TEST(EvalTest, NormVecIntUnderflow) {
+  PostfixExpression expr;
+  expr.add_op(Operation::NormVec);
+  std::vector<float> stack = {0, 2, 3, 4};
+  EXPECT_EQ(Eval(expr, stack), EvalStatus::IntLiteralsUnderflow);
+  EXPECT_THAT(stack, testing::ElementsAre(0, 2, 3, 4));
+}
+
+TEST(EvalTest, PushNormVec) {
+  PostfixExpression expr;
+  expr.add_op(Operation::NormVec);
+  expr.add_i(3 << 1 | 1);
+  expr.add_f(2);
+  expr.add_f(3);
+  expr.add_f(4);
+  std::vector<float> stack = {0};
+  EXPECT_EQ(Eval(expr, stack), EvalStatus::Ok);
+  EXPECT_THAT(stack, testing::ElementsAre(0, std::sqrt(2*2 + 3*3 + 4*4)));
+}
+
+TEST(EvalTest, PushNormVecFloatUnderflow) {
+  PostfixExpression expr;
+  expr.add_op(Operation::NormVec);
+  expr.add_i(3 << 1 | 1);
+  expr.add_f(2);
+  expr.add_f(3);
+  std::vector<float> stack = {0};
+  EXPECT_EQ(Eval(expr, stack), EvalStatus::FloatLiteralsUnderflow);
+  EXPECT_THAT(stack, testing::ElementsAre(0));
+}

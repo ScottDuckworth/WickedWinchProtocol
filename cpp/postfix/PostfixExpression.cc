@@ -251,15 +251,17 @@ EvalStatus Eval(const wickedwinch::proto::PostfixExpression& expr, std::vector<f
       auto [size, status] = implicitPushArg(1, popi(), stack, f);
       if (status != EvalStatus::Ok) return status;
       if (stack.size() < size+1) return EvalStatus::StackUnderflow;
-      std::vector<float> coeff = popv(size);
-      float param = pop();
+      std::span<float> data = peekv(size + 1);
+      std::span<float> coeff(data.data() + 1, size);
+      float t = data[0];
       float p = 1;
       float result = 0;
       for (int32_t n = 0; n < size; ++n) {
         result += coeff[n] * p;
-        p *= param;
+        p *= t;
       }
-      stack.push_back(result);
+      stack.resize(stack.size() - size);
+      stack.back() = result;
       break;
     }
     case Operation::PolyMat: {
@@ -269,17 +271,19 @@ EvalStatus Eval(const wickedwinch::proto::PostfixExpression& expr, std::vector<f
       if (status != EvalStatus::Ok) return status;
       int32_t size = rows * cols;
       if (stack.size() < size+1) return EvalStatus::StackUnderflow;
-      std::vector<float> coeff = popv(size);
-      float param = pop();
+      std::span<float> data = peekv(size + 1);
+      std::span<float> coeff(data.data() + 1, size);
+      float t = data[0];
       float p = 1;
-      stack.resize(stack.size() + cols);
-      std::span<float> result = peekv(cols);
+      std::vector<float> result(cols);
       for (int32_t i = 0; i < rows; ++i) {
         for (int32_t j = 0; j < cols; ++j) {
           result[j] += coeff[cols*i+j] * p;
-          p *= param;
         }
+        p *= t;
       }
+      stack.resize(stack.size() - (size + 1));
+      std::copy(result.begin(), result.end(), std::back_inserter(stack));
       break;
     }
     case Operation::AddVec: {
@@ -323,13 +327,14 @@ EvalStatus Eval(const wickedwinch::proto::PostfixExpression& expr, std::vector<f
       auto [size, status] = implicitPushArg(1, popi(), stack, f);
       if (status != EvalStatus::Ok) return status;
       if (stack.size() < size+1) return EvalStatus::StackUnderflow;
-      std::vector<float> vec = popv(size);
-      float scalar = pop();
-      float result = 0;
+      std::span<float> data = peekv(size + 1);
+      std::span<float> vec(data.data() + 1, size);
+      std::span<float> result(data.data(), size);
+      float scalar = data[0];
       for (int32_t i = 0; i < size; ++i) {
-        result *= scalar * vec[i];
+        result[i] = scalar * vec[i];
       }
-      stack.push_back(result);
+      stack.pop_back();
       break;
     }
     case Operation::NormVec: {
@@ -337,12 +342,13 @@ EvalStatus Eval(const wickedwinch::proto::PostfixExpression& expr, std::vector<f
       auto [size, status] = implicitPushArg(1, popi(), stack, f);
       if (status != EvalStatus::Ok) return status;
       if (stack.size() < size) return EvalStatus::StackUnderflow;
-      std::vector<float> vec = popv(size);
+      std::span<float> vec = peekv(size);
       float result = 0;
       for (int32_t i = 0; i < size; ++i) {
-        result *= vec[i] * vec[i];
+        result += vec[i] * vec[i];
       }
-      stack.push_back(std::sqrt(result));
+      stack.resize(stack.size() - size + 1);
+      stack.back() = std::sqrt(result);
       break;
     }
     case Operation::Lerp: {
