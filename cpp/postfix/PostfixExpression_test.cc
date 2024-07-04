@@ -1,6 +1,7 @@
 #include "PostfixExpression.h"
 #include "proto/PathExpression.pb.h"
 
+#include <cmath>
 #include <vector>
 
 #include <gmock/gmock.h>
@@ -333,4 +334,212 @@ TEST(EvalTest, ModStackUnderflow) {
   std::vector<float> stack = {1};
   EXPECT_EQ(Eval(expr, stack), EvalStatus::StackUnderflow);
   EXPECT_THAT(stack, testing::ElementsAre(1));
+}
+
+TEST(EvalTest, Neg) {
+  PostfixExpression expr;
+  expr.add_op(Operation::Neg);
+  std::vector<float> stack = {0, 2};
+  EXPECT_EQ(Eval(expr, stack), EvalStatus::Ok);
+  EXPECT_THAT(stack, testing::ElementsAre(0, -2));
+}
+
+TEST(EvalTest, NegStackUnderflow) {
+  PostfixExpression expr;
+  expr.add_op(Operation::Neg);
+  std::vector<float> stack = {};
+  EXPECT_EQ(Eval(expr, stack), EvalStatus::StackUnderflow);
+  EXPECT_THAT(stack, testing::ElementsAre());
+}
+
+TEST(EvalTest, Abs) {
+  PostfixExpression expr;
+  expr.add_op(Operation::Abs);
+  std::vector<float> stack = {0, -2};
+  EXPECT_EQ(Eval(expr, stack), EvalStatus::Ok);
+  EXPECT_THAT(stack, testing::ElementsAre(0, 2));
+}
+
+TEST(EvalTest, AbsStackUnderflow) {
+  PostfixExpression expr;
+  expr.add_op(Operation::Abs);
+  std::vector<float> stack = {};
+  EXPECT_EQ(Eval(expr, stack), EvalStatus::StackUnderflow);
+  EXPECT_THAT(stack, testing::ElementsAre());
+}
+
+TEST(EvalTest, Inv) {
+  PostfixExpression expr;
+  expr.add_op(Operation::Inv);
+  std::vector<float> stack = {0, 2};
+  EXPECT_EQ(Eval(expr, stack), EvalStatus::Ok);
+  EXPECT_THAT(stack, testing::ElementsAre(0, 0.5));
+}
+
+TEST(EvalTest, InvStackUnderflow) {
+  PostfixExpression expr;
+  expr.add_op(Operation::Inv);
+  std::vector<float> stack = {};
+  EXPECT_EQ(Eval(expr, stack), EvalStatus::StackUnderflow);
+  EXPECT_THAT(stack, testing::ElementsAre());
+}
+
+TEST(EvalTest, Pow) {
+  PostfixExpression expr;
+  expr.add_op(Operation::Pow);
+  std::vector<float> stack = {0, 2, 3};
+  EXPECT_EQ(Eval(expr, stack), EvalStatus::Ok);
+  EXPECT_THAT(stack, testing::ElementsAre(0, 8));
+}
+
+TEST(EvalTest, PowStackUnderflow) {
+  PostfixExpression expr;
+  expr.add_op(Operation::Pow);
+  std::vector<float> stack = {1};
+  EXPECT_EQ(Eval(expr, stack), EvalStatus::StackUnderflow);
+  EXPECT_THAT(stack, testing::ElementsAre(1));
+}
+
+TEST(EvalTest, Sqrt) {
+  PostfixExpression expr;
+  expr.add_op(Operation::Sqrt);
+  std::vector<float> stack = {0, 7};
+  EXPECT_EQ(Eval(expr, stack), EvalStatus::Ok);
+  EXPECT_THAT(stack, testing::ElementsAre(0, std::sqrt(7)));
+}
+
+TEST(EvalTest, SqrtStackUnderflow) {
+  PostfixExpression expr;
+  expr.add_op(Operation::Sqrt);
+  std::vector<float> stack = {};
+  EXPECT_EQ(Eval(expr, stack), EvalStatus::StackUnderflow);
+  EXPECT_THAT(stack, testing::ElementsAre());
+}
+
+TEST(EvalTest, Exp) {
+  PostfixExpression expr;
+  expr.add_op(Operation::Exp);
+  std::vector<float> stack = {0, 4};
+  EXPECT_EQ(Eval(expr, stack), EvalStatus::Ok);
+  EXPECT_THAT(stack, testing::ElementsAre(0, std::exp(4)));
+}
+
+TEST(EvalTest, ExpStackUnderflow) {
+  PostfixExpression expr;
+  expr.add_op(Operation::Exp);
+  std::vector<float> stack = {};
+  EXPECT_EQ(Eval(expr, stack), EvalStatus::StackUnderflow);
+  EXPECT_THAT(stack, testing::ElementsAre());
+}
+
+TEST(EvalTest, Ln) {
+  PostfixExpression expr;
+  expr.add_op(Operation::Ln);
+  std::vector<float> stack = {0, 5};
+  EXPECT_EQ(Eval(expr, stack), EvalStatus::Ok);
+  EXPECT_THAT(stack, testing::ElementsAre(0, std::log(5)));
+}
+
+TEST(EvalTest, LnStackUnderflow) {
+  PostfixExpression expr;
+  expr.add_op(Operation::Ln);
+  std::vector<float> stack = {};
+  EXPECT_EQ(Eval(expr, stack), EvalStatus::StackUnderflow);
+  EXPECT_THAT(stack, testing::ElementsAre());
+}
+
+TEST(EvalTest, Sin) {
+  PostfixExpression expr;
+  expr.add_op(Operation::Sin);
+  std::vector<float> stack = {0, 5};
+  EXPECT_EQ(Eval(expr, stack), EvalStatus::Ok);
+  EXPECT_THAT(stack, testing::ElementsAre(0, std::sin(5)));
+}
+
+TEST(EvalTest, SinStackUnderflow) {
+  PostfixExpression expr;
+  expr.add_op(Operation::Sin);
+  std::vector<float> stack = {};
+  EXPECT_EQ(Eval(expr, stack), EvalStatus::StackUnderflow);
+  EXPECT_THAT(stack, testing::ElementsAre());
+}
+
+TEST(EvalTest, Cos) {
+  PostfixExpression expr;
+  expr.add_op(Operation::Cos);
+  std::vector<float> stack = {0, 5};
+  EXPECT_EQ(Eval(expr, stack), EvalStatus::Ok);
+  EXPECT_THAT(stack, testing::ElementsAre(0, std::cos(5)));
+}
+
+TEST(EvalTest, CosStackUnderflow) {
+  PostfixExpression expr;
+  expr.add_op(Operation::Cos);
+  std::vector<float> stack = {};
+  EXPECT_EQ(Eval(expr, stack), EvalStatus::StackUnderflow);
+  EXPECT_THAT(stack, testing::ElementsAre());
+}
+
+TEST(EvalTest, Tan) {
+  PostfixExpression expr;
+  expr.add_op(Operation::Tan);
+  std::vector<float> stack = {0, 5};
+  EXPECT_EQ(Eval(expr, stack), EvalStatus::Ok);
+  EXPECT_THAT(stack, testing::ElementsAre(0, std::tan(5)));
+}
+
+TEST(EvalTest, TanStackUnderflow) {
+  PostfixExpression expr;
+  expr.add_op(Operation::Tan);
+  std::vector<float> stack = {};
+  EXPECT_EQ(Eval(expr, stack), EvalStatus::StackUnderflow);
+  EXPECT_THAT(stack, testing::ElementsAre());
+}
+
+TEST(EvalTest, Asin) {
+  PostfixExpression expr;
+  expr.add_op(Operation::Asin);
+  std::vector<float> stack = {0, 0.5};
+  EXPECT_EQ(Eval(expr, stack), EvalStatus::Ok);
+  EXPECT_THAT(stack, testing::ElementsAre(0, std::asin(0.5)));
+}
+
+TEST(EvalTest, AsinStackUnderflow) {
+  PostfixExpression expr;
+  expr.add_op(Operation::Asin);
+  std::vector<float> stack = {};
+  EXPECT_EQ(Eval(expr, stack), EvalStatus::StackUnderflow);
+  EXPECT_THAT(stack, testing::ElementsAre());
+}
+
+TEST(EvalTest, Acos) {
+  PostfixExpression expr;
+  expr.add_op(Operation::Acos);
+  std::vector<float> stack = {0, 0.5};
+  EXPECT_EQ(Eval(expr, stack), EvalStatus::Ok);
+  EXPECT_THAT(stack, testing::ElementsAre(0, std::acos(0.5)));
+}
+
+TEST(EvalTest, AcosStackUnderflow) {
+  PostfixExpression expr;
+  expr.add_op(Operation::Acos);
+  std::vector<float> stack = {};
+  EXPECT_EQ(Eval(expr, stack), EvalStatus::StackUnderflow);
+  EXPECT_THAT(stack, testing::ElementsAre());
+}
+
+TEST(EvalTest, Atan2) {
+  PostfixExpression expr;
+  expr.add_op(Operation::Atan2);
+  std::vector<float> stack = {0, 5, 4};
+  EXPECT_EQ(Eval(expr, stack), EvalStatus::Ok);
+  EXPECT_THAT(stack, testing::ElementsAre(0, std::atan2(5, 4)));
+}
+
+TEST(EvalTest, Atan2StackUnderflow) {
+  PostfixExpression expr;
+  expr.add_op(Operation::Atan2);
+  std::vector<float> stack = {5};
+  EXPECT_EQ(Eval(expr, stack), EvalStatus::StackUnderflow);
+  EXPECT_THAT(stack, testing::ElementsAre(5));
 }
