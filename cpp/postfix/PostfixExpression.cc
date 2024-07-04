@@ -38,13 +38,6 @@ EvalStatus Eval(const wickedwinch::proto::PostfixExpression& expr, std::vector<f
     stack.pop_back();
     return v;
   };
-  auto popv = [&stack](int n) {
-    std::vector<float> v;
-    v.reserve(n);
-    std::copy(stack.end() - n, stack.end(), std::back_inserter(v));
-    stack.resize(stack.size() - n);
-    return v;
-  };
   auto peekv = [&stack](int n) {
     return std::span<float>(stack.end() - n, stack.end());
   };
@@ -291,11 +284,13 @@ EvalStatus Eval(const wickedwinch::proto::PostfixExpression& expr, std::vector<f
       auto [size, status] = implicitPushArg(1, popi(), stack, f);
       if (status != EvalStatus::Ok) return status;
       if (stack.size() < size*2) return EvalStatus::StackUnderflow;
-      std::vector<float> rhs = popv(size);
-      std::span<float> lhs = peekv(size);
+      std::span<float> data = peekv(size*2);
+      std::span<float> lhs(data.data(), size);
+      std::span<float> rhs(data.data() + size, size);
       for (int32_t i = 0; i < size; ++i) {
         lhs[i] += rhs[i];
       }
+      stack.resize(stack.size() - size);
       break;
     }
     case Operation::SubVec: {
@@ -303,11 +298,13 @@ EvalStatus Eval(const wickedwinch::proto::PostfixExpression& expr, std::vector<f
       auto [size, status] = implicitPushArg(1, popi(), stack, f);
       if (status != EvalStatus::Ok) return status;
       if (stack.size() < size*2) return EvalStatus::StackUnderflow;
-      std::vector<float> rhs = popv(size);
-      std::span<float> lhs = peekv(size);
+      std::span<float> data = peekv(size*2);
+      std::span<float> lhs(data.data(), size);
+      std::span<float> rhs(data.data() + size, size);
       for (int32_t i = 0; i < size; ++i) {
         lhs[i] -= rhs[i];
       }
+      stack.resize(stack.size() - size);
       break;
     }
     case Operation::MulVec: {
@@ -315,11 +312,13 @@ EvalStatus Eval(const wickedwinch::proto::PostfixExpression& expr, std::vector<f
       auto [size, status] = implicitPushArg(1, popi(), stack, f);
       if (status != EvalStatus::Ok) return status;
       if (stack.size() < size*2) return EvalStatus::StackUnderflow;
-      std::vector<float> rhs = popv(size);
-      std::span<float> lhs = peekv(size);
+      std::span<float> data = peekv(size*2);
+      std::span<float> lhs(data.data(), size);
+      std::span<float> rhs(data.data() + size, size);
       for (int32_t i = 0; i < size; ++i) {
         lhs[i] *= rhs[i];
       }
+      stack.resize(stack.size() - size);
       break;
     }
     case Operation::ScaleVec: {
