@@ -1,7 +1,6 @@
 add_library(postfix PostfixExpression.h PostfixExpression.cc)
 target_link_libraries(postfix proto)
 
-enable_testing()
 include(GoogleTest)
 
 add_executable(

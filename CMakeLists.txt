@@ -17,7 +17,10 @@ FetchContent_Declare(
 set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
 FetchContent_MakeAvailable(googletest)
 
-include_directories(${CMAKE_CURRENT_SOURCE_DIR})
+enable_testing()
+
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/cpp)
 
 add_subdirectory(cpp/postfix)
+add_subdirectory(cpp/patheval)
 add_subdirectory(proto)
