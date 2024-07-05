@@ -284,8 +284,8 @@ EvalStatus Eval(const wickedwinch::proto::PostfixExpression& expr, std::vector<f
         }
         result[j] = r;
       }
-      stack.resize(stack.size() - (size + 1));
-      append_range(stack, result.begin(), result.end());
+      stack.resize(stack.size() - (size + 1) + cols);
+      std::copy(result.begin(), result.end(), stack.end() - cols);
       break;
     }
     case Operation::AddVec: {
@@ -382,8 +382,8 @@ EvalStatus Eval(const wickedwinch::proto::PostfixExpression& expr, std::vector<f
       for (int32_t i = 0; i < size; ++i) {
         result[i] = (1-t)*v0[i] + t*v1[i];
       }
-      stack.resize(stack.size() - (size*2+1));
-      append_range(stack, result.begin(), result.end());
+      stack.resize(stack.size() - (size*2+1) + size);
+      std::copy(result.begin(), result.end(), stack.end() - size);
       break;
     }
     case Operation::Lut: {
@@ -399,7 +399,8 @@ EvalStatus Eval(const wickedwinch::proto::PostfixExpression& expr, std::vector<f
       for (int32_t i = 0; i < rows; ++i) {
         lut[i] = std::span<float>(data.data() + (i*cols+1), cols);
       }
-      std::vector<float> result(cols-1);
+      int32_t n = cols - 1;
+      std::vector<float> result(n);
       struct LutLess {
         bool operator()(float lhs, std::span<float> rhs) const {
           return lhs < rhs.front();
@@ -417,14 +418,14 @@ EvalStatus Eval(const wickedwinch::proto::PostfixExpression& expr, std::vector<f
         float t0 = (*lb)[0];
         float t1 = (*ub)[0];
         t = (t - t0) / (t1 - t0);
-        std::span<const float> v0(lb->data() + 1, cols - 1);
-        std::span<const float> v1(ub->data() + 1, cols - 1);
+        std::span<const float> v0(lb->data() + 1, n);
+        std::span<const float> v1(ub->data() + 1, n);
         for (int32_t i = 0; i < result.size(); ++i) {
           result[i] = (1-t)*v0[i] + t*v1[i];
         }
       }
-      stack.resize(stack.size() - (size + 1));
-      append_range(stack, result.begin(), result.end());
+      stack.resize(stack.size() - (size + 1) + n);
+      std::copy(result.begin(), result.end(), stack.end() - n);
       break;
     }
     default:
