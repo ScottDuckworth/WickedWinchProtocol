@@ -34,6 +34,27 @@ std::pair<int32_t, EvalStatus> implicitPushArg(int32_t multiple, int32_t n, std:
   return std::make_pair(n, EvalStatus::Ok);
 }
 
+template <typename Pred>
+size_t search(size_t base, size_t n, const Pred& pred) {
+  while (n) {
+    size_t h = n >> 1;
+    if (pred(base + h)) {
+      n = h;
+    } else {
+      if (h == 0) break;
+      base += h;
+      n -= h;
+    }
+  }
+  return base + n;
+}
+
+// Return the smallest index i in [0, n) at which pred(i) is true.
+template <typename Pred>
+size_t search(size_t n, const Pred& pred) {
+  return search(0, n, pred);
+}
+
 }
 
 EvalStatus Eval(const wickedwinch::proto::PostfixExpression& expr, std::vector<float>& stack) {
@@ -392,33 +413,28 @@ EvalStatus Eval(const wickedwinch::proto::PostfixExpression& expr, std::vector<f
       int32_t size = rows * cols;
       if (stack.size() < size+1) return EvalStatus::StackUnderflow;
       std::span<float> data = peekv(size+1);
+      std::span<float> lut(data.data() + 1, size);
       float t = data[0];
-      std::vector<std::span<float>> lut(rows);
-      for (int32_t i = 0; i < rows; ++i) {
-        lut[i] = std::span<float>(data.data() + (i*cols+1), cols);
-      }
       int32_t n = cols - 1;
-      struct LutLess {
-        bool operator()(float lhs, std::span<float> rhs) const {
-          return lhs < rhs.front();
-        }
-      };
-      auto ub = std::upper_bound(lut.begin(), lut.end(), t, LutLess());
-      if (ub == lut.begin()) {
-        auto bound = lut.front();
-        std::copy(bound.begin() + 1, bound.end(), stack.end() - (size + 1));
+      size_t ubrow = search(rows, [t, cols, lut](size_t i) -> bool {
+        return t < lut[cols*i];
+      });
+      if (ubrow == 0) {
+        auto bound = lut.begin();
+        std::copy(bound + 1, bound + cols, stack.end() - (size + 1));
         stack.resize(stack.size() - (size + 1) + n);
-      } else if (ub == lut.end()) {
-        auto bound = lut.back();
-        std::copy(bound.begin() + 1, bound.end(), stack.end() - (size + 1));
+      } else if (ubrow == rows) {
+        auto bound = lut.end() - cols;
+        std::copy(bound + 1, bound + cols, stack.end() - (size + 1));
         stack.resize(stack.size() - (size + 1) + n);
       } else {
-        auto lb = ub - 1;
-        float t0 = (*lb)[0];
-        float t1 = (*ub)[0];
+        auto ub = lut.begin() + ubrow*cols;
+        auto lb = ub - cols;
+        float t0 = *lb;
+        float t1 = *ub;
         t = (t - t0) / (t1 - t0);
-        std::span<const float> v0(lb->data() + 1, n);
-        std::span<const float> v1(ub->data() + 1, n);
+        std::span<const float> v0(lb + 1, n);
+        std::span<const float> v1(ub + 1, n);
         std::span<float> result(data.begin(), n);
         for (int32_t i = 0; i < result.size(); ++i) {
           result[i] = (1-t)*v0[i] + t*v1[i];
