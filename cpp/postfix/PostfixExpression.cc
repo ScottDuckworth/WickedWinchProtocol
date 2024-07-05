@@ -267,13 +267,15 @@ EvalStatus Eval(const wickedwinch::proto::PostfixExpression& expr, std::vector<f
       std::span<float> data = peekv(size + 1);
       std::span<float> coeff(data.data() + 1, size);
       float t = data[0];
-      float p = 1;
       std::vector<float> result(cols);
-      for (int32_t i = 0; i < rows; ++i) {
-        for (int32_t j = 0; j < cols; ++j) {
-          result[j] += coeff[cols*i+j] * p;
+      for (int32_t j = 0; j < cols; ++j) {
+        float r = 0;
+        float p = 1;
+        for (int32_t i = 0; i < rows; ++i) {
+          r += coeff[cols*i+j] * p;
+          p *= t;
         }
-        p *= t;
+        result[j] = r;
       }
       stack.resize(stack.size() - (size + 1));
       std::copy(result.begin(), result.end(), std::back_inserter(stack));
