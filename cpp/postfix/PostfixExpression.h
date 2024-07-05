@@ -9,6 +9,7 @@ namespace wickedwinch::postfix {
 enum class EvalStatus {
   Ok,
 	UndefinedOperation,
+	IllegalOperation,
 	StackUnderflow,
 	IntLiteralsUnderflow,
 	FloatLiteralsUnderflow,

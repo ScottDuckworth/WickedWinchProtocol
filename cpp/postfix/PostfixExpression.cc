@@ -411,6 +411,7 @@ EvalStatus Eval(const wickedwinch::proto::PostfixExpression& expr, std::vector<f
       auto [cols, status] = implicitPushArg(rows, popi(), stack, f);
       if (status != EvalStatus::Ok) return status;
       int32_t size = rows * cols;
+      if (size == 0) return EvalStatus::IllegalOperation;
       if (stack.size() < size+1) return EvalStatus::StackUnderflow;
       std::span<float> data = peekv(size+1);
       std::span<float> lut(data.data() + 1, size);

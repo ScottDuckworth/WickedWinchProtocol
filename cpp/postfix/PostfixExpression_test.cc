@@ -1068,6 +1068,16 @@ TEST(EvalTest, LutIntUnderflow) {
   EXPECT_THAT(stack, testing::ElementsAre(0, 0.5, 0, 1, 2, 2, 4, 3, 6, 8, 2));
 }
 
+TEST(EvalTest, LutIllegalOperation) {
+  PostfixExpression expr;
+  expr.add_op(Operation::Lut);
+  expr.add_i(0);
+  expr.add_i(4 << 1);
+  std::vector<float> stack = {0, 4};
+  EXPECT_EQ(Eval(expr, stack), EvalStatus::IllegalOperation);
+  EXPECT_THAT(stack, testing::ElementsAre(0, 4));
+}
+
 TEST(EvalTest, PushLut) {
   PostfixExpression expr;
   expr.add_op(Operation::Lut);
