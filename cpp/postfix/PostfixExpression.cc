@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstring>
 #include <iterator>
 #include <span>
 #include <utility>
@@ -11,9 +12,14 @@ namespace wickedwinch::postfix {
 
 namespace {
 
+template <typename OutputIt, typename InputIt>
+void memcpy_it(OutputIt dst, InputIt src, size_t count) {
+  memcpy(&*dst, &*src, count * sizeof(*src));
+}
+
 void push(std::vector<float>& stack, std::span<const float>& f, int32_t n) {
   stack.resize(stack.size() + n);
-  std::copy(f.begin(), f.end(), stack.end() - n);
+  memcpy_it(stack.end() - n, f.begin(), n);
   f = std::span<const float>(f.data() + n, f.size() - n);
 };
 
@@ -119,7 +125,7 @@ EvalStatus Eval(const wickedwinch::proto::PostfixExpression& expr, std::vector<f
           t[rows*j+i] = m[cols*i+j];
         }
       }
-      std::copy(t.begin(), t.end(), m.begin());
+      memcpy_it(m.begin(), t.begin(), size);
       break;
     }
     case Operation::Add: {
@@ -268,7 +274,7 @@ EvalStatus Eval(const wickedwinch::proto::PostfixExpression& expr, std::vector<f
       std::span<float> data = peekv(size + 1);
       std::span<float> coeff(data.data() + 1, size);
       float t = data[0];
-      std::vector<float> result(cols);
+      std::span<float> result(data.begin(), cols);
       for (int32_t j = 0; j < cols; ++j) {
         float r = 0;
         float p = 1;
@@ -279,7 +285,6 @@ EvalStatus Eval(const wickedwinch::proto::PostfixExpression& expr, std::vector<f
         result[j] = r;
       }
       stack.resize(stack.size() - (size + 1) + cols);
-      std::copy(result.begin(), result.end(), stack.end() - cols);
       break;
     }
     case Operation::AddVec: {
@@ -372,12 +377,11 @@ EvalStatus Eval(const wickedwinch::proto::PostfixExpression& expr, std::vector<f
       std::span<float> v0(data.data() + 1, size);
       std::span<float> v1(data.data() + 1 + size, size);
       float t = data[0];
-      std::vector<float> result(size);
+      std::span<float> result(data.begin(), size);
       for (int32_t i = 0; i < size; ++i) {
         result[i] = (1-t)*v0[i] + t*v1[i];
       }
       stack.resize(stack.size() - (size*2+1) + size);
-      std::copy(result.begin(), result.end(), stack.end() - size);
       break;
     }
     case Operation::Lut: {
@@ -394,7 +398,6 @@ EvalStatus Eval(const wickedwinch::proto::PostfixExpression& expr, std::vector<f
         lut[i] = std::span<float>(data.data() + (i*cols+1), cols);
       }
       int32_t n = cols - 1;
-      std::vector<float> result(n);
       struct LutLess {
         bool operator()(float lhs, std::span<float> rhs) const {
           return lhs < rhs.front();
@@ -403,10 +406,12 @@ EvalStatus Eval(const wickedwinch::proto::PostfixExpression& expr, std::vector<f
       auto ub = std::upper_bound(lut.begin(), lut.end(), t, LutLess());
       if (ub == lut.begin()) {
         auto bound = lut.front();
-        std::copy(bound.begin() + 1, bound.end(), result.begin());
+        std::copy(bound.begin() + 1, bound.end(), stack.end() - (size + 1));
+        stack.resize(stack.size() - (size + 1) + n);
       } else if (ub == lut.end()) {
         auto bound = lut.back();
-        std::copy(bound.begin() + 1, bound.end(), result.begin());
+        std::copy(bound.begin() + 1, bound.end(), stack.end() - (size + 1));
+        stack.resize(stack.size() - (size + 1) + n);
       } else {
         auto lb = ub - 1;
         float t0 = (*lb)[0];
@@ -414,12 +419,12 @@ EvalStatus Eval(const wickedwinch::proto::PostfixExpression& expr, std::vector<f
         t = (t - t0) / (t1 - t0);
         std::span<const float> v0(lb->data() + 1, n);
         std::span<const float> v1(ub->data() + 1, n);
+        std::span<float> result(data.begin(), n);
         for (int32_t i = 0; i < result.size(); ++i) {
           result[i] = (1-t)*v0[i] + t*v1[i];
         }
+        stack.resize(stack.size() - (size + 1) + n);
       }
-      stack.resize(stack.size() - (size + 1) + n);
-      std::copy(result.begin(), result.end(), stack.end() - n);
       break;
     }
     default:
