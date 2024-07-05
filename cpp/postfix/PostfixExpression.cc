@@ -273,8 +273,8 @@ EvalStatus Eval(const wickedwinch::proto::PostfixExpression& expr, std::vector<f
       if (stack.size() < size+1) return EvalStatus::StackUnderflow;
       std::span<float> data = peekv(size + 1);
       std::span<float> coeff(data.data() + 1, size);
-      float t = data[0];
       std::span<float> result(data.begin(), cols);
+      float t = data[0];
       for (int32_t j = 0; j < cols; ++j) {
         float r = 0;
         float p = 1;
@@ -376,8 +376,8 @@ EvalStatus Eval(const wickedwinch::proto::PostfixExpression& expr, std::vector<f
       std::span<float> data = peekv(size * 2 + 1);
       std::span<float> v0(data.data() + 1, size);
       std::span<float> v1(data.data() + 1 + size, size);
-      float t = data[0];
       std::span<float> result(data.begin(), size);
+      float t = data[0];
       for (int32_t i = 0; i < size; ++i) {
         result[i] = (1-t)*v0[i] + t*v1[i];
       }
