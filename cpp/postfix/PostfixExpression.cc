@@ -11,15 +11,9 @@ namespace wickedwinch::postfix {
 
 namespace {
 
-template <typename It>
-void append_range(std::vector<float>& a, It begin, It end) {
-  auto n = std::distance(begin, end);
-  a.resize(a.size() + n);
-  std::copy(begin, end, a.end() - n);
-}
-
 void push(std::vector<float>& stack, std::span<const float>& f, int32_t n) {
-  append_range(stack, f.data(), f.data() + n);
+  stack.resize(stack.size() + n);
+  std::copy(f.begin(), f.end(), stack.end() - n);
   f = std::span<const float>(f.data() + n, f.size() - n);
 };
 
