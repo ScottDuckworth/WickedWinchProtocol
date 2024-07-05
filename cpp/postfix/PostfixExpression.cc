@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <iterator>
 #include <span>
 #include <utility>
 #include <vector>
@@ -10,9 +11,15 @@ namespace wickedwinch::postfix {
 
 namespace {
 
+template <typename It>
+void append_range(std::vector<float>& a, It begin, It end) {
+  auto n = std::distance(begin, end);
+  a.resize(a.size() + n);
+  std::copy(begin, end, a.end() - n);
+}
+
 void push(std::vector<float>& stack, std::span<const float>& f, int32_t n) {
-  std::span<const float> v(f.data(), n);
-  std::copy(v.begin(), v.end(), std::back_inserter(stack));
+  append_range(stack, f.data(), f.data() + n);
   f = std::span<const float>(f.data() + n, f.size() - n);
 };
 
@@ -278,7 +285,7 @@ EvalStatus Eval(const wickedwinch::proto::PostfixExpression& expr, std::vector<f
         result[j] = r;
       }
       stack.resize(stack.size() - (size + 1));
-      std::copy(result.begin(), result.end(), std::back_inserter(stack));
+      append_range(stack, result.begin(), result.end());
       break;
     }
     case Operation::AddVec: {
@@ -376,7 +383,7 @@ EvalStatus Eval(const wickedwinch::proto::PostfixExpression& expr, std::vector<f
         result[i] = (1-t)*v0[i] + t*v1[i];
       }
       stack.resize(stack.size() - (size*2+1));
-      std::copy(result.begin(), result.end(), std::back_inserter(stack));
+      append_range(stack, result.begin(), result.end());
       break;
     }
     case Operation::Lut: {
@@ -417,7 +424,7 @@ EvalStatus Eval(const wickedwinch::proto::PostfixExpression& expr, std::vector<f
         }
       }
       stack.resize(stack.size() - (size + 1));
-      std::copy(result.begin(), result.end(), std::back_inserter(stack));
+      append_range(stack, result.begin(), result.end());
       break;
     }
     default:
