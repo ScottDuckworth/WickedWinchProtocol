@@ -255,6 +255,19 @@ func (b *Builder) PushScaleVec(literals ...float64) *Builder {
 	return b
 }
 
+func (b *Builder) NegVec(size int) *Builder {
+	b.expr.Op = append(b.expr.Op, pathpb.Operation_NegVec)
+	b.expr.I = append(b.expr.I, int32(size)<<1)
+	return b
+}
+
+func (b *Builder) PushNegVec(literals ...float64) *Builder {
+	b.expr.Op = append(b.expr.Op, pathpb.Operation_NegVec)
+	b.expr.I = append(b.expr.I, int32(len(literals))<<1|1)
+	b.push(literals)
+	return b
+}
+
 func (b *Builder) NormVec(size int) *Builder {
 	b.expr.Op = append(b.expr.Op, pathpb.Operation_NormVec)
 	b.expr.I = append(b.expr.I, int32(size)<<1)
@@ -689,6 +702,22 @@ func Eval(expr *pathpb.PostfixExpression, stack []float64) ([]float64, error) {
 			scalar := pop()
 			for i := range size {
 				stack = append(stack, scalar*vec[i])
+			}
+		case pathpb.Operation_NegVec:
+			if len(ints) < 1 {
+				return nil, ErrIntLiteralsUnderflow
+			}
+			size, err := popiPush(1)
+			if err != nil {
+				return nil, err
+			}
+
+			if len(stack) < size {
+				return nil, ErrStackUnderflow
+			}
+			vec := popv(size)
+			for i := range size {
+				stack = append(stack, -vec[i])
 			}
 		case pathpb.Operation_NormVec:
 			if len(ints) < 1 {

@@ -338,6 +338,17 @@ EvalStatus Eval(const wickedwinch::proto::PostfixExpression& expr, std::vector<f
       stack.pop_back();
       break;
     }
+    case Operation::NegVec: {
+      if (i.size() < 1) return EvalStatus::IntLiteralsUnderflow;
+      auto [size, status] = implicitPushArg(1, popi(), stack, f);
+      if (status != EvalStatus::Ok) return status;
+      if (stack.size() < size) return EvalStatus::StackUnderflow;
+      std::span<float> vec = peekv(size);
+      for (int32_t i = 0; i < size; ++i) {
+        vec[i] = -vec[i];
+      }
+      break;
+    }
     case Operation::NormVec: {
       if (i.size() < 1) return EvalStatus::IntLiteralsUnderflow;
       auto [size, status] = implicitPushArg(1, popi(), stack, f);

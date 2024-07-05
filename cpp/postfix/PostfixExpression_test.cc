@@ -855,6 +855,55 @@ TEST(EvalTest, PushScaleVecFloatUnderflow) {
   EXPECT_THAT(stack, testing::ElementsAre(0, 2));
 }
 
+TEST(EvalTest, NegVec) {
+  PostfixExpression expr;
+  expr.add_op(Operation::NegVec);
+  expr.add_i(3 << 1);
+  std::vector<float> stack = {0, 3, 4, -2};
+  EXPECT_EQ(Eval(expr, stack), EvalStatus::Ok);
+  EXPECT_THAT(stack, testing::ElementsAre(0, -3, -4, 2));
+}
+
+TEST(EvalTest, NegVecStackUnderflow) {
+  PostfixExpression expr;
+  expr.add_op(Operation::NegVec);
+  expr.add_i(3 << 1);
+  std::vector<float> stack = {1, 2};
+  EXPECT_EQ(Eval(expr, stack), EvalStatus::StackUnderflow);
+  EXPECT_THAT(stack, testing::ElementsAre(1, 2));
+}
+
+TEST(EvalTest, NegVecIntUnderflow) {
+  PostfixExpression expr;
+  expr.add_op(Operation::NegVec);
+  std::vector<float> stack = {0, 1, 2, 3};
+  EXPECT_EQ(Eval(expr, stack), EvalStatus::IntLiteralsUnderflow);
+  EXPECT_THAT(stack, testing::ElementsAre(0, 1, 2, 3));
+}
+
+TEST(EvalTest, PushNegVec) {
+  PostfixExpression expr;
+  expr.add_op(Operation::NegVec);
+  expr.add_i(3 << 1 | 1);
+  expr.add_f(3);
+  expr.add_f(4);
+  expr.add_f(-2);
+  std::vector<float> stack = {0};
+  EXPECT_EQ(Eval(expr, stack), EvalStatus::Ok);
+  EXPECT_THAT(stack, testing::ElementsAre(0, -3, -4, 2));
+}
+
+TEST(EvalTest, PushNegVecFloatUnderflow) {
+  PostfixExpression expr;
+  expr.add_op(Operation::NegVec);
+  expr.add_i(3 << 1 | 1);
+  expr.add_f(4);
+  expr.add_f(5);
+  std::vector<float> stack = {0};
+  EXPECT_EQ(Eval(expr, stack), EvalStatus::FloatLiteralsUnderflow);
+  EXPECT_THAT(stack, testing::ElementsAre(0));
+}
+
 TEST(EvalTest, NormVec) {
   PostfixExpression expr;
   expr.add_op(Operation::NormVec);

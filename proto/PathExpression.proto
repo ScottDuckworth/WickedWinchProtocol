@@ -158,6 +158,12 @@ enum Operation {
 
   // size = popi() >> 1 // bit 0 indicates implicit push(size)
   // coeff = popv(size)
+  // scale = pop()
+  // push(-coeff)
+  NegVec = 36;
+
+  // size = popi() >> 1 // bit 0 indicates implicit push(size)
+  // coeff = popv(size)
   // push(norm(coeff))
   NormVec = 31;
 
@@ -186,5 +192,5 @@ enum Operation {
 
   Lut = 35;
 
-  // next: 36
+  // next: 37
 }
