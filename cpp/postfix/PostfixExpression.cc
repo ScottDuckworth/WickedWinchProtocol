@@ -148,13 +148,13 @@ EvalStatus Eval(const wickedwinch::proto::PostfixExpression& expr, std::vector<f
       int32_t size = rows * cols;
       if (stack.size() < size) return EvalStatus::StackUnderflow;
       std::span<float> m = peekv(size);
-      std::vector<float> t(size);
+      float t[size];
       for (int32_t i = 0; i < rows; ++i) {
         for (int32_t j = 0; j < cols; ++j) {
           t[rows*j+i] = m[cols*i+j];
         }
       }
-      memcpy_it(m.begin(), t.begin(), size);
+      memcpy_it(m.begin(), t, size);
       break;
     }
     case Operation::Add: {
