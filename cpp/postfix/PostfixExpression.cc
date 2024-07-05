@@ -81,6 +81,7 @@ EvalStatus Eval(const wickedwinch::proto::PostfixExpression& expr, std::vector<f
     case Operation::Push: {
       if (i.size() < 1) return EvalStatus::IntLiteralsUnderflow;
       int32_t n = popi();
+      if (n < 0) return EvalStatus::IllegalOperation;
       if (f.size() < n) return EvalStatus::FloatLiteralsUnderflow;
       push(stack, f, n);
       break;
@@ -88,6 +89,7 @@ EvalStatus Eval(const wickedwinch::proto::PostfixExpression& expr, std::vector<f
     case Operation::Pop: {
       if (i.size() < 1) return EvalStatus::IntLiteralsUnderflow;
       int32_t n = popi();
+      if (n < 0) return EvalStatus::IllegalOperation;
       if (stack.size() < n) return EvalStatus::StackUnderflow;
       stack.resize(stack.size() - n);
       break;
@@ -95,6 +97,7 @@ EvalStatus Eval(const wickedwinch::proto::PostfixExpression& expr, std::vector<f
     case Operation::Dup: {
       if (i.size() < 1) return EvalStatus::IntLiteralsUnderflow;
       int32_t n = popi();
+      if (n < 0) return EvalStatus::IllegalOperation;
       if (stack.size() < n+1) return EvalStatus::StackUnderflow;
       float v = *(stack.end() - n - 1);
       stack.push_back(v);
@@ -103,6 +106,7 @@ EvalStatus Eval(const wickedwinch::proto::PostfixExpression& expr, std::vector<f
     case Operation::RotL: {
       if (i.size() < 1) return EvalStatus::IntLiteralsUnderflow;
       int32_t n = popi();
+      if (n < 0) return EvalStatus::IllegalOperation;
       if (n > 1) {
         if (stack.size() < n) return EvalStatus::StackUnderflow;
         std::span<float> values = peekv(n);
@@ -115,6 +119,7 @@ EvalStatus Eval(const wickedwinch::proto::PostfixExpression& expr, std::vector<f
     case Operation::RotR: {
       if (i.size() < 1) return EvalStatus::IntLiteralsUnderflow;
       int32_t n = popi();
+      if (n < 0) return EvalStatus::IllegalOperation;
       if (n > 1) {
         if (stack.size() < n) return EvalStatus::StackUnderflow;
         std::span<float> values = peekv(n);
@@ -127,6 +132,7 @@ EvalStatus Eval(const wickedwinch::proto::PostfixExpression& expr, std::vector<f
     case Operation::Rev: {
       if (i.size() < 1) return EvalStatus::IntLiteralsUnderflow;
       int32_t n = popi();
+      if (n < 0) return EvalStatus::IllegalOperation;
       if (stack.size() < n) return EvalStatus::StackUnderflow;
       std::span<float> values = peekv(n);
       std::reverse(values.begin(), values.end());
@@ -135,8 +141,10 @@ EvalStatus Eval(const wickedwinch::proto::PostfixExpression& expr, std::vector<f
     case Operation::Transpose: {
       if (i.size() < 2) return EvalStatus::IntLiteralsUnderflow;
       int32_t rows = popi();
+      if (rows < 0) return EvalStatus::IllegalOperation;
       auto [cols, status] = implicitPushArg(rows, popi(), stack, f);
       if (status != EvalStatus::Ok) return status;
+      if (cols < 0) return EvalStatus::IllegalOperation;
       int32_t size = rows * cols;
       if (stack.size() < size) return EvalStatus::StackUnderflow;
       std::span<float> m = peekv(size);
@@ -271,6 +279,7 @@ EvalStatus Eval(const wickedwinch::proto::PostfixExpression& expr, std::vector<f
       if (i.size() < 1) return EvalStatus::IntLiteralsUnderflow;
       auto [size, status] = implicitPushArg(1, popi(), stack, f);
       if (status != EvalStatus::Ok) return status;
+      if (size < 0) return EvalStatus::IllegalOperation;
       if (stack.size() < size+1) return EvalStatus::StackUnderflow;
       std::span<float> data = peekv(size + 1);
       std::span<float> coeff(data.data() + 1, size);
@@ -288,8 +297,10 @@ EvalStatus Eval(const wickedwinch::proto::PostfixExpression& expr, std::vector<f
     case Operation::PolyMat: {
       if (i.size() < 2) return EvalStatus::IntLiteralsUnderflow;
       int32_t rows = popi();
+      if (rows < 0) return EvalStatus::IllegalOperation;
       auto [cols, status] = implicitPushArg(rows, popi(), stack, f);
       if (status != EvalStatus::Ok) return status;
+      if (cols < 0) return EvalStatus::IllegalOperation;
       int32_t size = rows * cols;
       if (stack.size() < size+1) return EvalStatus::StackUnderflow;
       std::span<float> data = peekv(size + 1);
@@ -312,6 +323,7 @@ EvalStatus Eval(const wickedwinch::proto::PostfixExpression& expr, std::vector<f
       if (i.size() < 1) return EvalStatus::IntLiteralsUnderflow;
       auto [size, status] = implicitPushArg(1, popi(), stack, f);
       if (status != EvalStatus::Ok) return status;
+      if (size < 0) return EvalStatus::IllegalOperation;
       if (stack.size() < size*2) return EvalStatus::StackUnderflow;
       std::span<float> data = peekv(size*2);
       std::span<float> lhs(data.data(), size);
@@ -326,6 +338,7 @@ EvalStatus Eval(const wickedwinch::proto::PostfixExpression& expr, std::vector<f
       if (i.size() < 1) return EvalStatus::IntLiteralsUnderflow;
       auto [size, status] = implicitPushArg(1, popi(), stack, f);
       if (status != EvalStatus::Ok) return status;
+      if (size < 0) return EvalStatus::IllegalOperation;
       if (stack.size() < size*2) return EvalStatus::StackUnderflow;
       std::span<float> data = peekv(size*2);
       std::span<float> lhs(data.data(), size);
@@ -340,6 +353,7 @@ EvalStatus Eval(const wickedwinch::proto::PostfixExpression& expr, std::vector<f
       if (i.size() < 1) return EvalStatus::IntLiteralsUnderflow;
       auto [size, status] = implicitPushArg(1, popi(), stack, f);
       if (status != EvalStatus::Ok) return status;
+      if (size < 0) return EvalStatus::IllegalOperation;
       if (stack.size() < size*2) return EvalStatus::StackUnderflow;
       std::span<float> data = peekv(size*2);
       std::span<float> lhs(data.data(), size);
@@ -354,6 +368,7 @@ EvalStatus Eval(const wickedwinch::proto::PostfixExpression& expr, std::vector<f
       if (i.size() < 1) return EvalStatus::IntLiteralsUnderflow;
       auto [size, status] = implicitPushArg(1, popi(), stack, f);
       if (status != EvalStatus::Ok) return status;
+      if (size < 0) return EvalStatus::IllegalOperation;
       if (stack.size() < size+1) return EvalStatus::StackUnderflow;
       std::span<float> data = peekv(size + 1);
       std::span<float> vec(data.data() + 1, size);
@@ -369,6 +384,7 @@ EvalStatus Eval(const wickedwinch::proto::PostfixExpression& expr, std::vector<f
       if (i.size() < 1) return EvalStatus::IntLiteralsUnderflow;
       auto [size, status] = implicitPushArg(1, popi(), stack, f);
       if (status != EvalStatus::Ok) return status;
+      if (size < 0) return EvalStatus::IllegalOperation;
       if (stack.size() < size) return EvalStatus::StackUnderflow;
       std::span<float> vec = peekv(size);
       for (int32_t i = 0; i < size; ++i) {
@@ -380,6 +396,7 @@ EvalStatus Eval(const wickedwinch::proto::PostfixExpression& expr, std::vector<f
       if (i.size() < 1) return EvalStatus::IntLiteralsUnderflow;
       auto [size, status] = implicitPushArg(1, popi(), stack, f);
       if (status != EvalStatus::Ok) return status;
+      if (size < 0) return EvalStatus::IllegalOperation;
       if (stack.size() < size) return EvalStatus::StackUnderflow;
       std::span<float> vec = peekv(size);
       float result = 0;
@@ -393,6 +410,7 @@ EvalStatus Eval(const wickedwinch::proto::PostfixExpression& expr, std::vector<f
     case Operation::Lerp: {
       if (i.size() < 1) return EvalStatus::IntLiteralsUnderflow;
       int32_t size = popi();
+      if (size < 0) return EvalStatus::IllegalOperation;
       if (stack.size() < size*2+1) return EvalStatus::StackUnderflow;
       std::span<float> data = peekv(size * 2 + 1);
       std::span<float> v0(data.data() + 1, size);
@@ -411,7 +429,7 @@ EvalStatus Eval(const wickedwinch::proto::PostfixExpression& expr, std::vector<f
       auto [cols, status] = implicitPushArg(rows, popi(), stack, f);
       if (status != EvalStatus::Ok) return status;
       int32_t size = rows * cols;
-      if (size == 0) return EvalStatus::IllegalOperation;
+      if (size <= 0) return EvalStatus::IllegalOperation;
       if (stack.size() < size+1) return EvalStatus::StackUnderflow;
       std::span<float> data = peekv(size+1);
       std::span<float> lut(data.data() + 1, size);

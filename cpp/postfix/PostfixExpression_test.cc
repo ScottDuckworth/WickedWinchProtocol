@@ -49,6 +49,17 @@ TEST(EvalTest, PushFloatUnderflow) {
   EXPECT_THAT(stack, testing::ElementsAre(42));
 }
 
+TEST(EvalTest, PushIllegalOperation) {
+  PostfixExpression expr;
+  expr.add_op(Operation::Push);
+  expr.add_i(-1);
+  expr.add_f(1);
+  expr.add_f(2);
+  std::vector<float> stack = {42};
+  EXPECT_EQ(Eval(expr, stack), EvalStatus::IllegalOperation);
+  EXPECT_THAT(stack, testing::ElementsAre(42));
+}
+
 TEST(EvalTest, Pop) {
   PostfixExpression expr;
   expr.add_op(Operation::Pop);
@@ -73,6 +84,15 @@ TEST(EvalTest, PopIntUnderflow) {
   expr.add_f(1);
   std::vector<float> stack = {1, 2, 3};
   EXPECT_EQ(Eval(expr, stack), EvalStatus::IntLiteralsUnderflow);
+  EXPECT_THAT(stack, testing::ElementsAre(1, 2, 3));
+}
+
+TEST(EvalTest, PopIllegalOperation) {
+  PostfixExpression expr;
+  expr.add_op(Operation::Pop);
+  expr.add_i(-1);
+  std::vector<float> stack = {1, 2, 3};
+  EXPECT_EQ(Eval(expr, stack), EvalStatus::IllegalOperation);
   EXPECT_THAT(stack, testing::ElementsAre(1, 2, 3));
 }
 
@@ -102,6 +122,15 @@ TEST(EvalTest, DupIntUnderflow) {
   EXPECT_THAT(stack, testing::ElementsAre(1, 2, 3));
 }
 
+TEST(EvalTest, DupIllegalOperation) {
+  PostfixExpression expr;
+  expr.add_op(Operation::Dup);
+  expr.add_i(-1);
+  std::vector<float> stack = {1, 2, 3};
+  EXPECT_EQ(Eval(expr, stack), EvalStatus::IllegalOperation);
+  EXPECT_THAT(stack, testing::ElementsAre(1, 2, 3));
+}
+
 TEST(EvalTest, RotL) {
   PostfixExpression expr;
   expr.add_op(Operation::RotL);
@@ -125,6 +154,15 @@ TEST(EvalTest, RotLIntUnderflow) {
   expr.add_op(Operation::RotL);
   std::vector<float> stack = {1, 2, 3, 4};
   EXPECT_EQ(Eval(expr, stack), EvalStatus::IntLiteralsUnderflow);
+  EXPECT_THAT(stack, testing::ElementsAre(1, 2, 3, 4));
+}
+
+TEST(EvalTest, RotLIllegalOperation) {
+  PostfixExpression expr;
+  expr.add_op(Operation::RotL);
+  expr.add_i(-1);
+  std::vector<float> stack = {1, 2, 3, 4};
+  EXPECT_EQ(Eval(expr, stack), EvalStatus::IllegalOperation);
   EXPECT_THAT(stack, testing::ElementsAre(1, 2, 3, 4));
 }
 
@@ -154,6 +192,15 @@ TEST(EvalTest, RotRIntUnderflow) {
   EXPECT_THAT(stack, testing::ElementsAre(1, 2, 3, 4));
 }
 
+TEST(EvalTest, RotRIllegalOperation) {
+  PostfixExpression expr;
+  expr.add_op(Operation::RotR);
+  expr.add_i(-1);
+  std::vector<float> stack = {1, 2, 3, 4};
+  EXPECT_EQ(Eval(expr, stack), EvalStatus::IllegalOperation);
+  EXPECT_THAT(stack, testing::ElementsAre(1, 2, 3, 4));
+}
+
 TEST(EvalTest, Rev) {
   PostfixExpression expr;
   expr.add_op(Operation::Rev);
@@ -177,6 +224,15 @@ TEST(EvalTest, RevIntUnderflow) {
   expr.add_op(Operation::Rev);
   std::vector<float> stack = {1, 2, 3, 4};
   EXPECT_EQ(Eval(expr, stack), EvalStatus::IntLiteralsUnderflow);
+  EXPECT_THAT(stack, testing::ElementsAre(1, 2, 3, 4));
+}
+
+TEST(EvalTest, RevIllegalOperation) {
+  PostfixExpression expr;
+  expr.add_op(Operation::Rev);
+  expr.add_i(-1);
+  std::vector<float> stack = {1, 2, 3, 4};
+  EXPECT_EQ(Eval(expr, stack), EvalStatus::IllegalOperation);
   EXPECT_THAT(stack, testing::ElementsAre(1, 2, 3, 4));
 }
 
@@ -206,6 +262,26 @@ TEST(EvalTest, TransposeIntUnderflow) {
   expr.add_i(2);
   std::vector<float> stack = {0, 1, 2, 3, 4, 5, 6};
   EXPECT_EQ(Eval(expr, stack), EvalStatus::IntLiteralsUnderflow);
+  EXPECT_THAT(stack, testing::ElementsAre(0, 1, 2, 3, 4, 5, 6));
+}
+
+TEST(EvalTest, TransposeIllegalOperationRows) {
+  PostfixExpression expr;
+  expr.add_op(Operation::Transpose);
+  expr.add_i(-1);
+  expr.add_i(3 << 1);
+  std::vector<float> stack = {0, 1, 2, 3, 4, 5, 6};
+  EXPECT_EQ(Eval(expr, stack), EvalStatus::IllegalOperation);
+  EXPECT_THAT(stack, testing::ElementsAre(0, 1, 2, 3, 4, 5, 6));
+}
+
+TEST(EvalTest, TransposeIllegalOperationCols) {
+  PostfixExpression expr;
+  expr.add_op(Operation::Transpose);
+  expr.add_i(2);
+  expr.add_i(-1 << 1);
+  std::vector<float> stack = {0, 1, 2, 3, 4, 5, 6};
+  EXPECT_EQ(Eval(expr, stack), EvalStatus::IllegalOperation);
   EXPECT_THAT(stack, testing::ElementsAre(0, 1, 2, 3, 4, 5, 6));
 }
 
@@ -570,6 +646,15 @@ TEST(EvalTest, PolyVecIntUnderflow) {
   EXPECT_THAT(stack, testing::ElementsAre(0, 2, 3, 4, 5));
 }
 
+TEST(EvalTest, PolyVecIllegalOperation) {
+  PostfixExpression expr;
+  expr.add_op(Operation::PolyVec);
+  expr.add_i(-1 << 1);
+  std::vector<float> stack = {0, 2, 3, 4, 5, 6};
+  EXPECT_EQ(Eval(expr, stack), EvalStatus::IllegalOperation);
+  EXPECT_THAT(stack, testing::ElementsAre(0, 2, 3, 4, 5, 6));
+}
+
 TEST(EvalTest, PushPolyVec) {
   PostfixExpression expr;
   expr.add_op(Operation::PolyVec);
@@ -621,6 +706,26 @@ TEST(EvalTest, PolyMatIntUnderflow) {
   expr.add_i(4);
   std::vector<float> stack = {0, 2, 3, 4, 5, 6, 7, 8, 9, 10};
   EXPECT_EQ(Eval(expr, stack), EvalStatus::IntLiteralsUnderflow);
+  EXPECT_THAT(stack, testing::ElementsAre(0, 2, 3, 4, 5, 6, 7, 8, 9, 10));
+}
+
+TEST(EvalTest, PolyMatIllegalOperationRows) {
+  PostfixExpression expr;
+  expr.add_op(Operation::PolyMat);
+  expr.add_i(-1);
+  expr.add_i(2 << 1);
+  std::vector<float> stack = {0, 2, 3, 4, 5, 6, 7, 8, 9, 10};
+  EXPECT_EQ(Eval(expr, stack), EvalStatus::IllegalOperation);
+  EXPECT_THAT(stack, testing::ElementsAre(0, 2, 3, 4, 5, 6, 7, 8, 9, 10));
+}
+
+TEST(EvalTest, PolyMatIllegalOperationCols) {
+  PostfixExpression expr;
+  expr.add_op(Operation::PolyMat);
+  expr.add_i(4);
+  expr.add_i(-1 << 1);
+  std::vector<float> stack = {0, 2, 3, 4, 5, 6, 7, 8, 9, 10};
+  EXPECT_EQ(Eval(expr, stack), EvalStatus::IllegalOperation);
   EXPECT_THAT(stack, testing::ElementsAre(0, 2, 3, 4, 5, 6, 7, 8, 9, 10));
 }
 
@@ -685,6 +790,15 @@ TEST(EvalTest, AddVecIntUnderflow) {
   EXPECT_THAT(stack, testing::ElementsAre(0, 1, 2, 3, 4, 5, 6));
 }
 
+TEST(EvalTest, AddVecIllegalOperation) {
+  PostfixExpression expr;
+  expr.add_op(Operation::AddVec);
+  expr.add_i(-1 << 1);
+  std::vector<float> stack = {0, 1, 2, 3, 4, 5, 6};
+  EXPECT_EQ(Eval(expr, stack), EvalStatus::IllegalOperation);
+  EXPECT_THAT(stack, testing::ElementsAre(0, 1, 2, 3, 4, 5, 6));
+}
+
 TEST(EvalTest, PushAddVec) {
   PostfixExpression expr;
   expr.add_op(Operation::AddVec);
@@ -732,6 +846,15 @@ TEST(EvalTest, SubVecIntUnderflow) {
   std::vector<float> stack = {0, 1, 2, 3, 4, 5, 6};
   EXPECT_EQ(Eval(expr, stack), EvalStatus::IntLiteralsUnderflow);
   EXPECT_THAT(stack, testing::ElementsAre(0, 1, 2, 3, 4, 5, 6));
+}
+
+TEST(EvalTest, SubVecIllegalOperation) {
+  PostfixExpression expr;
+  expr.add_op(Operation::SubVec);
+  expr.add_i(-1 << 1);
+  std::vector<float> stack = {0, 1, 2, 3, 4, 2, 1};
+  EXPECT_EQ(Eval(expr, stack), EvalStatus::IllegalOperation);
+  EXPECT_THAT(stack, testing::ElementsAre(0, 1, 2, 3, 4, 2, 1));
 }
 
 TEST(EvalTest, PushSubVec) {
@@ -783,6 +906,15 @@ TEST(EvalTest, MulVecIntUnderflow) {
   EXPECT_THAT(stack, testing::ElementsAre(0, 1, 2, 3, 4, 5, 6));
 }
 
+TEST(EvalTest, MulVecIllegalOperation) {
+  PostfixExpression expr;
+  expr.add_op(Operation::MulVec);
+  expr.add_i(-1 << 1);
+  std::vector<float> stack = {0, 1, 2, 3, 4, 3, -1};
+  EXPECT_EQ(Eval(expr, stack), EvalStatus::IllegalOperation);
+  EXPECT_THAT(stack, testing::ElementsAre(0, 1, 2, 3, 4, 3, -1));
+}
+
 TEST(EvalTest, PushMulVec) {
   PostfixExpression expr;
   expr.add_op(Operation::MulVec);
@@ -830,6 +962,15 @@ TEST(EvalTest, ScaleVecIntUnderflow) {
   std::vector<float> stack = {0, 1, 2, 3, 4};
   EXPECT_EQ(Eval(expr, stack), EvalStatus::IntLiteralsUnderflow);
   EXPECT_THAT(stack, testing::ElementsAre(0, 1, 2, 3, 4));
+}
+
+TEST(EvalTest, ScaleVecIllegalOperation) {
+  PostfixExpression expr;
+  expr.add_op(Operation::ScaleVec);
+  expr.add_i(-1 << 1);
+  std::vector<float> stack = {0, 2, 3, 4, -2};
+  EXPECT_EQ(Eval(expr, stack), EvalStatus::IllegalOperation);
+  EXPECT_THAT(stack, testing::ElementsAre(0, 2, 3, 4, -2));
 }
 
 TEST(EvalTest, PushScaleVec) {
@@ -881,6 +1022,15 @@ TEST(EvalTest, NegVecIntUnderflow) {
   EXPECT_THAT(stack, testing::ElementsAre(0, 1, 2, 3));
 }
 
+TEST(EvalTest, NegVecIllegalOperation) {
+  PostfixExpression expr;
+  expr.add_op(Operation::NegVec);
+  expr.add_i(-1 << 1);
+  std::vector<float> stack = {0, 3, 4, -2};
+  EXPECT_EQ(Eval(expr, stack), EvalStatus::IllegalOperation);
+  EXPECT_THAT(stack, testing::ElementsAre(0, 3, 4, -2));
+}
+
 TEST(EvalTest, PushNegVec) {
   PostfixExpression expr;
   expr.add_op(Operation::NegVec);
@@ -927,6 +1077,15 @@ TEST(EvalTest, NormVecIntUnderflow) {
   expr.add_op(Operation::NormVec);
   std::vector<float> stack = {0, 2, 3, 4};
   EXPECT_EQ(Eval(expr, stack), EvalStatus::IntLiteralsUnderflow);
+  EXPECT_THAT(stack, testing::ElementsAre(0, 2, 3, 4));
+}
+
+TEST(EvalTest, NormVecIllegalOperation) {
+  PostfixExpression expr;
+  expr.add_op(Operation::NormVec);
+  expr.add_i(-1 << 1);
+  std::vector<float> stack = {0, 2, 3, 4};
+  EXPECT_EQ(Eval(expr, stack), EvalStatus::IllegalOperation);
   EXPECT_THAT(stack, testing::ElementsAre(0, 2, 3, 4));
 }
 
@@ -977,6 +1136,15 @@ TEST(EvalTest, LerpIntUnderflow) {
   std::vector<float> stack = {0, 0.25, 2, 3, 4, 5, 6, 7, 8};
   EXPECT_EQ(Eval(expr, stack), EvalStatus::IntLiteralsUnderflow);
   EXPECT_THAT(stack, testing::ElementsAre(0, 0.25, 2, 3, 4, 5, 6, 7, 8));
+}
+
+TEST(EvalTest, LerpIllegalOperation) {
+  PostfixExpression expr;
+  expr.add_op(Operation::Lerp);
+  expr.add_i(-1);
+  std::vector<float> stack = {0, 0.25, 2, 3, 4, 6, 7, 8};
+  EXPECT_EQ(Eval(expr, stack), EvalStatus::IllegalOperation);
+  EXPECT_THAT(stack, testing::ElementsAre(0, 0.25, 2, 3, 4, 6, 7, 8));
 }
 
 TEST(EvalTest, Lut_n1) {
