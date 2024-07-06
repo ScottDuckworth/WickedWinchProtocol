@@ -602,6 +602,18 @@ func TestEvalPostfixExpression(t *testing.T) {
 			wantErr: postfix.ErrStackUnderflow,
 		},
 		{
+			name:      "push 1 multiply add vector 3 implicit",
+			expr:      postfix.MakeBuilder().PushMulAddVec(3, []float64{7, 8, 9}).Build(),
+			stack:     []float64{1, 2, 3, 4, 5, 6},
+			wantStack: []float64{1*4 + 7, 2*5 + 8, 3*6 + 9},
+		},
+		{
+			name:      "push 2 multiply add vector 3 implicit",
+			expr:      postfix.MakeBuilder().PushMulAddVec(3, []float64{4, 5, 6}, []float64{7, 8, 9}).Build(),
+			stack:     []float64{1, 2, 3},
+			wantStack: []float64{1*4 + 7, 2*5 + 8, 3*6 + 9},
+		},
+		{
 			name:      "scale vector 3",
 			expr:      postfix.MakeBuilder().ScaleVec(3).Build(),
 			stack:     []float64{2, 1, 2, 3},
@@ -707,10 +719,28 @@ func TestEvalPostfixExpression(t *testing.T) {
 			wantStack: []float64{1.5},
 		},
 		{
+			name:      "lerp 3d 0.5",
+			expr:      postfix.MakeBuilder().Lerp(3).Build(),
+			stack:     []float64{0.5, 1, 2, 3, 4, 5, 6},
+			wantStack: []float64{2.5, 3.5, 4.5},
+		},
+		{
 			name:    "lerp underflow",
 			expr:    postfix.MakeBuilder().Lerp(1).Build(),
 			stack:   []float64{0.5, 1},
 			wantErr: postfix.ErrStackUnderflow,
+		},
+		{
+			name:      "push 1 lerp 3d 0.5",
+			expr:      postfix.MakeBuilder().PushLerp(3, []float64{4, 5, 6}).Build(),
+			stack:     []float64{0.5, 1, 2, 3},
+			wantStack: []float64{2.5, 3.5, 4.5},
+		},
+		{
+			name:      "push 2 lerp 3d 0.5",
+			expr:      postfix.MakeBuilder().PushLerp(3, []float64{1, 2, 3}, []float64{4, 5, 6}).Build(),
+			stack:     []float64{0.5},
+			wantStack: []float64{2.5, 3.5, 4.5},
 		},
 		{
 			name:      "lut before first",

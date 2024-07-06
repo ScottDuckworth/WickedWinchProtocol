@@ -150,7 +150,7 @@ enum Operation {
   // push(lhs * rhs)
   MulVec = 29;
 
-  // size = popi()
+  // size = popi() >> 2 // 2 bits for implicit push(n * size)
   // c = popv(size)
   // b = popv(size)
   // a = popv(size)
@@ -195,7 +195,7 @@ enum Operation {
   // push(result)
   PolyMat = 33;
 
-  // size = popi()
+  // size = popi() >> 2 // 2 bits for implicit push(n * size)
   // v1 = popv(size)
   // v0 = popv(size)
   // t = pop()

@@ -941,7 +941,7 @@ TEST(EvalTest, PushMulVecFloatUnderflow) {
 TEST(EvalTest, MulAddVec) {
   PostfixExpression expr;
   expr.add_op(Operation::MulAddVec);
-  expr.add_i(3);
+  expr.add_i(3 << 2);
   std::vector<float> stack = {0, 1, 2, 3, 4, 3, -1, 0, 1, 2};
   EXPECT_EQ(Eval(expr, stack), EvalStatus::Ok);
   EXPECT_THAT(stack, testing::ElementsAre(0, 1 * 4 + 0, 2 * 3 + 1, 3 * -1 + 2));
@@ -950,7 +950,7 @@ TEST(EvalTest, MulAddVec) {
 TEST(EvalTest, MulAddVecStackUnderflow) {
   PostfixExpression expr;
   expr.add_op(Operation::MulAddVec);
-  expr.add_i(3);
+  expr.add_i(3 << 2);
   std::vector<float> stack = {1, 2, 3, 4, 5, 6, 7, 8};
   EXPECT_EQ(Eval(expr, stack), EvalStatus::StackUnderflow);
   EXPECT_THAT(stack, testing::ElementsAre(1, 2, 3, 4, 5, 6, 7, 8));
@@ -967,10 +967,48 @@ TEST(EvalTest, MulAddVecIntUnderflow) {
 TEST(EvalTest, MulAddVecIllegalOperation) {
   PostfixExpression expr;
   expr.add_op(Operation::MulAddVec);
-  expr.add_i(-1);
+  expr.add_i(-1 << 2);
   std::vector<float> stack = {0, 1, 2, 3, 4, 5, 6, 7, 8};
   EXPECT_EQ(Eval(expr, stack), EvalStatus::IllegalOperation);
   EXPECT_THAT(stack, testing::ElementsAre(0, 1, 2, 3, 4, 5, 6, 7, 8));
+}
+
+TEST(EvalTest, PushMulAddVec1) {
+  PostfixExpression expr;
+  expr.add_op(Operation::MulAddVec);
+  expr.add_i(3 << 2 | 1);
+  expr.add_f(0);
+  expr.add_f(1);
+  expr.add_f(2);
+  std::vector<float> stack = {0, 1, 2, 3, 4, 3, -1};
+  EXPECT_EQ(Eval(expr, stack), EvalStatus::Ok);
+  EXPECT_THAT(stack, testing::ElementsAre(0, 1 * 4 + 0, 2 * 3 + 1, 3 * -1 + 2));
+}
+
+TEST(EvalTest, PushMulAddVec2) {
+  PostfixExpression expr;
+  expr.add_op(Operation::MulAddVec);
+  expr.add_i(3 << 2 | 2);
+  expr.add_f(4);
+  expr.add_f(3);
+  expr.add_f(-1);
+  expr.add_f(0);
+  expr.add_f(1);
+  expr.add_f(2);
+  std::vector<float> stack = {0, 1, 2, 3};
+  EXPECT_EQ(Eval(expr, stack), EvalStatus::Ok);
+  EXPECT_THAT(stack, testing::ElementsAre(0, 1 * 4 + 0, 2 * 3 + 1, 3 * -1 + 2));
+}
+
+TEST(EvalTest, PushMulAddVecFloatUnderflow) {
+  PostfixExpression expr;
+  expr.add_op(Operation::MulAddVec);
+  expr.add_i(3 << 2 | 1);
+  expr.add_f(0);
+  expr.add_f(1);
+  std::vector<float> stack = {0, 1, 2, 3, 4, 3, -1};
+  EXPECT_EQ(Eval(expr, stack), EvalStatus::FloatLiteralsUnderflow);
+  EXPECT_THAT(stack, testing::ElementsAre(0, 1, 2, 3, 4, 3, -1));
 }
 
 TEST(EvalTest, ScaleVec) {
@@ -1266,7 +1304,7 @@ TEST(EvalTest, PushMulMatFloatUnderflow) {
 TEST(EvalTest, Lerp) {
   PostfixExpression expr;
   expr.add_op(Operation::Lerp);
-  expr.add_i(3);
+  expr.add_i(3<<2);
   std::vector<float> stack = {0, 0.25, 2, 3, 4, 6, 7, 8};
   EXPECT_EQ(Eval(expr, stack), EvalStatus::Ok);
   EXPECT_THAT(stack, testing::ElementsAre(0, 3, 4, 5));
@@ -1275,7 +1313,7 @@ TEST(EvalTest, Lerp) {
 TEST(EvalTest, LerpStackUnderflow) {
   PostfixExpression expr;
   expr.add_op(Operation::Lerp);
-  expr.add_i(3);
+  expr.add_i(3<<2);
   std::vector<float> stack = {0.25, 2, 3, 4, 6, 7};
   EXPECT_EQ(Eval(expr, stack), EvalStatus::StackUnderflow);
   EXPECT_THAT(stack, testing::ElementsAre(0.25, 2, 3, 4, 6, 7));
@@ -1292,10 +1330,48 @@ TEST(EvalTest, LerpIntUnderflow) {
 TEST(EvalTest, LerpIllegalOperation) {
   PostfixExpression expr;
   expr.add_op(Operation::Lerp);
-  expr.add_i(-1);
+  expr.add_i(-1<<2);
   std::vector<float> stack = {0, 0.25, 2, 3, 4, 6, 7, 8};
   EXPECT_EQ(Eval(expr, stack), EvalStatus::IllegalOperation);
   EXPECT_THAT(stack, testing::ElementsAre(0, 0.25, 2, 3, 4, 6, 7, 8));
+}
+
+TEST(EvalTest, PushLerp1) {
+  PostfixExpression expr;
+  expr.add_op(Operation::Lerp);
+  expr.add_i(3<<2|1);
+  expr.add_f(6);
+  expr.add_f(7);
+  expr.add_f(8);
+  std::vector<float> stack = {0, 0.25, 2, 3, 4};
+  EXPECT_EQ(Eval(expr, stack), EvalStatus::Ok);
+  EXPECT_THAT(stack, testing::ElementsAre(0, 3, 4, 5));
+}
+
+TEST(EvalTest, PushLerp2) {
+  PostfixExpression expr;
+  expr.add_op(Operation::Lerp);
+  expr.add_i(3<<2|2);
+  expr.add_f(2);
+  expr.add_f(3);
+  expr.add_f(4);
+  expr.add_f(6);
+  expr.add_f(7);
+  expr.add_f(8);
+  std::vector<float> stack = {0, 0.25};
+  EXPECT_EQ(Eval(expr, stack), EvalStatus::Ok);
+  EXPECT_THAT(stack, testing::ElementsAre(0, 3, 4, 5));
+}
+
+TEST(EvalTest, PushLerpFloatUnderflow) {
+  PostfixExpression expr;
+  expr.add_op(Operation::Lerp);
+  expr.add_i(3<<2|1);
+  expr.add_f(6);
+  expr.add_f(7);
+  std::vector<float> stack = {0, 0.25, 2, 3, 4};
+  EXPECT_EQ(Eval(expr, stack), EvalStatus::FloatLiteralsUnderflow);
+  EXPECT_THAT(stack, testing::ElementsAre(0, 0.25, 2, 3, 4));
 }
 
 TEST(EvalTest, Lut_n1) {

@@ -244,7 +244,19 @@ func (b *Builder) PushMulVec(literals ...float64) *Builder {
 
 func (b *Builder) MulAddVec(size int) *Builder {
 	b.expr.Op = append(b.expr.Op, pathpb.Operation_MulAddVec)
-	b.expr.I = append(b.expr.I, int32(size))
+	b.expr.I = append(b.expr.I, int32(size)<<2)
+	return b
+}
+
+func (b *Builder) PushMulAddVec(size int, literals ...[]float64) *Builder {
+	b.expr.Op = append(b.expr.Op, pathpb.Operation_MulAddVec)
+	b.expr.I = append(b.expr.I, int32(size)<<2|int32(len(literals)))
+	for _, l := range literals {
+		if len(l) != size {
+			panic("dimension mismatch")
+		}
+		b.push(l)
+	}
 	return b
 }
 
@@ -308,9 +320,21 @@ func (b *Builder) Transpose(rows, cols int) *Builder {
 	return b
 }
 
-func (b *Builder) Lerp(n int) *Builder {
+func (b *Builder) Lerp(size int) *Builder {
 	b.expr.Op = append(b.expr.Op, pathpb.Operation_Lerp)
-	b.expr.I = append(b.expr.I, int32(n))
+	b.expr.I = append(b.expr.I, int32(size)<<2)
+	return b
+}
+
+func (b *Builder) PushLerp(size int, literals ...[]float64) *Builder {
+	b.expr.Op = append(b.expr.Op, pathpb.Operation_Lerp)
+	b.expr.I = append(b.expr.I, int32(size)<<2|int32(len(literals)))
+	for _, l := range literals {
+		if len(l) != size {
+			panic("dimension mismatch")
+		}
+		b.push(l)
+	}
 	return b
 }
 
@@ -362,17 +386,16 @@ func Eval(expr *pathpb.PostfixExpression, stack []float64) ([]float64, error) {
 		ints = ints[1:]
 		return int(v)
 	}
-	popiBit := func() (int, bool) {
+	popiPush := func(bits, multiple int) (int, error) {
 		n := popi()
-		return n >> 1, n&1 == 1
-	}
-	popiPush := func(multiple int) (int, error) {
-		n, doPush := popiBit()
+		mask := (1 << bits) - 1
+		count := n & mask
+		i := n >> bits
 		var err error
-		if doPush {
-			err = push(n * multiple)
+		if count > 0 {
+			err = push(count * i * multiple)
 		}
-		return n, err
+		return i, err
 	}
 
 	for _, op := range expr.GetOp() {
@@ -614,7 +637,7 @@ func Eval(expr *pathpb.PostfixExpression, stack []float64) ([]float64, error) {
 			if len(ints) < 1 {
 				return nil, ErrIntLiteralsUnderflow
 			}
-			size, err := popiPush(1)
+			size, err := popiPush(1, 1)
 			if err != nil {
 				return nil, err
 			}
@@ -636,7 +659,7 @@ func Eval(expr *pathpb.PostfixExpression, stack []float64) ([]float64, error) {
 				return nil, ErrIntLiteralsUnderflow
 			}
 			rows := popi()
-			cols, err := popiPush(rows)
+			cols, err := popiPush(1, rows)
 			if err != nil {
 				return nil, err
 			}
@@ -660,7 +683,7 @@ func Eval(expr *pathpb.PostfixExpression, stack []float64) ([]float64, error) {
 			if len(ints) < 1 {
 				return nil, ErrIntLiteralsUnderflow
 			}
-			size, err := popiPush(1)
+			size, err := popiPush(1, 1)
 			if err != nil {
 				return nil, err
 			}
@@ -677,7 +700,7 @@ func Eval(expr *pathpb.PostfixExpression, stack []float64) ([]float64, error) {
 			if len(ints) < 1 {
 				return nil, ErrIntLiteralsUnderflow
 			}
-			size, err := popiPush(1)
+			size, err := popiPush(1, 1)
 			if err != nil {
 				return nil, err
 			}
@@ -694,7 +717,7 @@ func Eval(expr *pathpb.PostfixExpression, stack []float64) ([]float64, error) {
 			if len(ints) < 1 {
 				return nil, ErrIntLiteralsUnderflow
 			}
-			size, err := popiPush(1)
+			size, err := popiPush(1, 1)
 			if err != nil {
 				return nil, err
 			}
@@ -711,7 +734,10 @@ func Eval(expr *pathpb.PostfixExpression, stack []float64) ([]float64, error) {
 			if len(ints) < 1 {
 				return nil, ErrIntLiteralsUnderflow
 			}
-			size := popi()
+			size, err := popiPush(2, 1)
+			if err != nil {
+				return nil, err
+			}
 
 			if len(stack) < size*3 {
 				return nil, ErrStackUnderflow
@@ -726,7 +752,7 @@ func Eval(expr *pathpb.PostfixExpression, stack []float64) ([]float64, error) {
 			if len(ints) < 1 {
 				return nil, ErrIntLiteralsUnderflow
 			}
-			size, err := popiPush(1)
+			size, err := popiPush(1, 1)
 			if err != nil {
 				return nil, err
 			}
@@ -743,7 +769,7 @@ func Eval(expr *pathpb.PostfixExpression, stack []float64) ([]float64, error) {
 			if len(ints) < 1 {
 				return nil, ErrIntLiteralsUnderflow
 			}
-			size, err := popiPush(1)
+			size, err := popiPush(1, 1)
 			if err != nil {
 				return nil, err
 			}
@@ -759,7 +785,7 @@ func Eval(expr *pathpb.PostfixExpression, stack []float64) ([]float64, error) {
 			if len(ints) < 1 {
 				return nil, ErrIntLiteralsUnderflow
 			}
-			size, err := popiPush(1)
+			size, err := popiPush(1, 1)
 			if err != nil {
 				return nil, err
 			}
@@ -779,7 +805,7 @@ func Eval(expr *pathpb.PostfixExpression, stack []float64) ([]float64, error) {
 			}
 			arows := popi()
 			brows := popi()
-			bcols, err := popiPush(brows)
+			bcols, err := popiPush(1, brows)
 			if err != nil {
 				return nil, err
 			}
@@ -806,7 +832,10 @@ func Eval(expr *pathpb.PostfixExpression, stack []float64) ([]float64, error) {
 			if len(ints) < 1 {
 				return nil, ErrIntLiteralsUnderflow
 			}
-			size := popi()
+			size, err := popiPush(2, 1)
+			if err != nil {
+				return nil, err
+			}
 
 			if len(stack) < size*2+1 {
 				return nil, ErrStackUnderflow
@@ -824,7 +853,7 @@ func Eval(expr *pathpb.PostfixExpression, stack []float64) ([]float64, error) {
 				return nil, ErrIntLiteralsUnderflow
 			}
 			rows := popi()
-			cols, err := popiPush(rows)
+			cols, err := popiPush(1, rows)
 			if err != nil {
 				return nil, err
 			}

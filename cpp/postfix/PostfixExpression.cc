@@ -23,16 +23,18 @@ void push(std::vector<float>& stack, std::span<const float>& f, int32_t n) {
   f = std::span<const float>(f.data() + n, f.size() - n);
 };
 
-std::pair<int32_t, EvalStatus> implicitPushArg(int32_t multiple, int32_t n, std::vector<float>& stack, std::span<const float>& f) {
-  bool do_push = n & 1;
-  n >>= 1;
-  if (do_push) {
-    int32_t size = multiple * n;
+template <uint8_t push_bits>
+std::pair<int32_t, EvalStatus> implicitPushArg(int32_t multiple, int32_t i, std::vector<float>& stack, std::span<const float>& f) {
+  int32_t mask = (1 << push_bits) - 1;
+  int32_t push_count = i & mask;
+  i >>= push_bits;
+  if (push_count) {
+    int32_t size = push_count * multiple * i;
     if (size < 0) return {0, EvalStatus::IllegalOperation};
-    if (f.size() < size) return {n, EvalStatus::FloatLiteralsUnderflow};
+    if (f.size() < size) return {i, EvalStatus::FloatLiteralsUnderflow};
     push(stack, f, size);
   }
-  return {n, EvalStatus::Ok};
+  return {i, EvalStatus::Ok};
 }
 
 template <typename Pred>
@@ -142,7 +144,7 @@ EvalStatus Eval(const wickedwinch::proto::PostfixExpression& expr, std::vector<f
     case Operation::Transpose: {
       if (i.size() < 2) return EvalStatus::IntLiteralsUnderflow;
       int32_t rows = popi();
-      auto [cols, status] = implicitPushArg(rows, popi(), stack, f);
+      auto [cols, status] = implicitPushArg<1>(rows, popi(), stack, f);
       if (status != EvalStatus::Ok) return status;
       if (rows < 0) return EvalStatus::IllegalOperation;
       if (cols < 0) return EvalStatus::IllegalOperation;
@@ -279,7 +281,7 @@ EvalStatus Eval(const wickedwinch::proto::PostfixExpression& expr, std::vector<f
     }
     case Operation::PolyVec: {
       if (i.size() < 1) return EvalStatus::IntLiteralsUnderflow;
-      auto [size, status] = implicitPushArg(1, popi(), stack, f);
+      auto [size, status] = implicitPushArg<1>(1, popi(), stack, f);
       if (status != EvalStatus::Ok) return status;
       if (size < 0) return EvalStatus::IllegalOperation;
       if (stack.size() < size+1) return EvalStatus::StackUnderflow;
@@ -299,7 +301,7 @@ EvalStatus Eval(const wickedwinch::proto::PostfixExpression& expr, std::vector<f
     case Operation::PolyMat: {
       if (i.size() < 2) return EvalStatus::IntLiteralsUnderflow;
       int32_t rows = popi();
-      auto [cols, status] = implicitPushArg(rows, popi(), stack, f);
+      auto [cols, status] = implicitPushArg<1>(rows, popi(), stack, f);
       if (status != EvalStatus::Ok) return status;
       if (rows < 0) return EvalStatus::IllegalOperation;
       if (cols < 0) return EvalStatus::IllegalOperation;
@@ -323,7 +325,7 @@ EvalStatus Eval(const wickedwinch::proto::PostfixExpression& expr, std::vector<f
     }
     case Operation::AddVec: {
       if (i.size() < 1) return EvalStatus::IntLiteralsUnderflow;
-      auto [size, status] = implicitPushArg(1, popi(), stack, f);
+      auto [size, status] = implicitPushArg<1>(1, popi(), stack, f);
       if (status != EvalStatus::Ok) return status;
       if (size < 0) return EvalStatus::IllegalOperation;
       if (stack.size() < size*2) return EvalStatus::StackUnderflow;
@@ -338,7 +340,7 @@ EvalStatus Eval(const wickedwinch::proto::PostfixExpression& expr, std::vector<f
     }
     case Operation::SubVec: {
       if (i.size() < 1) return EvalStatus::IntLiteralsUnderflow;
-      auto [size, status] = implicitPushArg(1, popi(), stack, f);
+      auto [size, status] = implicitPushArg<1>(1, popi(), stack, f);
       if (status != EvalStatus::Ok) return status;
       if (size < 0) return EvalStatus::IllegalOperation;
       if (stack.size() < size*2) return EvalStatus::StackUnderflow;
@@ -353,7 +355,7 @@ EvalStatus Eval(const wickedwinch::proto::PostfixExpression& expr, std::vector<f
     }
     case Operation::MulVec: {
       if (i.size() < 1) return EvalStatus::IntLiteralsUnderflow;
-      auto [size, status] = implicitPushArg(1, popi(), stack, f);
+      auto [size, status] = implicitPushArg<1>(1, popi(), stack, f);
       if (status != EvalStatus::Ok) return status;
       if (size < 0) return EvalStatus::IllegalOperation;
       if (stack.size() < size*2) return EvalStatus::StackUnderflow;
@@ -368,7 +370,8 @@ EvalStatus Eval(const wickedwinch::proto::PostfixExpression& expr, std::vector<f
     }
     case Operation::MulAddVec: {
       if (i.size() < 1) return EvalStatus::IntLiteralsUnderflow;
-      int32_t size = popi();
+      auto [size, status] = implicitPushArg<2>(1, popi(), stack, f);
+      if (status != EvalStatus::Ok) return status;
       if (size < 0) return EvalStatus::IllegalOperation;
       if (stack.size() < size*3) return EvalStatus::StackUnderflow;
       std::span<float> data = peekv(size*3);
@@ -383,7 +386,7 @@ EvalStatus Eval(const wickedwinch::proto::PostfixExpression& expr, std::vector<f
     }
     case Operation::ScaleVec: {
       if (i.size() < 1) return EvalStatus::IntLiteralsUnderflow;
-      auto [size, status] = implicitPushArg(1, popi(), stack, f);
+      auto [size, status] = implicitPushArg<1>(1, popi(), stack, f);
       if (status != EvalStatus::Ok) return status;
       if (size < 0) return EvalStatus::IllegalOperation;
       if (stack.size() < size+1) return EvalStatus::StackUnderflow;
@@ -399,7 +402,7 @@ EvalStatus Eval(const wickedwinch::proto::PostfixExpression& expr, std::vector<f
     }
     case Operation::NegVec: {
       if (i.size() < 1) return EvalStatus::IntLiteralsUnderflow;
-      auto [size, status] = implicitPushArg(1, popi(), stack, f);
+      auto [size, status] = implicitPushArg<1>(1, popi(), stack, f);
       if (status != EvalStatus::Ok) return status;
       if (size < 0) return EvalStatus::IllegalOperation;
       if (stack.size() < size) return EvalStatus::StackUnderflow;
@@ -411,7 +414,7 @@ EvalStatus Eval(const wickedwinch::proto::PostfixExpression& expr, std::vector<f
     }
     case Operation::NormVec: {
       if (i.size() < 1) return EvalStatus::IntLiteralsUnderflow;
-      auto [size, status] = implicitPushArg(1, popi(), stack, f);
+      auto [size, status] = implicitPushArg<1>(1, popi(), stack, f);
       if (status != EvalStatus::Ok) return status;
       if (size < 0) return EvalStatus::IllegalOperation;
       if (stack.size() < size) return EvalStatus::StackUnderflow;
@@ -428,7 +431,7 @@ EvalStatus Eval(const wickedwinch::proto::PostfixExpression& expr, std::vector<f
       if (i.size() < 3) return EvalStatus::IntLiteralsUnderflow;
       int32_t arows = popi();
       int32_t brows = popi();
-      auto [bcols, status] = implicitPushArg(brows, popi(), stack, f);
+      auto [bcols, status] = implicitPushArg<1>(brows, popi(), stack, f);
       if (status != EvalStatus::Ok) return status;
       if (arows < 0) return EvalStatus::IllegalOperation;
       if (brows < 0) return EvalStatus::IllegalOperation;
@@ -456,7 +459,8 @@ EvalStatus Eval(const wickedwinch::proto::PostfixExpression& expr, std::vector<f
     }
     case Operation::Lerp: {
       if (i.size() < 1) return EvalStatus::IntLiteralsUnderflow;
-      int32_t size = popi();
+      auto [size, status] = implicitPushArg<2>(1, popi(), stack, f);
+      if (status != EvalStatus::Ok) return status;
       if (size < 0) return EvalStatus::IllegalOperation;
       if (stack.size() < size*2+1) return EvalStatus::StackUnderflow;
       std::span<float> data = peekv(size * 2 + 1);
@@ -473,7 +477,7 @@ EvalStatus Eval(const wickedwinch::proto::PostfixExpression& expr, std::vector<f
     case Operation::Lut: {
       if (i.size() < 2) return EvalStatus::IntLiteralsUnderflow;
       int32_t rows = popi();
-      auto [cols, status] = implicitPushArg(rows, popi(), stack, f);
+      auto [cols, status] = implicitPushArg<1>(rows, popi(), stack, f);
       if (status != EvalStatus::Ok) return status;
       if (rows < 1) return EvalStatus::IllegalOperation;
       if (cols < 1) return EvalStatus::IllegalOperation;

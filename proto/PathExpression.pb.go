@@ -124,7 +124,7 @@ const (
 	// lhs = popv(size)
 	// push(lhs * rhs)
 	Operation_MulVec Operation = 29
-	// size = popi()
+	// size = popi() >> 2 // 2 bits for implicit push(n * size)
 	// c = popv(size)
 	// b = popv(size)
 	// a = popv(size)
@@ -162,7 +162,7 @@ const (
 	//     result[j] += coeff[cols*i+j] * param^i
 	// push(result)
 	Operation_PolyMat Operation = 33
-	// size = popi()
+	// size = popi() >> 2 // 2 bits for implicit push(n * size)
 	// v1 = popv(size)
 	// v0 = popv(size)
 	// t = pop()
