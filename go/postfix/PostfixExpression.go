@@ -242,6 +242,12 @@ func (b *Builder) PushMulVec(literals ...float64) *Builder {
 	return b
 }
 
+func (b *Builder) MulAddVec(size int) *Builder {
+	b.expr.Op = append(b.expr.Op, pathpb.Operation_MulAddVec)
+	b.expr.I = append(b.expr.I, int32(size))
+	return b
+}
+
 func (b *Builder) ScaleVec(size int) *Builder {
 	b.expr.Op = append(b.expr.Op, pathpb.Operation_ScaleVec)
 	b.expr.I = append(b.expr.I, int32(size)<<1)
@@ -685,6 +691,21 @@ func Eval(expr *pathpb.PostfixExpression, stack []float64) ([]float64, error) {
 			lhs := popv(size)
 			for i := range size {
 				stack = append(stack, lhs[i]*rhs[i])
+			}
+		case pathpb.Operation_MulAddVec:
+			if len(ints) < 1 {
+				return nil, ErrIntLiteralsUnderflow
+			}
+			size := popi()
+
+			if len(stack) < size*3 {
+				return nil, ErrStackUnderflow
+			}
+			c := popv(size)
+			b := popv(size)
+			a := popv(size)
+			for i := range size {
+				stack = append(stack, a[i]*b[i]+c[i])
 			}
 		case pathpb.Operation_ScaleVec:
 			if len(ints) < 1 {

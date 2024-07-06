@@ -364,6 +364,21 @@ EvalStatus Eval(const wickedwinch::proto::PostfixExpression& expr, std::vector<f
       stack.resize(stack.size() - size);
       break;
     }
+    case Operation::MulAddVec: {
+      if (i.size() < 1) return EvalStatus::IntLiteralsUnderflow;
+      int32_t size = popi();
+      if (size < 0) return EvalStatus::IllegalOperation;
+      if (stack.size() < size*3) return EvalStatus::StackUnderflow;
+      std::span<float> data = peekv(size*3);
+      std::span<float> a(data.data(), size);
+      std::span<float> b(data.data() + size, size);
+      std::span<float> c(data.data() + size * 2, size);
+      for (int32_t i = 0; i < size; ++i) {
+        a[i] = a[i] * b[i] + c[i];
+      }
+      stack.resize(stack.size() - size * 2);
+      break;
+    }
     case Operation::ScaleVec: {
       if (i.size() < 1) return EvalStatus::IntLiteralsUnderflow;
       auto [size, status] = implicitPushArg(1, popi(), stack, f);

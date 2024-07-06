@@ -938,6 +938,41 @@ TEST(EvalTest, PushMulVecFloatUnderflow) {
   EXPECT_THAT(stack, testing::ElementsAre(0, 1, 2, 3));
 }
 
+TEST(EvalTest, MulAddVec) {
+  PostfixExpression expr;
+  expr.add_op(Operation::MulAddVec);
+  expr.add_i(3);
+  std::vector<float> stack = {0, 1, 2, 3, 4, 3, -1, 0, 1, 2};
+  EXPECT_EQ(Eval(expr, stack), EvalStatus::Ok);
+  EXPECT_THAT(stack, testing::ElementsAre(0, 1 * 4 + 0, 2 * 3 + 1, 3 * -1 + 2));
+}
+
+TEST(EvalTest, MulAddVecStackUnderflow) {
+  PostfixExpression expr;
+  expr.add_op(Operation::MulAddVec);
+  expr.add_i(3);
+  std::vector<float> stack = {1, 2, 3, 4, 5, 6, 7, 8};
+  EXPECT_EQ(Eval(expr, stack), EvalStatus::StackUnderflow);
+  EXPECT_THAT(stack, testing::ElementsAre(1, 2, 3, 4, 5, 6, 7, 8));
+}
+
+TEST(EvalTest, MulAddVecIntUnderflow) {
+  PostfixExpression expr;
+  expr.add_op(Operation::MulAddVec);
+  std::vector<float> stack = {0, 1, 2, 3, 4, 5, 6, 7, 8};
+  EXPECT_EQ(Eval(expr, stack), EvalStatus::IntLiteralsUnderflow);
+  EXPECT_THAT(stack, testing::ElementsAre(0, 1, 2, 3, 4, 5, 6, 7, 8));
+}
+
+TEST(EvalTest, MulAddVecIllegalOperation) {
+  PostfixExpression expr;
+  expr.add_op(Operation::MulAddVec);
+  expr.add_i(-1);
+  std::vector<float> stack = {0, 1, 2, 3, 4, 5, 6, 7, 8};
+  EXPECT_EQ(Eval(expr, stack), EvalStatus::IllegalOperation);
+  EXPECT_THAT(stack, testing::ElementsAre(0, 1, 2, 3, 4, 5, 6, 7, 8));
+}
+
 TEST(EvalTest, ScaleVec) {
   PostfixExpression expr;
   expr.add_op(Operation::ScaleVec);

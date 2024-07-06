@@ -150,6 +150,13 @@ enum Operation {
   // push(lhs * rhs)
   MulVec = 29;
 
+  // size = popi()
+  // c = popv(size)
+  // b = popv(size)
+  // a = popv(size)
+  // push(a * b + c)
+  MulAddVec = 37;
+
   // size = popi() >> 1 // bit 0 indicates implicit push(size)
   // coeff = popv(size)
   // scale = pop()
@@ -192,5 +199,5 @@ enum Operation {
 
   Lut = 35;
 
-  // next: 37
+  // next: 38
 }
