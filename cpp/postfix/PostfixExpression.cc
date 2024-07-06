@@ -28,10 +28,11 @@ std::pair<int32_t, EvalStatus> implicitPushArg(int32_t multiple, int32_t n, std:
   n >>= 1;
   if (do_push) {
     int32_t size = multiple * n;
-    if (f.size() < size) return std::make_pair(n, EvalStatus::FloatLiteralsUnderflow);
+    if (size < 0) return {0, EvalStatus::IllegalOperation};
+    if (f.size() < size) return {n, EvalStatus::FloatLiteralsUnderflow};
     push(stack, f, size);
   }
-  return std::make_pair(n, EvalStatus::Ok);
+  return {n, EvalStatus::Ok};
 }
 
 template <typename Pred>
@@ -141,9 +142,9 @@ EvalStatus Eval(const wickedwinch::proto::PostfixExpression& expr, std::vector<f
     case Operation::Transpose: {
       if (i.size() < 2) return EvalStatus::IntLiteralsUnderflow;
       int32_t rows = popi();
-      if (rows < 0) return EvalStatus::IllegalOperation;
       auto [cols, status] = implicitPushArg(rows, popi(), stack, f);
       if (status != EvalStatus::Ok) return status;
+      if (rows < 0) return EvalStatus::IllegalOperation;
       if (cols < 0) return EvalStatus::IllegalOperation;
       int32_t size = rows * cols;
       if (stack.size() < size) return EvalStatus::StackUnderflow;
@@ -298,9 +299,9 @@ EvalStatus Eval(const wickedwinch::proto::PostfixExpression& expr, std::vector<f
     case Operation::PolyMat: {
       if (i.size() < 2) return EvalStatus::IntLiteralsUnderflow;
       int32_t rows = popi();
-      if (rows < 0) return EvalStatus::IllegalOperation;
       auto [cols, status] = implicitPushArg(rows, popi(), stack, f);
       if (status != EvalStatus::Ok) return status;
+      if (rows < 0) return EvalStatus::IllegalOperation;
       if (cols < 0) return EvalStatus::IllegalOperation;
       int32_t size = rows * cols;
       if (stack.size() < size+1) return EvalStatus::StackUnderflow;
@@ -444,8 +445,9 @@ EvalStatus Eval(const wickedwinch::proto::PostfixExpression& expr, std::vector<f
       int32_t rows = popi();
       auto [cols, status] = implicitPushArg(rows, popi(), stack, f);
       if (status != EvalStatus::Ok) return status;
+      if (rows < 1) return EvalStatus::IllegalOperation;
+      if (cols < 1) return EvalStatus::IllegalOperation;
       int32_t size = rows * cols;
-      if (size <= 0) return EvalStatus::IllegalOperation;
       if (stack.size() < size+1) return EvalStatus::StackUnderflow;
       std::span<float> data = peekv(size+1);
       std::span<float> lut(data.data() + 1, size);
