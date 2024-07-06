@@ -1147,6 +1147,74 @@ TEST(EvalTest, PushNormVecFloatUnderflow) {
   EXPECT_THAT(stack, testing::ElementsAre(0));
 }
 
+TEST(EvalTest, MulMat) {
+  PostfixExpression expr;
+  expr.add_op(Operation::MulMat);
+  expr.add_i(2);
+  expr.add_i(3);
+  expr.add_i(4 << 1);
+  std::vector<float> stack = {0, 1, 2, 3, 4, 5, 6, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12};
+  EXPECT_EQ(Eval(expr, stack), EvalStatus::Ok);
+  EXPECT_THAT(stack, testing::ElementsAre(
+    0,
+    1*1 + 2*5 + 3*9, 1*2 + 2*6 + 3*10, 1*3 + 2*7 + 3*11, 1*4 + 2*8 + 3*12,
+    4*1 + 5*5 + 6*9, 4*2 + 5*6 + 6*10, 4*3 + 5*7 + 6*11, 4*4 + 5*8 + 6*12));
+}
+
+TEST(EvalTest, MulMatStackUnderflow) {
+  PostfixExpression expr;
+  expr.add_op(Operation::MulMat);
+  expr.add_i(2);
+  expr.add_i(3);
+  expr.add_i(4 << 1);
+  std::vector<float> stack = {1, 2, 3, 4, 5, 6, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11};
+  EXPECT_EQ(Eval(expr, stack), EvalStatus::StackUnderflow);
+  EXPECT_THAT(stack, testing::ElementsAre(1, 2, 3, 4, 5, 6, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11));
+}
+
+TEST(EvalTest, MulMatIntUnderflow) {
+  PostfixExpression expr;
+  expr.add_op(Operation::MulMat);
+  expr.add_i(2);
+  expr.add_i(3);
+  std::vector<float> stack = {0, 1, 2, 3, 4, 5, 6, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12};
+  EXPECT_EQ(Eval(expr, stack), EvalStatus::IntLiteralsUnderflow);
+  EXPECT_THAT(stack, testing::ElementsAre(0, 1, 2, 3, 4, 5, 6, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12));
+}
+
+TEST(EvalTest, MulMatIllegalOperationA) {
+  PostfixExpression expr;
+  expr.add_op(Operation::MulMat);
+  expr.add_i(-1);
+  expr.add_i(3);
+  expr.add_i(4 << 1);
+  std::vector<float> stack = {0, 1, 2, 3, 4, 5, 6, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12};
+  EXPECT_EQ(Eval(expr, stack), EvalStatus::IllegalOperation);
+  EXPECT_THAT(stack, testing::ElementsAre(0, 1, 2, 3, 4, 5, 6, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12));
+}
+
+TEST(EvalTest, MulMatIllegalOperationB) {
+  PostfixExpression expr;
+  expr.add_op(Operation::MulMat);
+  expr.add_i(2);
+  expr.add_i(-1);
+  expr.add_i(4 << 1);
+  std::vector<float> stack = {0, 1, 2, 3, 4, 5, 6, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12};
+  EXPECT_EQ(Eval(expr, stack), EvalStatus::IllegalOperation);
+  EXPECT_THAT(stack, testing::ElementsAre(0, 1, 2, 3, 4, 5, 6, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12));
+}
+
+TEST(EvalTest, MulMatIllegalOperationC) {
+  PostfixExpression expr;
+  expr.add_op(Operation::MulMat);
+  expr.add_i(2);
+  expr.add_i(3);
+  expr.add_i(-1 << 1);
+  std::vector<float> stack = {0, 1, 2, 3, 4, 5, 6, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12};
+  EXPECT_EQ(Eval(expr, stack), EvalStatus::IllegalOperation);
+  EXPECT_THAT(stack, testing::ElementsAre(0, 1, 2, 3, 4, 5, 6, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12));
+}
+
 TEST(EvalTest, Lerp) {
   PostfixExpression expr;
   expr.add_op(Operation::Lerp);

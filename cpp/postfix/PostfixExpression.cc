@@ -424,6 +424,36 @@ EvalStatus Eval(const wickedwinch::proto::PostfixExpression& expr, std::vector<f
       stack.back() = std::sqrt(result);
       break;
     }
+    case Operation::MulMat: {
+      if (i.size() < 3) return EvalStatus::IntLiteralsUnderflow;
+      int32_t arows = popi();
+      int32_t brows = popi();
+      auto [bcols, status] = implicitPushArg(brows, popi(), stack, f);
+      if (status != EvalStatus::Ok) return status;
+      if (arows < 0) return EvalStatus::IllegalOperation;
+      if (brows < 0) return EvalStatus::IllegalOperation;
+      if (bcols < 0) return EvalStatus::IllegalOperation;
+      int32_t asize = arows * brows;
+      int32_t bsize = brows * bcols;
+      int32_t csize = arows * bcols;
+      if (stack.size() < asize + bsize) return EvalStatus::StackUnderflow;
+      std::span<float> data = peekv(asize + bsize);
+      std::span<float> a(data.data(), asize);
+      std::span<float> b(data.data() + asize, bsize);
+      float c[csize];
+      for (int32_t i = 0; i < arows; ++i) {
+        for (int32_t j = 0; j < bcols; ++j) {
+          float r = 0;
+          for (int32_t k = 0; k < brows; ++k) {
+            r += a[brows*i+k] * b[bcols*k+j];
+          }
+          c[bcols*i+j] = r;
+        }
+      }
+      stack.resize(stack.size() - asize - bsize + csize);
+      memcpy_it(data.begin(), c, csize);
+      break;
+    }
     case Operation::Lerp: {
       if (i.size() < 1) return EvalStatus::IntLiteralsUnderflow;
       int32_t size = popi();

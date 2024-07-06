@@ -287,6 +287,21 @@ func (b *Builder) PushNormVec(literals ...float64) *Builder {
 	return b
 }
 
+func (b *Builder) MulMat(arows, brows, bcols int) *Builder {
+	b.expr.Op = append(b.expr.Op, pathpb.Operation_MulMat)
+	b.expr.I = append(b.expr.I, int32(arows), int32(brows), int32(bcols)<<1)
+	return b
+}
+
+func (b *Builder) PushMulMat(arows, brows, bcols int, literals ...float64) *Builder {
+	if brows*bcols != len(literals) {
+		panic("dimension mismatch")
+	}
+	b.expr.Op = append(b.expr.Op, pathpb.Operation_MulMat)
+	b.expr.I = append(b.expr.I, int32(arows), int32(brows), int32(bcols)<<1|1)
+	return b
+}
+
 func (b *Builder) Transpose(rows, cols int) *Builder {
 	b.expr.Op = append(b.expr.Op, pathpb.Operation_Transpose)
 	b.expr.I = append(b.expr.I, int32(rows), int32(cols))
@@ -758,6 +773,35 @@ func Eval(expr *pathpb.PostfixExpression, stack []float64) ([]float64, error) {
 				result += vec[i] * vec[i]
 			}
 			stack = append(stack, math.Sqrt(result))
+		case pathpb.Operation_MulMat:
+			if len(ints) < 3 {
+				return nil, ErrIntLiteralsUnderflow
+			}
+			arows := popi()
+			brows := popi()
+			bcols, err := popiPush(brows)
+			if err != nil {
+				return nil, err
+			}
+			asize := arows * brows
+			bsize := brows * bcols
+			csize := arows * bcols
+			if len(stack) < asize+bsize {
+				return nil, ErrStackUnderflow
+			}
+			b := popv(bsize)
+			a := popv(asize)
+			c := make([]float64, csize)
+			for i := range arows {
+				for j := range bcols {
+					var r float64
+					for k := range brows {
+						r += a[brows*i+k] * b[bcols*k+j]
+					}
+					c[bcols*i+j] = r
+				}
+			}
+			stack = append(stack, c...)
 		case pathpb.Operation_Lerp:
 			if len(ints) < 1 {
 				return nil, ErrIntLiteralsUnderflow
