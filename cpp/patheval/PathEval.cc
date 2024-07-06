@@ -2,7 +2,6 @@
 #include "proto/PathExpression.pb.h"
 
 #include <algorithm>
-#include <cassert>
 
 namespace wickedwinch::patheval {
 
@@ -20,7 +19,7 @@ PathEval PathAt(const wickedwinch::proto::Path& path, uint32_t t) {
 }
 
 wickedwinch::postfix::EvalStatus PathEval::Eval(std::vector<float>& stack) const {
-  assert(segment != nullptr);
+  if (segment == nullptr) return wickedwinch::postfix::EvalStatus::IllegalOperation;
   stack.clear();
   stack.push_back(seconds());
   return postfix::Eval(segment->expr(), stack);
