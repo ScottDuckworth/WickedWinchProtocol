@@ -1215,6 +1215,54 @@ TEST(EvalTest, MulMatIllegalOperationC) {
   EXPECT_THAT(stack, testing::ElementsAre(0, 1, 2, 3, 4, 5, 6, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12));
 }
 
+TEST(EvalTest, PushMulMat) {
+  PostfixExpression expr;
+  expr.add_op(Operation::MulMat);
+  expr.add_i(2);
+  expr.add_i(3);
+  expr.add_i(4 << 1 | 1);
+  expr.add_f(1);
+  expr.add_f(2);
+  expr.add_f(3);
+  expr.add_f(4);
+  expr.add_f(5);
+  expr.add_f(6);
+  expr.add_f(7);
+  expr.add_f(8);
+  expr.add_f(9);
+  expr.add_f(10);
+  expr.add_f(11);
+  expr.add_f(12);
+  std::vector<float> stack = {0, 1, 2, 3, 4, 5, 6};
+  EXPECT_EQ(Eval(expr, stack), EvalStatus::Ok);
+  EXPECT_THAT(stack, testing::ElementsAre(
+    0,
+    1*1 + 2*5 + 3*9, 1*2 + 2*6 + 3*10, 1*3 + 2*7 + 3*11, 1*4 + 2*8 + 3*12,
+    4*1 + 5*5 + 6*9, 4*2 + 5*6 + 6*10, 4*3 + 5*7 + 6*11, 4*4 + 5*8 + 6*12));
+}
+
+TEST(EvalTest, PushMulMatFloatUnderflow) {
+  PostfixExpression expr;
+  expr.add_op(Operation::MulMat);
+  expr.add_i(2);
+  expr.add_i(3);
+  expr.add_i(4 << 1 | 1);
+  expr.add_f(1);
+  expr.add_f(2);
+  expr.add_f(3);
+  expr.add_f(4);
+  expr.add_f(5);
+  expr.add_f(6);
+  expr.add_f(7);
+  expr.add_f(8);
+  expr.add_f(9);
+  expr.add_f(10);
+  expr.add_f(11);
+  std::vector<float> stack = {1, 2, 3, 4, 5, 6};
+  EXPECT_EQ(Eval(expr, stack), EvalStatus::FloatLiteralsUnderflow);
+  EXPECT_THAT(stack, testing::ElementsAre(1, 2, 3, 4, 5, 6));
+}
+
 TEST(EvalTest, Lerp) {
   PostfixExpression expr;
   expr.add_op(Operation::Lerp);
