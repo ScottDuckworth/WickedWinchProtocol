@@ -183,9 +183,12 @@ func (b *Builder) PolyVec(coeffs int) *Builder {
 	return b
 }
 
-func (b *Builder) PushPolyVec(literals ...float64) *Builder {
+func (b *Builder) PushPolyVec(size int, literals []float64) *Builder {
+	if size != len(literals) {
+		panic("dimension mismatch")
+	}
 	b.expr.Op = append(b.expr.Op, pathpb.Operation_PolyVec)
-	b.expr.I = append(b.expr.I, int32(len(literals))<<1|1)
+	b.expr.I = append(b.expr.I, int32(size)<<1|1)
 	b.push(literals)
 	return b
 }
@@ -196,7 +199,10 @@ func (b *Builder) PolyMat(rows, cols int) *Builder {
 	return b
 }
 
-func (b *Builder) PushPolyMat(rows, cols int, literals ...float64) *Builder {
+func (b *Builder) PushPolyMat(rows, cols int, literals []float64) *Builder {
+	if rows*cols != len(literals) {
+		panic("dimension mismatch")
+	}
 	b.expr.Op = append(b.expr.Op, pathpb.Operation_PolyMat)
 	b.expr.I = append(b.expr.I, int32(rows), int32(cols)<<1|1)
 	b.push(literals)
@@ -209,9 +215,12 @@ func (b *Builder) AddVec(size int) *Builder {
 	return b
 }
 
-func (b *Builder) PushAddVec(literals ...float64) *Builder {
+func (b *Builder) PushAddVec(size int, literals []float64) *Builder {
+	if size != len(literals) {
+		panic("dimension mismatch")
+	}
 	b.expr.Op = append(b.expr.Op, pathpb.Operation_AddVec)
-	b.expr.I = append(b.expr.I, int32(len(literals))<<1|1)
+	b.expr.I = append(b.expr.I, int32(size)<<1|1)
 	b.push(literals)
 	return b
 }
@@ -222,9 +231,12 @@ func (b *Builder) SubVec(size int) *Builder {
 	return b
 }
 
-func (b *Builder) PushSubVec(literals ...float64) *Builder {
+func (b *Builder) PushSubVec(size int, literals []float64) *Builder {
+	if size != len(literals) {
+		panic("dimension mismatch")
+	}
 	b.expr.Op = append(b.expr.Op, pathpb.Operation_SubVec)
-	b.expr.I = append(b.expr.I, int32(len(literals))<<1|1)
+	b.expr.I = append(b.expr.I, int32(size)<<1|1)
 	b.push(literals)
 	return b
 }
@@ -235,9 +247,12 @@ func (b *Builder) MulVec(size int) *Builder {
 	return b
 }
 
-func (b *Builder) PushMulVec(literals ...float64) *Builder {
+func (b *Builder) PushMulVec(size int, literals []float64) *Builder {
+	if size != len(literals) {
+		panic("dimension mismatch")
+	}
 	b.expr.Op = append(b.expr.Op, pathpb.Operation_MulVec)
-	b.expr.I = append(b.expr.I, int32(len(literals))<<1|1)
+	b.expr.I = append(b.expr.I, int32(size)<<1|1)
 	b.push(literals)
 	return b
 }
@@ -249,14 +264,14 @@ func (b *Builder) MulAddVec(size int) *Builder {
 }
 
 func (b *Builder) PushMulAddVec(size int, literals ...[]float64) *Builder {
-	b.expr.Op = append(b.expr.Op, pathpb.Operation_MulAddVec)
-	b.expr.I = append(b.expr.I, int32(size)<<2|int32(len(literals)))
 	for _, l := range literals {
-		if len(l) != size {
+		if size != len(l) {
 			panic("dimension mismatch")
 		}
 		b.push(l)
 	}
+	b.expr.Op = append(b.expr.Op, pathpb.Operation_MulAddVec)
+	b.expr.I = append(b.expr.I, int32(size)<<2|int32(len(literals)))
 	return b
 }
 
@@ -266,9 +281,12 @@ func (b *Builder) ScaleVec(size int) *Builder {
 	return b
 }
 
-func (b *Builder) PushScaleVec(literals ...float64) *Builder {
+func (b *Builder) PushScaleVec(size int, literals []float64) *Builder {
+	if size != len(literals) {
+		panic("dimension mismatch")
+	}
 	b.expr.Op = append(b.expr.Op, pathpb.Operation_ScaleVec)
-	b.expr.I = append(b.expr.I, int32(len(literals))<<1|1)
+	b.expr.I = append(b.expr.I, int32(size)<<1|1)
 	b.push(literals)
 	return b
 }
@@ -279,9 +297,12 @@ func (b *Builder) NegVec(size int) *Builder {
 	return b
 }
 
-func (b *Builder) PushNegVec(literals ...float64) *Builder {
+func (b *Builder) PushNegVec(size int, literals []float64) *Builder {
+	if size != len(literals) {
+		panic("dimension mismatch")
+	}
 	b.expr.Op = append(b.expr.Op, pathpb.Operation_NegVec)
-	b.expr.I = append(b.expr.I, int32(len(literals))<<1|1)
+	b.expr.I = append(b.expr.I, int32(size)<<1|1)
 	b.push(literals)
 	return b
 }
@@ -292,9 +313,12 @@ func (b *Builder) NormVec(size int) *Builder {
 	return b
 }
 
-func (b *Builder) PushNormVec(literals ...float64) *Builder {
+func (b *Builder) PushNormVec(size int, literals []float64) *Builder {
+	if size != len(literals) {
+		panic("dimension mismatch")
+	}
 	b.expr.Op = append(b.expr.Op, pathpb.Operation_NormVec)
-	b.expr.I = append(b.expr.I, int32(len(literals))<<1|1)
+	b.expr.I = append(b.expr.I, int32(size)<<1|1)
 	b.push(literals)
 	return b
 }
@@ -305,7 +329,7 @@ func (b *Builder) MulMat(arows, brows, bcols int) *Builder {
 	return b
 }
 
-func (b *Builder) PushMulMat(arows, brows, bcols int, literals ...float64) *Builder {
+func (b *Builder) PushMulMat(arows, brows, bcols int, literals []float64) *Builder {
 	if brows*bcols != len(literals) {
 		panic("dimension mismatch")
 	}
@@ -327,14 +351,14 @@ func (b *Builder) Lerp(size int) *Builder {
 }
 
 func (b *Builder) PushLerp(size int, literals ...[]float64) *Builder {
-	b.expr.Op = append(b.expr.Op, pathpb.Operation_Lerp)
-	b.expr.I = append(b.expr.I, int32(size)<<2|int32(len(literals)))
 	for _, l := range literals {
-		if len(l) != size {
+		if size != len(l) {
 			panic("dimension mismatch")
 		}
 		b.push(l)
 	}
+	b.expr.Op = append(b.expr.Op, pathpb.Operation_Lerp)
+	b.expr.I = append(b.expr.I, int32(size)<<2|int32(len(literals)))
 	return b
 }
 
@@ -344,7 +368,7 @@ func (b *Builder) Lut(rows, cols int) *Builder {
 	return b
 }
 
-func (b *Builder) PushLut(rows, cols int, literals ...float64) *Builder {
+func (b *Builder) PushLut(rows, cols int, literals []float64) *Builder {
 	if rows*cols != len(literals) {
 		panic("dimension mismatch")
 	}
