@@ -333,6 +333,7 @@ func (b *Builder) PushMulMat(arows, brows, bcols int, literals []float64) *Build
 	if brows*bcols != len(literals) {
 		panic("dimension mismatch")
 	}
+	b.push(literals)
 	b.expr.Op = append(b.expr.Op, pathpb.Operation_MulMat)
 	b.expr.I = append(b.expr.I, int32(arows), int32(brows), int32(bcols)<<1|1)
 	return b

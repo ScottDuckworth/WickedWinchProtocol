@@ -665,6 +665,15 @@ func TestEvalPostfixExpression(t *testing.T) {
 			wantErr: postfix.ErrStackUnderflow,
 		},
 		{
+			name:  "push multiply matrix 2 3 4",
+			expr:  postfix.MakeBuilder().PushMulMat(2, 3, 4, []float64{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12}).Build(),
+			stack: []float64{1, 2, 3, 4, 5, 6},
+			wantStack: []float64{
+				1*1 + 2*5 + 3*9, 1*2 + 2*6 + 3*10, 1*3 + 2*7 + 3*11, 1*4 + 2*8 + 3*12,
+				4*1 + 5*5 + 6*9, 4*2 + 5*6 + 6*10, 4*3 + 5*7 + 6*11, 4*4 + 5*8 + 6*12,
+			},
+		},
+		{
 			name:      "polynomial vector 1",
 			expr:      postfix.MakeBuilder().PolyVec(1).Build(),
 			stack:     []float64{2, 1},
