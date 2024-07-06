@@ -67,7 +67,7 @@ EvalStatus Eval(const wickedwinch::proto::PostfixExpression& expr, std::vector<f
     return v;
   };
   auto peekv = [&stack](int n) {
-    return std::span<float>(stack.end() - n, stack.end());
+    return std::span<float>(stack.end() - n, n);
   };
   auto popi = [&i] {
     int32_t n = i[0];
@@ -305,7 +305,7 @@ EvalStatus Eval(const wickedwinch::proto::PostfixExpression& expr, std::vector<f
       if (stack.size() < size+1) return EvalStatus::StackUnderflow;
       std::span<float> data = peekv(size + 1);
       std::span<float> coeff(data.data() + 1, size);
-      std::span<float> result(data.begin(), cols);
+      std::span<float> result(data.data(), cols);
       float t = data[0];
       for (int32_t j = 0; j < cols; ++j) {
         float r = 0;
@@ -415,7 +415,7 @@ EvalStatus Eval(const wickedwinch::proto::PostfixExpression& expr, std::vector<f
       std::span<float> data = peekv(size * 2 + 1);
       std::span<float> v0(data.data() + 1, size);
       std::span<float> v1(data.data() + 1 + size, size);
-      std::span<float> result(data.begin(), size);
+      std::span<float> result(data.data(), size);
       float t = data[0];
       for (int32_t i = 0; i < size; ++i) {
         result[i] = (1-t)*v0[i] + t*v1[i];
@@ -454,7 +454,7 @@ EvalStatus Eval(const wickedwinch::proto::PostfixExpression& expr, std::vector<f
         t = (t - t0) / (t1 - t0);
         std::span<const float> v0(lb + 1, n);
         std::span<const float> v1(ub + 1, n);
-        std::span<float> result(data.begin(), n);
+        std::span<float> result(data.data(), n);
         for (int32_t i = 0; i < result.size(); ++i) {
           result[i] = (1-t)*v0[i] + t*v1[i];
         }
