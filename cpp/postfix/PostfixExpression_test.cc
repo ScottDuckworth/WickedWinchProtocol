@@ -367,7 +367,7 @@ TEST(EvalTest, MulStackUnderflow) {
 TEST(EvalTest, MulAdd) {
   PostfixExpression expr;
   expr.add_op(Operation::MulAdd);
-  std::vector<float> stack = {0, 1, 2, 3};
+  std::vector<float> stack = {0, 3, 2, 1};
   EXPECT_EQ(Eval(expr, stack), EvalStatus::Ok);
   EXPECT_THAT(stack, testing::ElementsAre(0, 7));
 }

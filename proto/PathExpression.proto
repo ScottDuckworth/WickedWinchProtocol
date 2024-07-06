@@ -76,7 +76,7 @@ enum Operation {
   // c = pop()
   // b = pop()
   // a = pop()
-  // push(a + b * c)
+  // push(a * b + c)
   MulAdd = 11;
 
   // rhs = pop()

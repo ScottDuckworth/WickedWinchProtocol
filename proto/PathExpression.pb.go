@@ -69,7 +69,7 @@ const (
 	// c = pop()
 	// b = pop()
 	// a = pop()
-	// push(a + b * c)
+	// push(a * b + c)
 	Operation_MulAdd Operation = 11
 	// rhs = pop()
 	// lhs = pop()

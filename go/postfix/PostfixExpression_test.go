@@ -358,7 +358,7 @@ func TestEvalPostfixExpression(t *testing.T) {
 		{
 			name:      "multiply add",
 			expr:      postfix.MakeBuilder().MulAdd().Build(),
-			stack:     []float64{1, 10, 2},
+			stack:     []float64{10, 2, 1},
 			wantStack: []float64{21},
 		},
 		{

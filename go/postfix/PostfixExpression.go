@@ -484,7 +484,7 @@ func Eval(expr *pathpb.PostfixExpression, stack []float64) ([]float64, error) {
 			c := pop()
 			b := pop()
 			a := pop()
-			result := a + b*c
+			result := a*b + c
 			stack = append(stack, result)
 		case pathpb.Operation_Div:
 			if len(stack) < 2 {

@@ -179,7 +179,8 @@ EvalStatus Eval(const wickedwinch::proto::PostfixExpression& expr, std::vector<f
       if (stack.size() < 3) return EvalStatus::StackUnderflow;
       float c = pop();
       float b = pop();
-      stack.back() += b * c;
+      float a = stack.back();
+      stack.back() = a * b + c;
       break;
     }
     case Operation::Div: {
