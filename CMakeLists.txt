@@ -10,13 +10,12 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 include(FetchContent)
 
-FetchContent_Declare(protobuf
-  GIT_REPOSITORY https://github.com/protocolbuffers/protobuf.git
-  GIT_TAG        v27.2
-  SOURCE_SUBDIR  cmake
-  OVERRIDE_FIND_PACKAGE
-)
-FetchContent_MakeAvailable(protobuf)
+#FetchContent_Declare(protobuf
+#  GIT_REPOSITORY https://github.com/protocolbuffers/protobuf.git
+#  GIT_TAG        v27.2
+#  SOURCE_SUBDIR  cmake
+#)
+#FetchContent_MakeAvailable(protobuf)
 
 if(NOT WICKEDWINCHPROTOCOL_TESTING_DISABLED)
   FetchContent_Declare(
