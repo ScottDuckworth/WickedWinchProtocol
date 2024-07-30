@@ -29,20 +29,18 @@ include_directories(
 
 protobuf_generate_cpp(WICKED_WINCH_PROTO_SRCS WICKED_WINCH_PROTO_HDRS proto/PathExpression.proto)
 
-add_library(WickedWinchProtocol INTERFACE
+add_library(WickedWinchProtocol
   ${WICKED_WINCH_PROTO_HDRS}
-  cpp/postfix/PostfixExpression.h
-  cpp/patheval/PathEval.h
-)
-
-target_sources(WickedWinchProtocol PUBLIC
   ${WICKED_WINCH_PROTO_SRCS}
+  cpp/postfix/PostfixExpression.h
   cpp/postfix/PostfixExpression.cc
+  cpp/patheval/PathEval.h
   cpp/patheval/PathEval.cc
 )
 
-target_link_libraries(WickedWinchProtocol INTERFACE ${Protobuf_LIBRARY})
-target_include_directories(WickedWinchProtocol INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/cpp/include)
+target_link_libraries(WickedWinchProtocol ${Protobuf_LIBRARY})
+target_include_directories(WickedWinchProtocol PUBLIC
+  ${CMAKE_CURRENT_SOURCE_DIR}/cpp/include)
 
 if(NOT WICKEDWINCHPROTOCOL_TESTING_DISABLED)
   FetchContent_Declare(
