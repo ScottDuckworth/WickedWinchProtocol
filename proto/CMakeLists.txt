@@ -1,6 +1,4 @@
-include(FetchContent)
-
-include(FindProtobuf)
+find_package(Protobuf REQUIRED)
 include_directories(${Protobuf_INCLUDE_DIRS})
 protobuf_generate_cpp(PROTO_SRCS PROTO_HDRS PathExpression.proto)
 add_library(proto ${PROTO_SRCS} ${PROTO_HDRS})
