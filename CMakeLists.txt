@@ -10,12 +10,39 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 include(FetchContent)
 
-#FetchContent_Declare(protobuf
-#  GIT_REPOSITORY https://github.com/protocolbuffers/protobuf.git
-#  GIT_TAG        v27.2
-#  SOURCE_SUBDIR  cmake
-#)
-#FetchContent_MakeAvailable(protobuf)
+FetchContent_Declare(protobuf
+  GIT_REPOSITORY https://github.com/protocolbuffers/protobuf.git
+  GIT_TAG        v27.2
+  SOURCE_SUBDIR  cmake
+  FIND_PACKAGE_ARGS NAMES protobuf
+)
+FetchContent_MakeAvailable(protobuf)
+
+include(FindProtobuf)
+find_package(Protobuf REQUIRED)
+
+include_directories(
+  ${Protobuf_INCLUDE_DIRS}
+  ${CMAKE_CURRENT_SOURCE_DIR}/cpp
+  ${CMAKE_CURRENT_BINARY_DIR}
+)
+
+protobuf_generate_cpp(WICKED_WINCH_PROTO_SRCS WICKED_WINCH_PROTO_HDRS proto/PathExpression.proto)
+
+add_library(WickedWinchProtocol INTERFACE
+  ${WICKED_WINCH_PROTO_HDRS}
+  cpp/postfix/PostfixExpression.h
+  cpp/patheval/PathEval.h
+)
+
+target_sources(WickedWinchProtocol PUBLIC
+  ${WICKED_WINCH_PROTO_SRCS}
+  cpp/postfix/PostfixExpression.cc
+  cpp/patheval/PathEval.cc
+)
+
+target_link_libraries(WickedWinchProtocol INTERFACE ${Protobuf_LIBRARY})
+target_include_directories(WickedWinchProtocol INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/cpp/include)
 
 if(NOT WICKEDWINCHPROTOCOL_TESTING_DISABLED)
   FetchContent_Declare(
@@ -26,10 +53,25 @@ if(NOT WICKEDWINCHPROTOCOL_TESTING_DISABLED)
   set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
   FetchContent_MakeAvailable(googletest)
   enable_testing()
+  include(GoogleTest)
+
+  add_executable(PostfixExpression_test
+    cpp/postfix/PostfixExpression_test.cc
+  )
+  target_link_libraries(PostfixExpression_test
+    GTest::gmock
+    GTest::gtest_main
+    WickedWinchProtocol
+  )
+  gtest_discover_tests(PostfixExpression_test)
+
+  add_executable(PathEval_test
+    cpp/patheval/PathEval_test.cc
+  )
+  target_link_libraries(PathEval_test
+    GTest::gmock
+    GTest::gtest_main
+    WickedWinchProtocol
+  )
+  gtest_discover_tests(PathEval_test)
 endif()
-
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/cpp)
-
-add_subdirectory(cpp/postfix)
-add_subdirectory(cpp/patheval)
-add_subdirectory(proto)
