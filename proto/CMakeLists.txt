@@ -1,14 +1,6 @@
 include(FetchContent)
 
-FetchContent_Declare(protobuf
-  GIT_REPOSITORY https://github.com/protocolbuffers/protobuf.git
-  GIT_TAG        v27.2
-  SOURCE_SUBDIR  cmake
-  OVERRIDE_FIND_PACKAGE
-)
-FetchContent_MakeAvailable(protobuf)
-
-find_package(Protobuf REQUIRED)
+include(FindProtobuf)
 include_directories(${Protobuf_INCLUDE_DIRS})
 protobuf_generate_cpp(PROTO_SRCS PROTO_HDRS PathExpression.proto)
 add_library(proto ${PROTO_SRCS} ${PROTO_HDRS})
