@@ -1,13 +1,11 @@
 package postfix_test
 
 import (
+	"bytes"
 	"math"
 	"testing"
 
 	"github.com/ScottDuckworth/WickedWinchProtocol/go/postfix"
-	"google.golang.org/protobuf/proto"
-
-	pathpb "github.com/ScottDuckworth/WickedWinchProtocol/proto"
 )
 
 func equalSlices(got, want []float64) bool {
@@ -25,53 +23,53 @@ func equalSlices(got, want []float64) bool {
 func TestJoin(t *testing.T) {
 	for _, test := range []struct {
 		name  string
-		exprs []*pathpb.PostfixExpression
-		want  *pathpb.PostfixExpression
+		exprs []*postfix.Expression
+		want  *postfix.Expression
 	}{
 		{
 			name:  "empty",
 			exprs: nil,
-			want:  &pathpb.PostfixExpression{},
+			want:  &postfix.Expression{},
 		},
 		{
 			name: "one",
-			exprs: []*pathpb.PostfixExpression{
+			exprs: []*postfix.Expression{
 				{
-					Op: []pathpb.Operation{pathpb.Operation_Push},
-					I:  []int32{1},
+					Op: []postfix.Operation{postfix.Operation_Push},
+					I:  []uint8{1},
 					F:  []float32{10},
 				},
 			},
-			want: &pathpb.PostfixExpression{
-				Op: []pathpb.Operation{pathpb.Operation_Push},
-				I:  []int32{1},
+			want: &postfix.Expression{
+				Op: []postfix.Operation{postfix.Operation_Push},
+				I:  []uint8{1},
 				F:  []float32{10},
 			},
 		},
 		{
 			name: "two",
-			exprs: []*pathpb.PostfixExpression{
+			exprs: []*postfix.Expression{
 				{
-					Op: []pathpb.Operation{pathpb.Operation_Push},
-					I:  []int32{1},
+					Op: []postfix.Operation{postfix.Operation_Push},
+					I:  []uint8{1},
 					F:  []float32{10},
 				},
 				{
-					Op: []pathpb.Operation{pathpb.Operation_Pop},
-					I:  []int32{2},
+					Op: []postfix.Operation{postfix.Operation_Pop},
+					I:  []uint8{2},
 					F:  []float32{20},
 				},
 			},
-			want: &pathpb.PostfixExpression{
-				Op: []pathpb.Operation{pathpb.Operation_Push, pathpb.Operation_Pop},
-				I:  []int32{1, 2},
+			want: &postfix.Expression{
+				Op: []postfix.Operation{postfix.Operation_Push, postfix.Operation_Pop},
+				I:  []uint8{1, 2},
 				F:  []float32{10, 20},
 			},
 		},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			got := postfix.Join(test.exprs...)
-			if !proto.Equal(got, test.want) {
+			if !postfix.Equal(got, test.want) {
 				t.Errorf("got %v, want %v", got, test.want)
 			}
 		})
@@ -81,15 +79,15 @@ func TestJoin(t *testing.T) {
 func TestEvalPostfixExpression(t *testing.T) {
 	for _, test := range []struct {
 		name      string
-		expr      *pathpb.PostfixExpression
+		expr      *postfix.Expression
 		stack     []float64
 		wantStack []float64
 		wantErr   error
 	}{
 		{
 			name: "undefined",
-			expr: &pathpb.PostfixExpression{
-				Op: []pathpb.Operation{pathpb.Operation_Undefined},
+			expr: &postfix.Expression{
+				Op: []postfix.Operation{postfix.Operation_Undefined},
 			},
 			wantErr: postfix.ErrUndefinedOperation,
 		},
@@ -113,17 +111,17 @@ func TestEvalPostfixExpression(t *testing.T) {
 		},
 		{
 			name: "push int literals underflow",
-			expr: &pathpb.PostfixExpression{
-				Op: []pathpb.Operation{pathpb.Operation_Push},
+			expr: &postfix.Expression{
+				Op: []postfix.Operation{postfix.Operation_Push},
 				F:  []float32{1},
 			},
 			wantErr: postfix.ErrIntLiteralsUnderflow,
 		},
 		{
 			name: "push float literals underflow",
-			expr: &pathpb.PostfixExpression{
-				Op: []pathpb.Operation{pathpb.Operation_Push},
-				I:  []int32{1},
+			expr: &postfix.Expression{
+				Op: []postfix.Operation{postfix.Operation_Push},
+				I:  []uint8{1},
 			},
 			wantErr: postfix.ErrFloatLiteralsUnderflow,
 		},
@@ -147,16 +145,16 @@ func TestEvalPostfixExpression(t *testing.T) {
 		},
 		{
 			name: "pop int literals underflow",
-			expr: &pathpb.PostfixExpression{
-				Op: []pathpb.Operation{pathpb.Operation_Pop},
+			expr: &postfix.Expression{
+				Op: []postfix.Operation{postfix.Operation_Pop},
 			},
 			wantErr: postfix.ErrIntLiteralsUnderflow,
 		},
 		{
 			name: "pop stack underflow",
-			expr: &pathpb.PostfixExpression{
-				Op: []pathpb.Operation{pathpb.Operation_Pop},
-				I:  []int32{1},
+			expr: &postfix.Expression{
+				Op: []postfix.Operation{postfix.Operation_Pop},
+				I:  []uint8{1},
 			},
 			wantErr: postfix.ErrStackUnderflow,
 		},
@@ -180,16 +178,16 @@ func TestEvalPostfixExpression(t *testing.T) {
 		},
 		{
 			name: "dup int literals underflow",
-			expr: &pathpb.PostfixExpression{
-				Op: []pathpb.Operation{pathpb.Operation_Dup},
+			expr: &postfix.Expression{
+				Op: []postfix.Operation{postfix.Operation_Dup},
 			},
 			wantErr: postfix.ErrIntLiteralsUnderflow,
 		},
 		{
 			name: "dup stack underflow",
-			expr: &pathpb.PostfixExpression{
-				Op: []pathpb.Operation{pathpb.Operation_Dup},
-				I:  []int32{0},
+			expr: &postfix.Expression{
+				Op: []postfix.Operation{postfix.Operation_Dup},
+				I:  []uint8{0},
 			},
 			wantErr: postfix.ErrStackUnderflow,
 		},
@@ -219,16 +217,16 @@ func TestEvalPostfixExpression(t *testing.T) {
 		},
 		{
 			name: "rotl int literals underflow",
-			expr: &pathpb.PostfixExpression{
-				Op: []pathpb.Operation{pathpb.Operation_RotL},
+			expr: &postfix.Expression{
+				Op: []postfix.Operation{postfix.Operation_RotL},
 			},
 			wantErr: postfix.ErrIntLiteralsUnderflow,
 		},
 		{
 			name: "rotl stack underflow",
-			expr: &pathpb.PostfixExpression{
-				Op: []pathpb.Operation{pathpb.Operation_RotL},
-				I:  []int32{2},
+			expr: &postfix.Expression{
+				Op: []postfix.Operation{postfix.Operation_RotL},
+				I:  []uint8{2},
 			},
 			wantErr: postfix.ErrStackUnderflow,
 		},
@@ -258,16 +256,16 @@ func TestEvalPostfixExpression(t *testing.T) {
 		},
 		{
 			name: "rotr int literals underflow",
-			expr: &pathpb.PostfixExpression{
-				Op: []pathpb.Operation{pathpb.Operation_RotR},
+			expr: &postfix.Expression{
+				Op: []postfix.Operation{postfix.Operation_RotR},
 			},
 			wantErr: postfix.ErrIntLiteralsUnderflow,
 		},
 		{
 			name: "rotr stack underflow",
-			expr: &pathpb.PostfixExpression{
-				Op: []pathpb.Operation{pathpb.Operation_RotR},
-				I:  []int32{2},
+			expr: &postfix.Expression{
+				Op: []postfix.Operation{postfix.Operation_RotR},
+				I:  []uint8{2},
 			},
 			wantErr: postfix.ErrStackUnderflow,
 		},
@@ -789,6 +787,18 @@ func TestEvalPostfixExpression(t *testing.T) {
 			}
 			if gotErr != test.wantErr {
 				t.Errorf("got %v, want %v", gotErr, test.wantErr)
+			}
+
+			var buf bytes.Buffer
+			if err := test.expr.Write(&buf); err != nil {
+				t.Errorf("write error: %v", err)
+			}
+			var expr postfix.Expression
+			if err := expr.Read(&buf); err != nil {
+				t.Errorf("read error: %v", err)
+			}
+			if got, want := &expr, test.expr; !postfix.Equal(got, want) {
+				t.Errorf("after serialization: got %v, want %v", got, want)
 			}
 		})
 	}

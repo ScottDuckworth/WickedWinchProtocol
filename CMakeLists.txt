@@ -10,37 +10,21 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 include(FetchContent)
 
-FetchContent_Declare(protobuf
-  GIT_REPOSITORY https://github.com/protocolbuffers/protobuf.git
-  GIT_TAG        v27.2
-  SOURCE_SUBDIR  cmake
-  FIND_PACKAGE_ARGS NAMES protobuf
-)
-FetchContent_MakeAvailable(protobuf)
-
-include(FindProtobuf)
-find_package(Protobuf REQUIRED)
-
 include_directories(
-  ${Protobuf_INCLUDE_DIRS}
   ${CMAKE_CURRENT_SOURCE_DIR}/cpp
   ${CMAKE_CURRENT_BINARY_DIR}
 )
 
-protobuf_generate_cpp(WICKED_WINCH_PROTO_SRCS WICKED_WINCH_PROTO_HDRS proto/PathExpression.proto)
-
 add_library(WickedWinchProtocol
-  ${WICKED_WINCH_PROTO_HDRS}
-  ${WICKED_WINCH_PROTO_SRCS}
-  cpp/postfix/PostfixExpression.h
-  cpp/postfix/PostfixExpression.cc
-  cpp/patheval/PathEval.h
-  cpp/patheval/PathEval.cc
+  cpp/Postfix.h
+  cpp/Postfix.cc
+  cpp/Path.h
+  cpp/Path.cc
 )
 
-target_link_libraries(WickedWinchProtocol ${Protobuf_LIBRARY})
 target_include_directories(WickedWinchProtocol PUBLIC
-  ${CMAKE_CURRENT_SOURCE_DIR}/cpp/include)
+  ${CMAKE_CURRENT_SOURCE_DIR}/cpp
+)
 
 if(NOT WICKEDWINCHPROTOCOL_TESTING_DISABLED)
   FetchContent_Declare(
@@ -53,23 +37,23 @@ if(NOT WICKEDWINCHPROTOCOL_TESTING_DISABLED)
   enable_testing()
   include(GoogleTest)
 
-  add_executable(PostfixExpression_test
-    cpp/postfix/PostfixExpression_test.cc
+  add_executable(Postfix_test
+    cpp/Postfix_test.cc
   )
-  target_link_libraries(PostfixExpression_test
+  target_link_libraries(Postfix_test
     GTest::gmock
     GTest::gtest_main
     WickedWinchProtocol
   )
-  gtest_discover_tests(PostfixExpression_test)
+  gtest_discover_tests(Postfix_test)
 
-  add_executable(PathEval_test
-    cpp/patheval/PathEval_test.cc
+  add_executable(Path_test
+    cpp/Path_test.cc
   )
-  target_link_libraries(PathEval_test
+  target_link_libraries(Path_test
     GTest::gmock
     GTest::gtest_main
     WickedWinchProtocol
   )
-  gtest_discover_tests(PathEval_test)
+  gtest_discover_tests(Path_test)
 endif()
