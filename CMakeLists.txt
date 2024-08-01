@@ -16,10 +16,12 @@ include_directories(
 )
 
 add_library(WickedWinchProtocol
+  cpp/EvalStatus.h
   cpp/Postfix.h
   cpp/Postfix.cc
   cpp/Path.h
   cpp/Path.cc
+  cpp/WickedWinchProtocol.h
 )
 
 target_include_directories(WickedWinchProtocol PUBLIC

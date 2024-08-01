@@ -4,6 +4,7 @@
 
 #include <algorithm>
 #include <bit>
+#include <cstdint>
 #include <cstring>
 #include <initializer_list>
 #include <span>
@@ -214,6 +215,7 @@ struct PostfixStack {
       .f_size         = expr.f_size(),
       .stack_size     = stack_size,
       .stack_capacity = stack_capacity,
+      .temp           = {},
     };
     EvalStatus status = context.Eval();
     stack_size = context.stack_size;

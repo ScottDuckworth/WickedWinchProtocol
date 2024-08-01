@@ -24,7 +24,7 @@ uint8_t PathReader::SegmentAt(uint32_t t) const {
   };
   const PathSegmentHeader* segment =
       std::upper_bound(begin, end, t, StartTimeLess{.begin_time = begin_time});
-  if (segment == begin) kNoSegment;
+  if (segment == begin) return kNoSegment;
   --segment;
   return segment - begin;
 }
