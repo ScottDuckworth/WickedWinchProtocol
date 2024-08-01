@@ -26,7 +26,7 @@ uint8_t PathReader::SegmentAt(uint32_t t) const {
       std::upper_bound(begin, end, t, StartTimeLess{.begin_time = begin_time});
   if (segment == begin) return kNoSegment;
   --segment;
-  return segment - begin;
+  return uint8_t(segment - begin);
 }
 
 EvalStatus PathReader::Eval(uint32_t t, PostfixStack& stack) const {
@@ -40,7 +40,7 @@ EvalStatus PathReader::Eval(uint32_t t, PostfixStack& stack) const {
     return EvalStatus::IllegalOperation;
   }
 
-  float st = (t - segment.start_time) * 1e-3f;
+  float st = float(t - segment.start_time) * 1e-3f;
   stack.clear();
   stack.push(st);
   return stack.Eval(reader.expr);
@@ -63,11 +63,11 @@ bool PathReader::Read(const uint8_t* data, size_t size) {
 }
 
 uint16_t PathWriter::data_size() const {
-  uint16_t size = sizeof(PathHeader) + segments_.size() * sizeof(PathSegmentHeader);
+  size_t size = sizeof(PathHeader) + segments_.size() * sizeof(PathSegmentHeader);
   for (const PathSegmentWriter& segment : segments_) {
-    size += (segment.expr.data_size() + 3) & ~uint16_t(3);
+    size += (segment.expr.data_size() + 3) & ~3;
   }
-  return size;
+  return uint16_t(size);
 }
 
 bool PathWriter::Write(uint8_t* data, size_t size) const {
@@ -76,11 +76,11 @@ bool PathWriter::Write(uint8_t* data, size_t size) const {
 
   auto* header = reinterpret_cast<PathHeader*>(data);
   header->target = target_;
-  header->segment_size = segments_.size();
+  header->segment_size = uint8_t(segments_.size());
   header->flags = 0;
 
   auto* segment_header = reinterpret_cast<PathSegmentHeader*>(data + sizeof(PathHeader));
-  uint16_t offset = headers_size;
+  uint16_t offset = uint16_t(headers_size);
   for (const PathSegmentWriter& segment : segments_) {
     if (offset > headers_size && segment.start_time < (segment_header-1)->start_time) {
       header->flags |= PathHeader::Overflow;
@@ -89,7 +89,7 @@ bool PathWriter::Write(uint8_t* data, size_t size) const {
     segment_header->offset = offset;
     segment_header->size = segment.expr.data_size();
     if (!segment.expr.Write(data + offset, size - offset)) return false;
-    offset += (segment_header->size + 3) & ~uint16_t(3);
+    offset += uint16_t((segment_header->size + 3) & ~3);
     ++segment_header;
   }
   return true;

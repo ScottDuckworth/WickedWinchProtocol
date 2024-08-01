@@ -80,14 +80,14 @@ struct PostfixEvalContext {
 
   EvalStatus push(float v);
   EvalStatus pushv(std::span<const float> v);
-  EvalStatus pushf(size_t n);
+  EvalStatus pushf(uint16_t n);
   EvalStatus allocv(size_t n, std::span<float>& v);
   EvalStatus pop(float& v);
   EvalStatus popv(size_t n, std::span<float>& v);
   EvalStatus peek(float& v);
   EvalStatus peekv(size_t n, std::span<float>& v);
   EvalStatus geti(uint8_t& n);
-  EvalStatus implicitPushArg(uint8_t& arg, size_t multiple, uint8_t instances);
+  EvalStatus implicitPushArg(uint8_t& arg, uint8_t multiple, uint8_t instances);
   EvalStatus Eval();
 };
 

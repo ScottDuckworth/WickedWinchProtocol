@@ -48,7 +48,7 @@ EvalStatus PostfixEvalContext::pushv(std::span<const float> v) {
   return EvalStatus::Ok;
 }
 
-EvalStatus PostfixEvalContext::pushf(size_t n) {
+EvalStatus PostfixEvalContext::pushf(uint16_t n) {
   if (f_size < n) return EvalStatus::FloatLiteralsUnderflow;
   CHECK_STATUS(pushv(std::span<const float>(f_head, f_size)));
   f_size -= n;
@@ -56,12 +56,12 @@ EvalStatus PostfixEvalContext::pushf(size_t n) {
   return EvalStatus::Ok;
 }
 
-EvalStatus PostfixEvalContext::implicitPushArg(uint8_t& arg, size_t multiple, uint8_t instances) {
-  uint8_t mask = (1 << instances) - 1;
+EvalStatus PostfixEvalContext::implicitPushArg(uint8_t& arg, uint8_t multiple, uint8_t instances) {
+  uint8_t mask = uint8_t(1 << instances) - 1;
   uint8_t push_count = arg & mask;
   arg >>= instances;
   if (push_count == 0) return EvalStatus::Ok;
-  size_t size = push_count * multiple * arg;
+  uint16_t size = uint16_t(push_count * multiple * arg);
   return pushf(size);
 }
 
@@ -106,8 +106,8 @@ EvalStatus PostfixEvalContext::geti(uint8_t& n) {
 }
 
 EvalStatus PostfixEvalContext::Eval() {
-  for (uint8_t i = 0; i < op_size; ++i) {
-    const PostfixOp op = op_head[i];
+  for (uint8_t opi = 0; opi < op_size; ++opi) {
+    const PostfixOp op = op_head[opi];
     switch (op) {
     case PostfixOp::Push: {
       uint8_t n;
