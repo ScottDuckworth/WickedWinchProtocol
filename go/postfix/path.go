@@ -23,7 +23,7 @@ type PathSegment struct {
 type Path struct {
 	Target   uint16
 	Flags    uint8
-	Segments []PathSegment
+	Segments []*PathSegment
 }
 
 type PathHeader struct {
@@ -112,8 +112,9 @@ func (path *Path) Read(r io.Reader) error {
 			return err
 		}
 
-		segments := make([]PathSegment, header.SegmentSize)
+		segments := make([]*PathSegment, header.SegmentSize)
 		for i, sh := range segmentHeader {
+			segments[i] = &PathSegment{}
 			segments[i].StartTime = sh.StartTime
 			begin := sh.Offset
 			end := sh.Offset + sh.Size

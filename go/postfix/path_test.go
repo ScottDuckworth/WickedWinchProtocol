@@ -39,7 +39,7 @@ func TestPathReadWrite(t *testing.T) {
 			path: postfix.Path{
 				Target: 123,
 				Flags:  3,
-				Segments: []postfix.PathSegment{
+				Segments: []*postfix.PathSegment{
 					{
 						StartTime: 1000,
 						Expr:      postfix.MakeBuilder().Push(1, 2, 3).Build(),
@@ -52,7 +52,7 @@ func TestPathReadWrite(t *testing.T) {
 			path: postfix.Path{
 				Target: 321,
 				Flags:  3,
-				Segments: []postfix.PathSegment{
+				Segments: []*postfix.PathSegment{
 					{
 						StartTime: 1000,
 						Expr:      postfix.MakeBuilder().Pop(1).Push(3, 2, 1).Build(),
