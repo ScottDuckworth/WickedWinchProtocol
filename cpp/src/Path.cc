@@ -1,4 +1,4 @@
-#include "Path.h"
+#include <WickedWinchProtocol/Path.h>
 
 #include <algorithm>
 #include <cassert>

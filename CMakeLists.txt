@@ -16,16 +16,16 @@ include_directories(
 )
 
 add_library(WickedWinchProtocol
-  cpp/EvalStatus.h
-  cpp/Postfix.h
-  cpp/Postfix.cc
-  cpp/Path.h
-  cpp/Path.cc
-  cpp/WickedWinchProtocol.h
+  cpp/include/WickedWinchProtocol.h
+  cpp/include/WickedWinchProtocol/EvalStatus.h
+  cpp/include/WickedWinchProtocol/Postfix.h
+  cpp/include/WickedWinchProtocol/Path.h
+  cpp/src/Postfix.cc
+  cpp/src/Path.cc
 )
 
 target_include_directories(WickedWinchProtocol PUBLIC
-  ${CMAKE_CURRENT_SOURCE_DIR}/cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/cpp/include
 )
 
 if(NOT WICKEDWINCHPROTOCOL_TESTING_DISABLED)
@@ -40,7 +40,7 @@ if(NOT WICKEDWINCHPROTOCOL_TESTING_DISABLED)
   include(GoogleTest)
 
   add_executable(Postfix_test
-    cpp/Postfix_test.cc
+    cpp/tests/Postfix_test.cc
   )
   target_link_libraries(Postfix_test
     GTest::gmock
@@ -50,7 +50,7 @@ if(NOT WICKEDWINCHPROTOCOL_TESTING_DISABLED)
   gtest_discover_tests(Postfix_test)
 
   add_executable(Path_test
-    cpp/Path_test.cc
+    cpp/tests/Path_test.cc
   )
   target_link_libraries(Path_test
     GTest::gmock
