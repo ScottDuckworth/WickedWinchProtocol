@@ -60,6 +60,28 @@ TEST(EvalTest, Push) {
   EXPECT_THAT(stack, ElementsAre(42, 1, 2));
 }
 
+TEST(EvalTest, PushMany) {
+  PostfixWriter writer;
+  writer.add_op(PostfixOp::Push);
+  writer.add_op(PostfixOp::Push);
+  writer.add_i(2);
+  writer.add_i(1);
+  writer.add_f(1);
+  writer.add_f(2);
+  writer.add_f(3);
+  EXPECT_EQ(writer.op_size(), 2);
+  EXPECT_EQ(writer.i_size(), 2);
+  EXPECT_EQ(writer.f_size(), 3);
+
+  PostfixReader reader;
+  auto buffer = writer.Write();
+  EXPECT_TRUE(reader.Read(buffer));
+
+  TestStack stack(4, {42});
+  EXPECT_EQ(stack.Eval(reader), EvalStatus::Ok);
+  EXPECT_THAT(stack, ElementsAre(42, 1, 2, 3));
+}
+
 TEST(EvalTest, PushIntUnderflow) {
   PostfixWriter writer;
   writer.add_op(PostfixOp::Push);

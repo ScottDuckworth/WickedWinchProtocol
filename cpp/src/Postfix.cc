@@ -49,8 +49,8 @@ EvalStatus PostfixEvalContext::pushv(std::span<const float> v) {
 }
 
 EvalStatus PostfixEvalContext::pushf(uint16_t n) {
-  if (f_size < n) return EvalStatus::FloatLiteralsUnderflow;
-  CHECK_STATUS(pushv(std::span<const float>(f_head, f_size)));
+  if (n > f_size) return EvalStatus::FloatLiteralsUnderflow;
+  CHECK_STATUS(pushv(std::span<const float>(f_head, n)));
   f_size -= n;
   f_head += n;
   return EvalStatus::Ok;
