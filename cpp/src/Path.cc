@@ -75,7 +75,6 @@ bool PathWriter::Write(uint8_t* data, size_t size) const {
   if (size < headers_size) return false;
 
   auto* header = reinterpret_cast<PathHeader*>(data);
-  header->target = target_;
   header->segment_size = uint8_t(segments_.size());
   header->flags = 0;
 

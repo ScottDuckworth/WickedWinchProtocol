@@ -21,15 +21,14 @@ type PathSegment struct {
 }
 
 type Path struct {
-	Target   uint16
 	Flags    uint8
 	Segments []*PathSegment
 }
 
 type PathHeader struct {
-	Target      uint16
-	SegmentSize uint8
+	SegmentSize uint16
 	Flags       uint8
+	Padding     uint8
 }
 
 type PathSegmentHeader struct {
@@ -48,7 +47,7 @@ func (path Path) String() string {
 		sb.WriteString(" segment:")
 		sb.WriteString(s.String())
 	}
-	return fmt.Sprintf("{target:%v flags:%v%s}", path.Target, path.Flags, sb.String())
+	return fmt.Sprintf("{flags:%v%s}", path.Flags, sb.String())
 }
 
 func (path *Path) Write(w io.Writer) error {
@@ -59,8 +58,7 @@ func (path *Path) Write(w io.Writer) error {
 		}
 	}
 	header := PathHeader{
-		Target:      path.Target,
-		SegmentSize: uint8(len(path.Segments)),
+		SegmentSize: uint16(len(path.Segments)),
 		Flags:       flags,
 	}
 	headerSize := 4 + 8*len(path.Segments)
@@ -137,15 +135,11 @@ func (path *Path) Read(r io.Reader) error {
 		path.Segments = segments
 	}
 
-	path.Target = header.Target
 	path.Flags = header.Flags
 	return nil
 }
 
 func PathEqual(a, b *Path) bool {
-	if a.Target != b.Target {
-		return false
-	}
 	if a.Flags != b.Flags {
 		return false
 	}

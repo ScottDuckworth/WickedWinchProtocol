@@ -37,8 +37,7 @@ func TestPathReadWrite(t *testing.T) {
 		{
 			name: "one",
 			path: postfix.Path{
-				Target: 123,
-				Flags:  3,
+				Flags: 3,
 				Segments: []*postfix.PathSegment{
 					{
 						StartTime: 1000,
@@ -50,8 +49,7 @@ func TestPathReadWrite(t *testing.T) {
 		{
 			name: "two",
 			path: postfix.Path{
-				Target: 321,
-				Flags:  3,
+				Flags: 3,
 				Segments: []*postfix.PathSegment{
 					{
 						StartTime: 1000,

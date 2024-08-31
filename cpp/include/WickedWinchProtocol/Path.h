@@ -9,9 +9,9 @@
 namespace wickedwinch::protocol {
 
 struct PathHeader {
-  uint16_t target;
-  uint8_t segment_size;
+  uint16_t segment_size;
   uint8_t flags;
+  uint8_t padding;
 
   static constexpr uint8_t Overflow = 1 << 0;
 };
@@ -41,7 +41,6 @@ public:
   uint8_t SegmentAt(uint32_t) const;
   EvalStatus Eval(uint32_t t, PostfixStack& stack) const;
 
-  uint16_t target() const { return header()->target; }
   uint8_t flags() const { return header()->flags; }
 
   const PathSegmentHeader* segment_header_data() const {
