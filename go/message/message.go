@@ -44,6 +44,31 @@ func (m *MessageHeader) Read(r io.Reader) error {
 	return binary.Read(r, binary.LittleEndian, m)
 }
 
+type WritePayload interface {
+	Write(io.Writer) error
+}
+
+func BinaryFormat(targetId uint8, payloadType MessageType, payload WritePayload) ([]byte, error) {
+	var buf bytes.Buffer
+	header := MessageHeader{
+		TargetId:    targetId,
+		PayloadType: payloadType,
+	}
+	if err := header.Write(&buf); err != nil {
+		return nil, err
+	}
+	if payload != nil {
+		if err := payload.Write(&buf); err != nil {
+			return nil, err
+		}
+	}
+	data := buf.Bytes()
+	payloadSize := len(data) - 4
+	data[2] = byte(payloadSize & 0xFF)
+	data[3] = byte((payloadSize >> 8) & 0xFF)
+	return data, nil
+}
+
 type PingRequest struct {
 	PingId uint32
 }
@@ -69,7 +94,7 @@ func (m *PingResponse) Read(r io.Reader) error {
 	return binary.Read(r, binary.LittleEndian, m)
 }
 
-type targetListHeader struct {
+type targetListData struct {
 	Size uint8
 }
 
@@ -78,10 +103,10 @@ type TargetList struct {
 }
 
 func (m *TargetList) Write(w io.Writer) error {
-	header := targetListHeader{
+	data := targetListData{
 		Size: uint8(len(m.TargetIds)),
 	}
-	err := binary.Write(w, binary.LittleEndian, &header)
+	err := binary.Write(w, binary.LittleEndian, &data)
 	if err != nil {
 		return err
 	}
@@ -90,13 +115,13 @@ func (m *TargetList) Write(w io.Writer) error {
 }
 
 func (m *TargetList) Read(r io.Reader) error {
-	var header targetListHeader
-	err := binary.Read(r, binary.LittleEndian, &header)
+	var data targetListData
+	err := binary.Read(r, binary.LittleEndian, &data)
 	if err != nil {
 		return err
 	}
 
-	targets := make([]uint8, header.Size)
+	targets := make([]uint8, data.Size)
 	err = binary.Read(r, binary.LittleEndian, &targets)
 	if err != nil {
 		return err
@@ -170,7 +195,7 @@ const (
 	WinchMode_LinearPosition WinchMode = 2
 )
 
-type winchPathHeader struct {
+type winchPathData struct {
 	// The WinchMode of this winch.
 	Mode WinchMode
 	// Dummy data for alignment.
@@ -192,11 +217,11 @@ func (m *WinchPath) Write(w io.Writer) error {
 		return err
 	}
 
-	header := winchPathHeader{
+	data := winchPathData{
 		Mode:     m.Mode,
 		PathSize: uint16(buffer.Len()),
 	}
-	err = binary.Write(w, binary.LittleEndian, &header)
+	err = binary.Write(w, binary.LittleEndian, &data)
 	if err != nil {
 		return err
 	}
@@ -205,13 +230,13 @@ func (m *WinchPath) Write(w io.Writer) error {
 }
 
 func (m *WinchPath) Read(r io.Reader) error {
-	var header winchPathHeader
-	err := binary.Read(r, binary.LittleEndian, &header)
+	var data winchPathData
+	err := binary.Read(r, binary.LittleEndian, &data)
 	if err != nil {
 		return nil
 	}
 
-	pathData := make([]uint8, header.PathSize)
+	pathData := make([]uint8, data.PathSize)
 	err = binary.Read(r, binary.LittleEndian, &pathData)
 	if err != nil {
 		return nil
@@ -223,12 +248,12 @@ func (m *WinchPath) Read(r io.Reader) error {
 		return err
 	}
 
-	m.Mode = header.Mode
+	m.Mode = data.Mode
 	m.Path = path
 	return nil
 }
 
-type dmxConfigHeader struct {
+type dmxConfigData struct {
 	// Added to every value in channel_map to get the mapped DMX channel.
 	ChannelOffset uint8
 	// The number of DMX channels in channel_map.
@@ -242,11 +267,11 @@ type DmxConfig struct {
 }
 
 func (m *DmxConfig) Write(w io.Writer) error {
-	header := dmxConfigHeader{
+	data := dmxConfigData{
 		ChannelOffset: m.ChannelOffset,
 		ChannelSize:   uint8(len(m.ChannelMap)),
 	}
-	err := binary.Write(w, binary.LittleEndian, &header)
+	err := binary.Write(w, binary.LittleEndian, &data)
 	if err != nil {
 		return err
 	}
@@ -255,24 +280,24 @@ func (m *DmxConfig) Write(w io.Writer) error {
 }
 
 func (m *DmxConfig) Read(r io.Reader) error {
-	var header dmxConfigHeader
-	err := binary.Read(r, binary.LittleEndian, &header)
+	var data dmxConfigData
+	err := binary.Read(r, binary.LittleEndian, &data)
 	if err != nil {
 		return err
 	}
 
-	cm := make([]uint8, header.ChannelSize)
+	cm := make([]uint8, data.ChannelSize)
 	err = binary.Read(r, binary.LittleEndian, &cm)
 	if err != nil {
 		return err
 	}
 
-	m.ChannelOffset = header.ChannelOffset
+	m.ChannelOffset = data.ChannelOffset
 	m.ChannelMap = cm
 	return nil
 }
 
-type dmxPathHeader struct {
+type dmxPathData struct {
 	// Padding for alignment.
 	Padding uint16
 	// The size of path_data.
@@ -290,10 +315,10 @@ func (m *DmxPath) Write(w io.Writer) error {
 		return err
 	}
 
-	header := dmxPathHeader{
+	data := dmxPathData{
 		PathSize: uint16(buffer.Len()),
 	}
-	err = binary.Write(w, binary.LittleEndian, &header)
+	err = binary.Write(w, binary.LittleEndian, &data)
 	if err != nil {
 		return err
 	}
@@ -302,13 +327,13 @@ func (m *DmxPath) Write(w io.Writer) error {
 }
 
 func (m *DmxPath) Read(r io.Reader) error {
-	var header dmxPathHeader
-	err := binary.Read(r, binary.LittleEndian, &header)
+	var data dmxPathData
+	err := binary.Read(r, binary.LittleEndian, &data)
 	if err != nil {
 		return nil
 	}
 
-	pathData := make([]uint8, header.PathSize)
+	pathData := make([]uint8, data.PathSize)
 	err = binary.Read(r, binary.LittleEndian, &pathData)
 	if err != nil {
 		return nil
