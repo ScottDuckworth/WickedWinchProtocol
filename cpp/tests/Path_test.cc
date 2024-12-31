@@ -29,8 +29,6 @@ TEST(PathEvalTest, Empty) {
   EXPECT_EQ(reader.Eval(0, stack), EvalStatus::UndefinedOperation);
 
   PathWriter writer;
-  writer.set_target(123);
-
   auto buffer = writer.Write();
   EXPECT_TRUE(reader.Read(buffer));
   EXPECT_EQ(reader.segment_header_size(), 0);

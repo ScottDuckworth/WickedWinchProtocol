@@ -73,15 +73,11 @@ public:
     return buffer;
   }
 
-  uint16_t target() const { return target_; }
-  void set_target(uint16_t target) { target_ = target; }
-
   PathSegmentWriter* add_segments() { return &segments_.emplace_back(); }
   std::span<PathSegmentWriter> segments() { return segments_; }
   std::span<const PathSegmentWriter> segments() const { return segments_; }
 
 private:
-  uint16_t target_;
   std::vector<PathSegmentWriter> segments_;
 };
 
