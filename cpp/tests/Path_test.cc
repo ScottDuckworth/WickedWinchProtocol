@@ -29,15 +29,15 @@ struct TestEvaluator : PostfixEvaluator {
 TEST(PathEvalTest, Empty) {
   PathReader reader;
 
-  TestEvaluator stack;
-  EXPECT_EQ(reader.Eval(0, stack), EvalStatus::UndefinedOperation);
+  TestEvaluator eval;
+  EXPECT_EQ(reader.Eval(0, eval), EvalStatus::UndefinedOperation);
 
   PathWriter writer;
   auto buffer = writer.Write();
   EXPECT_TRUE(reader.Read(buffer));
   EXPECT_EQ(reader.segment_header_size(), 0);
 
-  EXPECT_EQ(reader.Eval(0, stack), EvalStatus::UndefinedOperation);
+  EXPECT_EQ(reader.Eval(0, eval), EvalStatus::UndefinedOperation);
 }
 
 TEST(PathEvalTest, Eval) {
@@ -56,21 +56,21 @@ TEST(PathEvalTest, Eval) {
   EXPECT_EQ(reader.flags(), 0);
   EXPECT_EQ(reader.segment_header_size(), 2);
 
-  TestEvaluator stack;
+  TestEvaluator eval;
 
-  EXPECT_EQ(reader.Eval(500, stack), EvalStatus::UndefinedOperation);
+  EXPECT_EQ(reader.Eval(500, eval), EvalStatus::UndefinedOperation);
 
-  EXPECT_EQ(reader.Eval(1000, stack), EvalStatus::Ok);
-  EXPECT_THAT(stack, Pointwise(FloatEq(), {0}));
+  EXPECT_EQ(reader.Eval(1000, eval), EvalStatus::Ok);
+  EXPECT_THAT(eval.stack(), Pointwise(FloatEq(), {0}));
 
-  EXPECT_EQ(reader.Eval(1750, stack), EvalStatus::Ok);
-  EXPECT_THAT(stack, Pointwise(FloatEq(), {0.75}));
+  EXPECT_EQ(reader.Eval(1750, eval), EvalStatus::Ok);
+  EXPECT_THAT(eval.stack(), Pointwise(FloatEq(), {0.75}));
 
-  EXPECT_EQ(reader.Eval(2000, stack), EvalStatus::Ok);
-  EXPECT_THAT(stack, Pointwise(FloatEq(), {99}));
+  EXPECT_EQ(reader.Eval(2000, eval), EvalStatus::Ok);
+  EXPECT_THAT(eval.stack(), Pointwise(FloatEq(), {99}));
 
-  EXPECT_EQ(reader.Eval(2100, stack), EvalStatus::Ok);
-  EXPECT_THAT(stack, Pointwise(FloatEq(), {99}));
+  EXPECT_EQ(reader.Eval(2100, eval), EvalStatus::Ok);
+  EXPECT_THAT(eval.stack(), Pointwise(FloatEq(), {99}));
 }
 
 TEST(PathEvalTest, Overflow) {
@@ -87,25 +87,25 @@ TEST(PathEvalTest, Overflow) {
   EXPECT_EQ(reader.flags(), PathHeader::Overflow);
   EXPECT_EQ(reader.segment_header_size(), 2);
 
-  TestEvaluator stack;
+  TestEvaluator eval;
 
-  EXPECT_EQ(reader.Eval(-1000, stack), EvalStatus::Ok);
-  EXPECT_THAT(stack, Pointwise(FloatEq(), {0}));
+  EXPECT_EQ(reader.Eval(-1000, eval), EvalStatus::Ok);
+  EXPECT_THAT(eval.stack(), Pointwise(FloatEq(), {0}));
 
-  EXPECT_EQ(reader.Eval(-500, stack), EvalStatus::Ok);
-  EXPECT_THAT(stack, Pointwise(FloatEq(), {0.5}));
+  EXPECT_EQ(reader.Eval(-500, eval), EvalStatus::Ok);
+  EXPECT_THAT(eval.stack(), Pointwise(FloatEq(), {0.5}));
 
-  EXPECT_EQ(reader.Eval(0, stack), EvalStatus::Ok);
-  EXPECT_THAT(stack, Pointwise(FloatEq(), {1}));
+  EXPECT_EQ(reader.Eval(0, eval), EvalStatus::Ok);
+  EXPECT_THAT(eval.stack(), Pointwise(FloatEq(), {1}));
 
-  EXPECT_EQ(reader.Eval(500, stack), EvalStatus::Ok);
-  EXPECT_THAT(stack, Pointwise(FloatEq(), {1.5}));
+  EXPECT_EQ(reader.Eval(500, eval), EvalStatus::Ok);
+  EXPECT_THAT(eval.stack(), Pointwise(FloatEq(), {1.5}));
 
-  EXPECT_EQ(reader.Eval(1000, stack), EvalStatus::Ok);
-  EXPECT_THAT(stack, Pointwise(FloatEq(), {0}));
+  EXPECT_EQ(reader.Eval(1000, eval), EvalStatus::Ok);
+  EXPECT_THAT(eval.stack(), Pointwise(FloatEq(), {0}));
 
-  EXPECT_EQ(reader.Eval(1500, stack), EvalStatus::Ok);
-  EXPECT_THAT(stack, Pointwise(FloatEq(), {0.5}));
+  EXPECT_EQ(reader.Eval(1500, eval), EvalStatus::Ok);
+  EXPECT_THAT(eval.stack(), Pointwise(FloatEq(), {0.5}));
 }
 
 }

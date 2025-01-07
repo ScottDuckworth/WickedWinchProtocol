@@ -47,7 +47,7 @@ TEST(EvalTest, Empty) {
 
   TestEvaluator eval(4, {42});
   EXPECT_EQ(eval.Eval(reader), EvalStatus::Ok);
-  EXPECT_THAT(eval, ElementsAre(42));
+  EXPECT_THAT(eval.stack(), ElementsAre(42));
 }
 
 TEST(EvalTest, Push) {
@@ -66,7 +66,7 @@ TEST(EvalTest, Push) {
 
   TestEvaluator eval(4, {42});
   EXPECT_EQ(eval.Eval(reader), EvalStatus::Ok);
-  EXPECT_THAT(eval, ElementsAre(42, 1, 2));
+  EXPECT_THAT(eval.stack(), ElementsAre(42, 1, 2));
 }
 
 TEST(EvalTest, PushMany) {
@@ -88,7 +88,7 @@ TEST(EvalTest, PushMany) {
 
   TestEvaluator eval(4, {42});
   EXPECT_EQ(eval.Eval(reader), EvalStatus::Ok);
-  EXPECT_THAT(eval, ElementsAre(42, 1, 2, 3));
+  EXPECT_THAT(eval.stack(), ElementsAre(42, 1, 2, 3));
 }
 
 TEST(EvalTest, PushIntUnderflow) {
@@ -129,7 +129,7 @@ TEST(EvalTest, Pop) {
 
   TestEvaluator eval(4, {1, 2, 3});
   EXPECT_EQ(eval.Eval(reader), EvalStatus::Ok);
-  EXPECT_THAT(eval, ElementsAre(1));
+  EXPECT_THAT(eval.stack(), ElementsAre(1));
 }
 
 TEST(EvalTest, PopStackUnderflow) {
@@ -169,7 +169,7 @@ TEST(EvalTest, Dup) {
 
   TestEvaluator eval(4, {1, 2, 3});
   EXPECT_EQ(eval.Eval(reader), EvalStatus::Ok);
-  EXPECT_THAT(eval, ElementsAre(1, 2, 3, 2));
+  EXPECT_THAT(eval.stack(), ElementsAre(1, 2, 3, 2));
 }
 
 TEST(EvalTest, DupStackUnderflow) {
@@ -208,7 +208,7 @@ TEST(EvalTest, RotL) {
 
   TestEvaluator eval(4, {1, 2, 3, 4});
   EXPECT_EQ(eval.Eval(reader), EvalStatus::Ok);
-  EXPECT_THAT(eval, ElementsAre(1, 3, 4, 2));
+  EXPECT_THAT(eval.stack(), ElementsAre(1, 3, 4, 2));
 }
 
 TEST(EvalTest, RotLStackUnderflow) {
@@ -247,7 +247,7 @@ TEST(EvalTest, RotR) {
 
   TestEvaluator eval(4, {1, 2, 3, 4});
   EXPECT_EQ(eval.Eval(reader), EvalStatus::Ok);
-  EXPECT_THAT(eval, ElementsAre(1, 4, 2, 3));
+  EXPECT_THAT(eval.stack(), ElementsAre(1, 4, 2, 3));
 }
 
 TEST(EvalTest, RotRStackUnderflow) {
@@ -286,7 +286,7 @@ TEST(EvalTest, Rev) {
 
   TestEvaluator eval(4, {1, 2, 3, 4});
   EXPECT_EQ(eval.Eval(reader), EvalStatus::Ok);
-  EXPECT_THAT(eval, ElementsAre(1, 4, 3, 2));
+  EXPECT_THAT(eval.stack(), ElementsAre(1, 4, 3, 2));
 }
 
 TEST(EvalTest, RevStackUnderflow) {
@@ -326,7 +326,7 @@ TEST(EvalTest, Transpose) {
 
   TestEvaluator eval(8, 6, {0, 1, 2, 3, 4, 5, 6});
   EXPECT_EQ(eval.Eval(reader), EvalStatus::Ok);
-  EXPECT_THAT(eval, ElementsAre(0, 1, 4, 2, 5, 3, 6));
+  EXPECT_THAT(eval.stack(), ElementsAre(0, 1, 4, 2, 5, 3, 6));
 }
 
 TEST(EvalTest, TransposeTempOverflow) {
@@ -388,7 +388,7 @@ TEST(EvalTest, PushTranspose) {
 
   TestEvaluator eval(8, 6, {0});
   EXPECT_EQ(eval.Eval(reader), EvalStatus::Ok);
-  EXPECT_THAT(eval, ElementsAre(0, 1, 4, 2, 5, 3, 6));
+  EXPECT_THAT(eval.stack(), ElementsAre(0, 1, 4, 2, 5, 3, 6));
 }
 
 TEST(EvalTest, PushTransposeFloatUnderflow) {
@@ -420,7 +420,7 @@ TEST(EvalTest, Add) {
 
   TestEvaluator eval(4, {0, 1, 2});
   EXPECT_EQ(eval.Eval(reader), EvalStatus::Ok);
-  EXPECT_THAT(eval, ElementsAre(0, 3));
+  EXPECT_THAT(eval.stack(), ElementsAre(0, 3));
 }
 
 TEST(EvalTest, AddStackUnderflow) {
@@ -445,7 +445,7 @@ TEST(EvalTest, Sub) {
 
   TestEvaluator eval(4, {0, 1, 2});
   EXPECT_EQ(eval.Eval(reader), EvalStatus::Ok);
-  EXPECT_THAT(eval, ElementsAre(0, -1));
+  EXPECT_THAT(eval.stack(), ElementsAre(0, -1));
 }
 
 TEST(EvalTest, SubStackUnderflow) {
@@ -470,7 +470,7 @@ TEST(EvalTest, Mul) {
 
   TestEvaluator eval(4, {0, 2, 3});
   EXPECT_EQ(eval.Eval(reader), EvalStatus::Ok);
-  EXPECT_THAT(eval, ElementsAre(0, 6));
+  EXPECT_THAT(eval.stack(), ElementsAre(0, 6));
 }
 
 TEST(EvalTest, MulStackUnderflow) {
@@ -495,7 +495,7 @@ TEST(EvalTest, MulAdd) {
 
   TestEvaluator eval(4, {0, 3, 2, 1});
   EXPECT_EQ(eval.Eval(reader), EvalStatus::Ok);
-  EXPECT_THAT(eval, ElementsAre(0, 7));
+  EXPECT_THAT(eval.stack(), ElementsAre(0, 7));
 }
 
 TEST(EvalTest, MulAddStackUnderflow) {
@@ -520,7 +520,7 @@ TEST(EvalTest, Div) {
 
   TestEvaluator eval(4, {0, 1, 2});
   EXPECT_EQ(eval.Eval(reader), EvalStatus::Ok);
-  EXPECT_THAT(eval, ElementsAre(0, 0.5));
+  EXPECT_THAT(eval.stack(), ElementsAre(0, 0.5));
 }
 
 TEST(EvalTest, DivStackUnderflow) {
@@ -545,7 +545,7 @@ TEST(EvalTest, Mod) {
 
   TestEvaluator eval(4, {0, 8, 3});
   EXPECT_EQ(eval.Eval(reader), EvalStatus::Ok);
-  EXPECT_THAT(eval, ElementsAre(0, 2));
+  EXPECT_THAT(eval.stack(), ElementsAre(0, 2));
 }
 
 TEST(EvalTest, ModStackUnderflow) {
@@ -570,7 +570,7 @@ TEST(EvalTest, Neg) {
 
   TestEvaluator eval(4, {0, 2});
   EXPECT_EQ(eval.Eval(reader), EvalStatus::Ok);
-  EXPECT_THAT(eval, ElementsAre(0, -2));
+  EXPECT_THAT(eval.stack(), ElementsAre(0, -2));
 }
 
 TEST(EvalTest, NegStackUnderflow) {
@@ -595,7 +595,7 @@ TEST(EvalTest, Abs) {
 
   TestEvaluator eval(4, {0, -2});
   EXPECT_EQ(eval.Eval(reader), EvalStatus::Ok);
-  EXPECT_THAT(eval, ElementsAre(0, 2));
+  EXPECT_THAT(eval.stack(), ElementsAre(0, 2));
 }
 
 TEST(EvalTest, AbsStackUnderflow) {
@@ -620,7 +620,7 @@ TEST(EvalTest, Inv) {
 
   TestEvaluator eval(4, {0, 2});
   EXPECT_EQ(eval.Eval(reader), EvalStatus::Ok);
-  EXPECT_THAT(eval, ElementsAre(0, 0.5));
+  EXPECT_THAT(eval.stack(), ElementsAre(0, 0.5));
 }
 
 TEST(EvalTest, InvStackUnderflow) {
@@ -645,7 +645,7 @@ TEST(EvalTest, Pow) {
 
   TestEvaluator eval(4, {0, 2, 3});
   EXPECT_EQ(eval.Eval(reader), EvalStatus::Ok);
-  EXPECT_THAT(eval, ElementsAre(0, 8));
+  EXPECT_THAT(eval.stack(), ElementsAre(0, 8));
 }
 
 TEST(EvalTest, PowStackUnderflow) {
@@ -670,7 +670,7 @@ TEST(EvalTest, Sqrt) {
 
   TestEvaluator eval(4, {0, 7});
   EXPECT_EQ(eval.Eval(reader), EvalStatus::Ok);
-  EXPECT_THAT(eval, ElementsAre(0, std::sqrt(7)));
+  EXPECT_THAT(eval.stack(), ElementsAre(0, std::sqrt(7)));
 }
 
 TEST(EvalTest, SqrtStackUnderflow) {
@@ -695,7 +695,7 @@ TEST(EvalTest, Exp) {
 
   TestEvaluator eval(4, {0, 4});
   EXPECT_EQ(eval.Eval(reader), EvalStatus::Ok);
-  EXPECT_THAT(eval, ElementsAre(0, std::exp(4)));
+  EXPECT_THAT(eval.stack(), ElementsAre(0, std::exp(4)));
 }
 
 TEST(EvalTest, ExpStackUnderflow) {
@@ -720,7 +720,7 @@ TEST(EvalTest, Ln) {
 
   TestEvaluator eval(4, {0, 5});
   EXPECT_EQ(eval.Eval(reader), EvalStatus::Ok);
-  EXPECT_THAT(eval, ElementsAre(0, std::log(5)));
+  EXPECT_THAT(eval.stack(), ElementsAre(0, std::log(5)));
 }
 
 TEST(EvalTest, LnStackUnderflow) {
@@ -745,7 +745,7 @@ TEST(EvalTest, Sin) {
 
   TestEvaluator eval(4, {0, 5});
   EXPECT_EQ(eval.Eval(reader), EvalStatus::Ok);
-  EXPECT_THAT(eval, ElementsAre(0, std::sin(5)));
+  EXPECT_THAT(eval.stack(), ElementsAre(0, std::sin(5)));
 }
 
 TEST(EvalTest, SinStackUnderflow) {
@@ -770,7 +770,7 @@ TEST(EvalTest, Cos) {
 
   TestEvaluator eval(4, {0, 5});
   EXPECT_EQ(eval.Eval(reader), EvalStatus::Ok);
-  EXPECT_THAT(eval, ElementsAre(0, std::cos(5)));
+  EXPECT_THAT(eval.stack(), ElementsAre(0, std::cos(5)));
 }
 
 TEST(EvalTest, CosStackUnderflow) {
@@ -795,7 +795,7 @@ TEST(EvalTest, Tan) {
 
   TestEvaluator eval(4, {0, 5});
   EXPECT_EQ(eval.Eval(reader), EvalStatus::Ok);
-  EXPECT_THAT(eval, ElementsAre(0, std::tan(5)));
+  EXPECT_THAT(eval.stack(), ElementsAre(0, std::tan(5)));
 }
 
 TEST(EvalTest, TanStackUnderflow) {
@@ -820,7 +820,7 @@ TEST(EvalTest, Asin) {
 
   TestEvaluator eval(4, {0, 0.5});
   EXPECT_EQ(eval.Eval(reader), EvalStatus::Ok);
-  EXPECT_THAT(eval, ElementsAre(0, std::asin(0.5)));
+  EXPECT_THAT(eval.stack(), ElementsAre(0, std::asin(0.5)));
 }
 
 TEST(EvalTest, AsinStackUnderflow) {
@@ -845,7 +845,7 @@ TEST(EvalTest, Acos) {
 
   TestEvaluator eval(4, {0, 0.5});
   EXPECT_EQ(eval.Eval(reader), EvalStatus::Ok);
-  EXPECT_THAT(eval, ElementsAre(0, std::acos(0.5)));
+  EXPECT_THAT(eval.stack(), ElementsAre(0, std::acos(0.5)));
 }
 
 TEST(EvalTest, AcosStackUnderflow) {
@@ -870,7 +870,7 @@ TEST(EvalTest, Atan2) {
 
   TestEvaluator eval(4, {0, 5, 4});
   EXPECT_EQ(eval.Eval(reader), EvalStatus::Ok);
-  EXPECT_THAT(eval, ElementsAre(0, std::atan2(5, 4)));
+  EXPECT_THAT(eval.stack(), ElementsAre(0, std::atan2(5, 4)));
 }
 
 TEST(EvalTest, Atan2StackUnderflow) {
@@ -896,7 +896,7 @@ TEST(EvalTest, PolyVec) {
 
   TestEvaluator eval(6, {0, 2, 3, 4, 5, 6});
   EXPECT_EQ(eval.Eval(reader), EvalStatus::Ok);
-  EXPECT_THAT(eval, ElementsAre(0, 79));
+  EXPECT_THAT(eval.stack(), ElementsAre(0, 79));
 }
 
 TEST(EvalTest, PolyVecStackUnderflow) {
@@ -939,7 +939,7 @@ TEST(EvalTest, PushPolyVec) {
 
   TestEvaluator eval(6, {0, 2});
   EXPECT_EQ(eval.Eval(reader), EvalStatus::Ok);
-  EXPECT_THAT(eval, ElementsAre(0, 79));
+  EXPECT_THAT(eval.stack(), ElementsAre(0, 79));
 }
 
 TEST(EvalTest, PushPolyVecFloatUnderflow) {
@@ -970,7 +970,7 @@ TEST(EvalTest, PolyMat) {
 
   TestEvaluator eval(12, {0, 2, 3, 4, 5, 6, 7, 8, 9, 10});
   EXPECT_EQ(eval.Eval(reader), EvalStatus::Ok);
-  EXPECT_THAT(eval, ElementsAre(0, 3 + 2*5 + 4*7 + 8*9, 4 + 2*6 + 4*8 + 8*10));
+  EXPECT_THAT(eval.stack(), ElementsAre(0, 3 + 2*5 + 4*7 + 8*9, 4 + 2*6 + 4*8 + 8*10));
 }
 
 TEST(EvalTest, PolyMatStackUnderflow) {
@@ -1020,7 +1020,7 @@ TEST(EvalTest, PushPolyMat) {
 
   TestEvaluator eval(12, {0, 2});
   EXPECT_EQ(eval.Eval(reader), EvalStatus::Ok);
-  EXPECT_THAT(eval, ElementsAre(0, 3 + 2*5 + 4*7 + 8*9, 4 + 2*6 + 4*8 + 8*10));
+  EXPECT_THAT(eval.stack(), ElementsAre(0, 3 + 2*5 + 4*7 + 8*9, 4 + 2*6 + 4*8 + 8*10));
 }
 
 TEST(EvalTest, PushPolyMatFloatUnderflow) {
@@ -1055,7 +1055,7 @@ TEST(EvalTest, AddVec) {
 
   TestEvaluator eval(8, {0, 1, 2, 3, 4, 5, 6});
   EXPECT_EQ(eval.Eval(reader), EvalStatus::Ok);
-  EXPECT_THAT(eval, ElementsAre(0, 5, 7, 9));
+  EXPECT_THAT(eval.stack(), ElementsAre(0, 5, 7, 9));
 }
 
 TEST(EvalTest, AddVecStackUnderflow) {
@@ -1097,7 +1097,7 @@ TEST(EvalTest, PushAddVec) {
 
   TestEvaluator eval(8, {0, 1, 2, 3});
   EXPECT_EQ(eval.Eval(reader), EvalStatus::Ok);
-  EXPECT_THAT(eval, ElementsAre(0, 5, 7, 9));
+  EXPECT_THAT(eval.stack(), ElementsAre(0, 5, 7, 9));
 }
 
 TEST(EvalTest, PushAddVecFloatUnderflow) {
@@ -1126,7 +1126,7 @@ TEST(EvalTest, SubVec) {
 
   TestEvaluator eval(8, {0, 1, 2, 3, 4, 2, 1});
   EXPECT_EQ(eval.Eval(reader), EvalStatus::Ok);
-  EXPECT_THAT(eval, ElementsAre(0, -3, 0, 2));
+  EXPECT_THAT(eval.stack(), ElementsAre(0, -3, 0, 2));
 }
 
 TEST(EvalTest, SubVecStackUnderflow) {
@@ -1168,7 +1168,7 @@ TEST(EvalTest, PushSubVec) {
 
   TestEvaluator eval(8, {0, 1, 2, 3});
   EXPECT_EQ(eval.Eval(reader), EvalStatus::Ok);
-  EXPECT_THAT(eval, ElementsAre(0, -3, 0, 2));
+  EXPECT_THAT(eval.stack(), ElementsAre(0, -3, 0, 2));
 }
 
 TEST(EvalTest, PushSubVecFloatUnderflow) {
@@ -1197,7 +1197,7 @@ TEST(EvalTest, MulVec) {
 
   TestEvaluator eval(8, {0, 1, 2, 3, 4, 3, -1});
   EXPECT_EQ(eval.Eval(reader), EvalStatus::Ok);
-  EXPECT_THAT(eval, ElementsAre(0, 4, 6, -3));
+  EXPECT_THAT(eval.stack(), ElementsAre(0, 4, 6, -3));
 }
 
 TEST(EvalTest, MulVecStackUnderflow) {
@@ -1239,7 +1239,7 @@ TEST(EvalTest, PushMulVec) {
 
   TestEvaluator eval(8, {0, 1, 2, 3});
   EXPECT_EQ(eval.Eval(reader), EvalStatus::Ok);
-  EXPECT_THAT(eval, ElementsAre(0, 4, 6, -3));
+  EXPECT_THAT(eval.stack(), ElementsAre(0, 4, 6, -3));
 }
 
 TEST(EvalTest, PushMulVecFloatUnderflow) {
@@ -1268,7 +1268,7 @@ TEST(EvalTest, MulAddVec) {
 
   TestEvaluator eval(12, {0, 1, 2, 3, 4, 3, -1, 0, 1, 2});
   EXPECT_EQ(eval.Eval(reader), EvalStatus::Ok);
-  EXPECT_THAT(eval, ElementsAre(0, 1 * 4 + 0, 2 * 3 + 1, 3 * -1 + 2));
+  EXPECT_THAT(eval.stack(), ElementsAre(0, 1 * 4 + 0, 2 * 3 + 1, 3 * -1 + 2));
 }
 
 TEST(EvalTest, MulAddVecStackUnderflow) {
@@ -1310,7 +1310,7 @@ TEST(EvalTest, PushMulAddVec1) {
 
   TestEvaluator eval(12, {0, 1, 2, 3, 4, 3, -1});
   EXPECT_EQ(eval.Eval(reader), EvalStatus::Ok);
-  EXPECT_THAT(eval, ElementsAre(0, 1 * 4 + 0, 2 * 3 + 1, 3 * -1 + 2));
+  EXPECT_THAT(eval.stack(), ElementsAre(0, 1 * 4 + 0, 2 * 3 + 1, 3 * -1 + 2));
 }
 
 TEST(EvalTest, PushMulAddVec2) {
@@ -1330,7 +1330,7 @@ TEST(EvalTest, PushMulAddVec2) {
 
   TestEvaluator eval(12, {0, 1, 2, 3});
   EXPECT_EQ(eval.Eval(reader), EvalStatus::Ok);
-  EXPECT_THAT(eval, ElementsAre(0, 1 * 4 + 0, 2 * 3 + 1, 3 * -1 + 2));
+  EXPECT_THAT(eval.stack(), ElementsAre(0, 1 * 4 + 0, 2 * 3 + 1, 3 * -1 + 2));
 }
 
 TEST(EvalTest, PushMulAddVecFloatUnderflow) {
@@ -1359,7 +1359,7 @@ TEST(EvalTest, ScaleVec) {
 
   TestEvaluator eval(8, {0, 2, 3, 4, -2});
   EXPECT_EQ(eval.Eval(reader), EvalStatus::Ok);
-  EXPECT_THAT(eval, ElementsAre(0, 6, 8, -4));
+  EXPECT_THAT(eval.stack(), ElementsAre(0, 6, 8, -4));
 }
 
 TEST(EvalTest, ScaleVecStackUnderflow) {
@@ -1401,7 +1401,7 @@ TEST(EvalTest, PushScaleVec) {
 
   TestEvaluator eval(8, {0, 2});
   EXPECT_EQ(eval.Eval(reader), EvalStatus::Ok);
-  EXPECT_THAT(eval, ElementsAre(0, 6, 8, -4));
+  EXPECT_THAT(eval.stack(), ElementsAre(0, 6, 8, -4));
 }
 
 TEST(EvalTest, PushScaleVecFloatUnderflow) {
@@ -1430,7 +1430,7 @@ TEST(EvalTest, NegVec) {
 
   TestEvaluator eval(8, {0, 3, 4, -2});
   EXPECT_EQ(eval.Eval(reader), EvalStatus::Ok);
-  EXPECT_THAT(eval, ElementsAre(0, -3, -4, 2));
+  EXPECT_THAT(eval.stack(), ElementsAre(0, -3, -4, 2));
 }
 
 TEST(EvalTest, NegVecStackUnderflow) {
@@ -1472,7 +1472,7 @@ TEST(EvalTest, PushNegVec) {
 
   TestEvaluator eval(8, {0});
   EXPECT_EQ(eval.Eval(reader), EvalStatus::Ok);
-  EXPECT_THAT(eval, ElementsAre(0, -3, -4, 2));
+  EXPECT_THAT(eval.stack(), ElementsAre(0, -3, -4, 2));
 }
 
 TEST(EvalTest, PushNegVecFloatUnderflow) {
@@ -1501,7 +1501,7 @@ TEST(EvalTest, NormVec) {
 
   TestEvaluator eval(8, {0, 2, 3, 4});
   EXPECT_EQ(eval.Eval(reader), EvalStatus::Ok);
-  EXPECT_THAT(eval, ElementsAre(0, std::sqrt(2*2 + 3*3 + 4*4)));
+  EXPECT_THAT(eval.stack(), ElementsAre(0, std::sqrt(2*2 + 3*3 + 4*4)));
 }
 
 TEST(EvalTest, NormVecStackUnderflow) {
@@ -1543,7 +1543,7 @@ TEST(EvalTest, PushNormVec) {
 
   TestEvaluator eval(8, {0});
   EXPECT_EQ(eval.Eval(reader), EvalStatus::Ok);
-  EXPECT_THAT(eval, ElementsAre(0, std::sqrt(2*2 + 3*3 + 4*4)));
+  EXPECT_THAT(eval.stack(), ElementsAre(0, std::sqrt(2*2 + 3*3 + 4*4)));
 }
 
 TEST(EvalTest, PushNormVecFloatUnderflow) {
@@ -1574,7 +1574,7 @@ TEST(EvalTest, MulMat) {
 
   TestEvaluator eval(32, 8, {0, 1, 2, 3, 4, 5, 6, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12});
   EXPECT_EQ(eval.Eval(reader), EvalStatus::Ok);
-  EXPECT_THAT(eval, ElementsAre(
+  EXPECT_THAT(eval.stack(), ElementsAre(
     0,
     1*1 + 2*5 + 3*9, 1*2 + 2*6 + 3*10, 1*3 + 2*7 + 3*11, 1*4 + 2*8 + 3*12,
     4*1 + 5*5 + 6*9, 4*2 + 5*6 + 6*10, 4*3 + 5*7 + 6*11, 4*4 + 5*8 + 6*12));
@@ -1649,7 +1649,7 @@ TEST(EvalTest, PushMulMat) {
 
   TestEvaluator eval(32, 8, {0, 1, 2, 3, 4, 5, 6});
   EXPECT_EQ(eval.Eval(reader), EvalStatus::Ok);
-  EXPECT_THAT(eval, ElementsAre(
+  EXPECT_THAT(eval.stack(), ElementsAre(
     0,
     1*1 + 2*5 + 3*9, 1*2 + 2*6 + 3*10, 1*3 + 2*7 + 3*11, 1*4 + 2*8 + 3*12,
     4*1 + 5*5 + 6*9, 4*2 + 5*6 + 6*10, 4*3 + 5*7 + 6*11, 4*4 + 5*8 + 6*12));
@@ -1692,7 +1692,7 @@ TEST(EvalTest, Lerp) {
 
   TestEvaluator eval(8, {0, 0.25, 2, 3, 4, 6, 7, 8});
   EXPECT_EQ(eval.Eval(reader), EvalStatus::Ok);
-  EXPECT_THAT(eval, ElementsAre(0, 3, 4, 5));
+  EXPECT_THAT(eval.stack(), ElementsAre(0, 3, 4, 5));
 }
 
 TEST(EvalTest, LerpStackUnderflow) {
@@ -1734,7 +1734,7 @@ TEST(EvalTest, PushLerp1) {
 
   TestEvaluator eval(8, {0, 0.25, 2, 3, 4});
   EXPECT_EQ(eval.Eval(reader), EvalStatus::Ok);
-  EXPECT_THAT(eval, ElementsAre(0, 3, 4, 5));
+  EXPECT_THAT(eval.stack(), ElementsAre(0, 3, 4, 5));
 }
 
 TEST(EvalTest, PushLerp2) {
@@ -1754,7 +1754,7 @@ TEST(EvalTest, PushLerp2) {
 
   TestEvaluator eval(8, {0, 0.25});
   EXPECT_EQ(eval.Eval(reader), EvalStatus::Ok);
-  EXPECT_THAT(eval, ElementsAre(0, 3, 4, 5));
+  EXPECT_THAT(eval.stack(), ElementsAre(0, 3, 4, 5));
 }
 
 TEST(EvalTest, PushLerpFloatUnderflow) {
@@ -1784,7 +1784,7 @@ TEST(EvalTest, Lut_n1) {
 
   TestEvaluator eval(16, {0, -1, 0, 1, 2, 3, 2, 4, 3, 7, 6, 8, 2, 0});
   EXPECT_EQ(eval.Eval(reader), EvalStatus::Ok);
-  EXPECT_THAT(eval, ElementsAre(0, 1, 2, 3));
+  EXPECT_THAT(eval.stack(), ElementsAre(0, 1, 2, 3));
 }
 
 TEST(EvalTest, Lut_0) {
@@ -1799,7 +1799,7 @@ TEST(EvalTest, Lut_0) {
 
   TestEvaluator eval(16, {0, 0, 0, 1, 2, 3, 2, 4, 3, 7, 6, 8, 2, 0});
   EXPECT_EQ(eval.Eval(reader), EvalStatus::Ok);
-  EXPECT_THAT(eval, ElementsAre(0, 1, 2, 3));
+  EXPECT_THAT(eval.stack(), ElementsAre(0, 1, 2, 3));
 }
 
 TEST(EvalTest, Lut_0_5) {
@@ -1814,7 +1814,7 @@ TEST(EvalTest, Lut_0_5) {
 
   TestEvaluator eval(16, {0, 0.5, 0, 1, 2, 3, 2, 4, 3, 7, 6, 8, 2, 0});
   EXPECT_EQ(eval.Eval(reader), EvalStatus::Ok);
-  EXPECT_THAT(eval, ElementsAre(0, 1.75, 2.25, 4));
+  EXPECT_THAT(eval.stack(), ElementsAre(0, 1.75, 2.25, 4));
 }
 
 TEST(EvalTest, Lut_2) {
@@ -1829,7 +1829,7 @@ TEST(EvalTest, Lut_2) {
 
   TestEvaluator eval(16, {0, 2, 0, 1, 2, 3, 2, 4, 3, 7, 6, 8, 2, 0});
   EXPECT_EQ(eval.Eval(reader), EvalStatus::Ok);
-  EXPECT_THAT(eval, ElementsAre(0, 4, 3, 7));
+  EXPECT_THAT(eval.stack(), ElementsAre(0, 4, 3, 7));
 }
 
 TEST(EvalTest, Lut_4) {
@@ -1844,7 +1844,7 @@ TEST(EvalTest, Lut_4) {
 
   TestEvaluator eval(16, {0, 4, 0, 1, 2, 3, 2, 4, 3, 7, 6, 8, 2, 0});
   EXPECT_EQ(eval.Eval(reader), EvalStatus::Ok);
-  EXPECT_THAT(eval, ElementsAre(0, 6, 2.5, 3.5));
+  EXPECT_THAT(eval.stack(), ElementsAre(0, 6, 2.5, 3.5));
 }
 
 TEST(EvalTest, Lut_6) {
@@ -1859,7 +1859,7 @@ TEST(EvalTest, Lut_6) {
 
   TestEvaluator eval(16, {0, 6, 0, 1, 2, 3, 2, 4, 3, 7, 6, 8, 2, 0});
   EXPECT_EQ(eval.Eval(reader), EvalStatus::Ok);
-  EXPECT_THAT(eval, ElementsAre(0, 8, 2, 0));
+  EXPECT_THAT(eval.stack(), ElementsAre(0, 8, 2, 0));
 }
 
 TEST(EvalTest, Lut_7) {
@@ -1874,7 +1874,7 @@ TEST(EvalTest, Lut_7) {
 
   TestEvaluator eval(16, {0, 7, 0, 1, 2, 3, 2, 4, 3, 7, 6, 8, 2, 0});
   EXPECT_EQ(eval.Eval(reader), EvalStatus::Ok);
-  EXPECT_THAT(eval, ElementsAre(0, 8, 2, 0));
+  EXPECT_THAT(eval.stack(), ElementsAre(0, 8, 2, 0));
 }
 
 TEST(EvalTest, LutStackUnderflow) {
@@ -1916,7 +1916,7 @@ TEST(EvalTest, LutIllegalOperation) {
 
   TestEvaluator eval(16, {0, 4});
   EXPECT_EQ(eval.Eval(reader), EvalStatus::IllegalOperation);
-  EXPECT_THAT(eval, ElementsAre(0, 4));
+  EXPECT_THAT(eval.stack(), ElementsAre(0, 4));
 }
 
 TEST(EvalTest, PushLut) {
@@ -1943,7 +1943,7 @@ TEST(EvalTest, PushLut) {
 
   TestEvaluator eval(16, {0, 4});
   EXPECT_EQ(eval.Eval(reader), EvalStatus::Ok);
-  EXPECT_THAT(eval, ElementsAre(0, 6, 2.5, 3.5));
+  EXPECT_THAT(eval.stack(), ElementsAre(0, 6, 2.5, 3.5));
 }
 
 TEST(EvalTest, PushLutFloatUnderflow) {

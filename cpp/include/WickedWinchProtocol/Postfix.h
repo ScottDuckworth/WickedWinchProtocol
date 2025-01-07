@@ -125,9 +125,6 @@ struct PostfixEvalContext {
   uint16_t f_size;
 
   float* stack_data;
-  size_t stack_size;
-  size_t stack_capacity;
-
   float* temp_data;
   uint8_t stack_size;
   uint8_t stack_capacity;
@@ -247,9 +244,6 @@ private:
 
 struct PostfixEvaluator {
   float* stack_data;
-  size_t stack_size;
-  size_t stack_capacity;
-
   float* temp_data;
   uint8_t stack_size;
   uint8_t stack_capacity;
@@ -276,7 +270,6 @@ struct PostfixEvaluator {
       .temp_data      = temp_data,
       .stack_size     = stack_size,
       .stack_capacity = stack_capacity,
-      .temp_data      = temp_data,
       .temp_capacity  = temp_capacity,
     };
     EvalStatus status = context.Eval();
@@ -284,23 +277,8 @@ struct PostfixEvaluator {
     return status;
   }
 
-  using value_type = float;
-  using iterator = float*;
-  using const_iterator = float*;
-
-  float& operator[](size_t i) { return stack_data[i]; }
-  float operator[](size_t i) const { return stack_data[i]; }
-
-  float* data() { return stack_data; }
-  const float* data() const { return stack_data; }
-
-  size_t size() const { return stack_size; }
-
-  iterator begin() { return stack_data; }
-  iterator end() { return stack_data + stack_size; }
-
-  const_iterator begin() const { return stack_data; }
-  const_iterator end() const { return stack_data + stack_size; }
+  std::span<float> stack() { return std::span(stack_data, stack_size); }
+  std::span<const float> stack() const { return std::span(stack_data, stack_size); }
 };
 
 }
