@@ -35,19 +35,19 @@ size_t search(size_t n, const Pred& pred) {
 #define CHECK_STATUS(expr) if (EvalStatus status = expr; status != EvalStatus::Ok) return status
 
 EvalStatus PostfixEvalContext::push(float v) {
-  if (stack_size + 1 > stack_capacity) return EvalStatus::StackOverflow;
+  if (stack_capacity - stack_size < 1) return EvalStatus::StackOverflow;
   stack_data[stack_size++] = v;
   return EvalStatus::Ok;
 }
 
 EvalStatus PostfixEvalContext::pushv(std::span<const float> v) {
-  if (stack_size + v.size() > stack_capacity) return EvalStatus::StackOverflow;
+  if (stack_capacity - stack_size < v.size()) return EvalStatus::StackOverflow;
   memcpy(&stack_data[stack_size], v.data(), v.size() * sizeof(float));
   stack_size += v.size();
   return EvalStatus::Ok;
 }
 
-EvalStatus PostfixEvalContext::pushf(size_t n) {
+EvalStatus PostfixEvalContext::pushf(uint16_t n) {
   if (n > f_size) return EvalStatus::FloatLiteralsUnderflow;
   CHECK_STATUS(pushv(std::span<const float>(f_head, n)));
   f_size -= n;
@@ -60,11 +60,11 @@ EvalStatus PostfixEvalContext::implicitPushArg(uint8_t& arg, uint8_t multiple, u
   uint8_t push_count = arg & mask;
   arg >>= instances;
   if (push_count == 0) return EvalStatus::Ok;
-  uint16_t size = uint16_t(push_count * multiple * arg);
+  uint16_t size = uint16_t(push_count) * uint16_t(multiple * arg);
   return pushf(size);
 }
 
-EvalStatus PostfixEvalContext::allocv(size_t n, std::span<float>& v) {
+EvalStatus PostfixEvalContext::allocv(uint8_t n, std::span<float>& v) {
   if (stack_size + n > stack_capacity) return EvalStatus::StackOverflow;
   v = std::span<float>(&stack_data[stack_size], n);
   stack_size += n;
@@ -77,7 +77,7 @@ EvalStatus PostfixEvalContext::pop(float& v) {
   return EvalStatus::Ok;
 }
 
-EvalStatus PostfixEvalContext::popv(size_t n, std::span<float>& v) {
+EvalStatus PostfixEvalContext::popv(uint8_t n, std::span<float>& v) {
   if (stack_size < n) return EvalStatus::StackUnderflow;
   stack_size -= n;
   v = std::span<float>(&stack_data[stack_size], n);
@@ -90,7 +90,7 @@ EvalStatus PostfixEvalContext::peek(float& v) {
   return EvalStatus::Ok;
 }
 
-EvalStatus PostfixEvalContext::peekv(size_t n, std::span<float>& v) {
+EvalStatus PostfixEvalContext::peekv(uint8_t n, std::span<float>& v) {
   if (stack_size < n) return EvalStatus::StackUnderflow;
   v = std::span<float>(&stack_data[stack_size - n], n);
   return EvalStatus::Ok;
@@ -480,7 +480,7 @@ EvalStatus PostfixEvalContext::Eval() {
 
       float t;
       std::span<float> lut, result;
-      size_t size = rows * cols;
+      uint8_t size = rows * cols;
       uint8_t n = cols - 1;
       CHECK_STATUS(popv(size, lut));
       CHECK_STATUS(pop(t));

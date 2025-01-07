@@ -129,16 +129,18 @@ struct PostfixEvalContext {
   size_t stack_capacity;
 
   float* temp_data;
-  size_t temp_capacity;
+  uint8_t stack_size;
+  uint8_t stack_capacity;
+  uint8_t temp_capacity;
 
   EvalStatus push(float v);
   EvalStatus pushv(std::span<const float> v);
-  EvalStatus pushf(size_t n);
-  EvalStatus allocv(size_t n, std::span<float>& v);
+  EvalStatus pushf(uint16_t n);
+  EvalStatus allocv(uint8_t n, std::span<float>& v);
   EvalStatus pop(float& v);
-  EvalStatus popv(size_t n, std::span<float>& v);
+  EvalStatus popv(uint8_t n, std::span<float>& v);
   EvalStatus peek(float& v);
-  EvalStatus peekv(size_t n, std::span<float>& v);
+  EvalStatus peekv(uint8_t n, std::span<float>& v);
   EvalStatus geti(uint8_t& n);
   EvalStatus implicitPushArg(uint8_t& arg, uint8_t multiple, uint8_t instances);
   EvalStatus Eval();
@@ -249,12 +251,14 @@ struct PostfixEvaluator {
   size_t stack_capacity;
 
   float* temp_data;
-  size_t temp_capacity;
+  uint8_t stack_size;
+  uint8_t stack_capacity;
+  uint8_t temp_capacity;
 
   void clear() { stack_size = 0; }
 
   bool push(float v) {
-    if (stack_size + 1 > stack_capacity) return false;
+    if (stack_capacity - stack_size < 1) return false;
     stack_data[stack_size++] = v;
     return true;
   }
@@ -269,6 +273,7 @@ struct PostfixEvaluator {
       .i_size         = expr.i_size(),
       .f_size         = expr.f_size(),
       .stack_data     = stack_data,
+      .temp_data      = temp_data,
       .stack_size     = stack_size,
       .stack_capacity = stack_capacity,
       .temp_data      = temp_data,

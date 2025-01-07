@@ -13,10 +13,10 @@ namespace wickedwinch::protocol {
 namespace {
 
 struct TestEvaluator : PostfixEvaluator {
-  TestEvaluator(size_t stack_capacity, std::initializer_list<float> stack_values)
+  TestEvaluator(uint8_t stack_capacity, std::initializer_list<float> stack_values)
       : TestEvaluator(stack_capacity, 0, stack_values) {}
 
-  TestEvaluator(size_t stack_capacity, size_t temp_capacity, std::initializer_list<float> stack_values) {
+  TestEvaluator(uint8_t stack_capacity, uint8_t temp_capacity, std::initializer_list<float> stack_values) {
     assert(stack_capacity >= stack_values.size());
 
     stack_data = new float[stack_capacity];
