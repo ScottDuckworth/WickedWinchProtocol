@@ -7,6 +7,7 @@
 #include <cstdint>
 #include <cstring>
 #include <initializer_list>
+#include <ostream>
 #include <span>
 #include <vector>
 
@@ -55,6 +56,55 @@ enum class PostfixOp : uint8_t {
   Lerp      = 37,
   Lut       = 38,
 };
+
+inline constexpr const char* ToString(PostfixOp op) {
+  switch (op) {
+    case PostfixOp::Undefined: return "Undefined";
+    case PostfixOp::Push:      return "Push";
+    case PostfixOp::Pop:       return "Pop";
+    case PostfixOp::Dup:       return "Dup";
+    case PostfixOp::RotL:      return "RotL";
+    case PostfixOp::RotR:      return "RotR";
+    case PostfixOp::Rev:       return "Rev";
+    case PostfixOp::Transpose: return "Transpose";
+    case PostfixOp::Add:       return "Add";
+    case PostfixOp::Sub:       return "Sub";
+    case PostfixOp::Mul:       return "Mul";
+    case PostfixOp::MulAdd:    return "MulAdd";
+    case PostfixOp::Div:       return "Div";
+    case PostfixOp::Mod:       return "Mod";
+    case PostfixOp::Neg:       return "Neg";
+    case PostfixOp::Abs:       return "Abs";
+    case PostfixOp::Inv:       return "Inv";
+    case PostfixOp::Pow:       return "Pow";
+    case PostfixOp::Sqrt:      return "Sqrt";
+    case PostfixOp::Exp:       return "Exp";
+    case PostfixOp::Ln:        return "Ln";
+    case PostfixOp::Sin:       return "Sin";
+    case PostfixOp::Cos:       return "Cos";
+    case PostfixOp::Tan:       return "Tan";
+    case PostfixOp::Asin:      return "Asin";
+    case PostfixOp::Acos:      return "Acos";
+    case PostfixOp::Atan2:     return "Atan2";
+    case PostfixOp::AddVec:    return "AddVec";
+    case PostfixOp::SubVec:    return "SubVec";
+    case PostfixOp::MulVec:    return "MulVec";
+    case PostfixOp::MulAddVec: return "MulAddVec";
+    case PostfixOp::ScaleVec:  return "ScaleVec";
+    case PostfixOp::NegVec:    return "NegVec";
+    case PostfixOp::NormVec:   return "NormVec";
+    case PostfixOp::MulMat:    return "MulMat";
+    case PostfixOp::PolyVec:   return "PolyVec";
+    case PostfixOp::PolyMat:   return "PolyMat";
+    case PostfixOp::Lerp:      return "Lerp";
+    case PostfixOp::Lut:       return "Lut";
+  }
+  return "UNKNOWN";
+}
+
+inline std::ostream& operator<<(std::ostream& out, PostfixOp op) {
+  return out << ToString(op);
+}
 
 struct PostfixHeader {
 	uint8_t op_size;
