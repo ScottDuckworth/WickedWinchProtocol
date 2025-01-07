@@ -70,13 +70,16 @@ struct PostfixEvalContext {
   const PostfixOp* op_head;
   const uint8_t* i_head;
   const float* f_head;
-  float* stack_data;
   uint8_t op_size;
   uint8_t i_size;
   uint16_t f_size;
+
+  float* stack_data;
   size_t stack_size;
   size_t stack_capacity;
-  std::vector<float> temp;
+
+  float* temp_data;
+  size_t temp_capacity;
 
   EvalStatus push(float v);
   EvalStatus pushv(std::span<const float> v);
@@ -190,10 +193,13 @@ private:
 	std::vector<float> f_;
 };
 
-struct PostfixStack {
+struct PostfixEvaluator {
   float* stack_data;
   size_t stack_size;
   size_t stack_capacity;
+
+  float* temp_data;
+  size_t temp_capacity;
 
   void clear() { stack_size = 0; }
 
@@ -209,13 +215,14 @@ struct PostfixStack {
       .op_head        = expr.op_data(),
       .i_head         = expr.i_data(),
       .f_head         = expr.f_data(),
-      .stack_data     = stack_data,
       .op_size        = expr.op_size(),
       .i_size         = expr.i_size(),
       .f_size         = expr.f_size(),
+      .stack_data     = stack_data,
       .stack_size     = stack_size,
       .stack_capacity = stack_capacity,
-      .temp           = {},
+      .temp_data      = temp_data,
+      .temp_capacity  = temp_capacity,
     };
     EvalStatus status = context.Eval();
     stack_size = context.stack_size;

@@ -29,7 +29,7 @@ uint8_t PathReader::SegmentAt(uint32_t t) const {
   return uint8_t(segment - begin);
 }
 
-EvalStatus PathReader::Eval(uint32_t t, PostfixStack& stack) const {
+EvalStatus PathReader::Eval(uint32_t t, PostfixEvaluator& eval) const {
   uint8_t i = SegmentAt(t);
   if (i == kNoSegment) return EvalStatus::UndefinedOperation;
 
@@ -41,9 +41,9 @@ EvalStatus PathReader::Eval(uint32_t t, PostfixStack& stack) const {
   }
 
   float st = float(t - segment.start_time) * 1e-3f;
-  stack.clear();
-  stack.push(st);
-  return stack.Eval(reader.expr);
+  eval.clear();
+  eval.push(st);
+  return eval.Eval(reader.expr);
 }
 
 bool PathReader::Read(const uint8_t* data, size_t size) {

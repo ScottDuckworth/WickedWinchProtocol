@@ -5,7 +5,6 @@
 #include <cstring>
 #include <iterator>
 #include <span>
-#include <vector>
 
 namespace wickedwinch::protocol {
 namespace {
@@ -168,15 +167,15 @@ EvalStatus PostfixEvalContext::Eval() {
 
       std::span<float> m;
       CHECK_STATUS(popv(rows * cols, m));
-      temp.resize(m.size());
+      if (m.size() > temp_capacity) return EvalStatus::TempOverflow;
       for (uint8_t i = 0; i < rows; ++i) {
         for (uint8_t j = 0; j < cols; ++j) {
           size_t midx = cols * i + j;
           size_t tidx = rows * j + i;
-          temp[tidx] = m[midx];
+          temp_data[tidx] = m[midx];
         }
       }
-      CHECK_STATUS(pushv(temp));
+      CHECK_STATUS(pushv(std::span(temp_data, m.size())));
       break;
     }
     case PostfixOp::Add: {
@@ -438,7 +437,8 @@ EvalStatus PostfixEvalContext::Eval() {
       std::span<float> a, b;
       CHECK_STATUS(popv(brows * bcols, b));
       CHECK_STATUS(popv(arows * brows, a));
-      temp.resize(arows * bcols);
+      size_t temp_size = arows * bcols;
+      if (temp_size > temp_capacity) return EvalStatus::TempOverflow;
       for (uint8_t i = 0; i < arows; ++i) {
         for (uint8_t j = 0; j < bcols; ++j) {
           float r = 0;
@@ -448,10 +448,10 @@ EvalStatus PostfixEvalContext::Eval() {
             r += a[aidx] * b[bidx];
           }
           size_t cidx = bcols * i + j;
-          temp[cidx] = r;
+          temp_data[cidx] = r;
         }
       }
-      CHECK_STATUS(pushv(temp));
+      CHECK_STATUS(pushv(std::span(temp_data, temp_size)));
       break;
     }
     case PostfixOp::Lerp: {

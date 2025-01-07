@@ -12,20 +12,29 @@ using ::testing::ElementsAre;
 namespace wickedwinch::protocol {
 namespace {
 
-struct TestStack : PostfixStack {
-  TestStack(size_t capacity, std::initializer_list<float> values) {
-    assert(capacity >= values.size());
-    stack_data = new float[capacity];
-    stack_size = values.size();
-    stack_capacity = capacity;
+struct TestEvaluator : PostfixEvaluator {
+  TestEvaluator(size_t stack_capacity, std::initializer_list<float> stack_values)
+      : TestEvaluator(stack_capacity, 0, stack_values) {}
+
+  TestEvaluator(size_t stack_capacity, size_t temp_capacity, std::initializer_list<float> stack_values) {
+    assert(stack_capacity >= stack_values.size());
+
+    stack_data = new float[stack_capacity];
+    stack_size = stack_values.size();
+    this->stack_capacity = stack_capacity;
+
+    temp_data = new float[temp_capacity];
+    this->temp_capacity = temp_capacity;
+
     float* v = stack_data;
-    for (float value : values) {
+    for (float value : stack_values) {
       *v++ = value;
     }
   }
 
-  ~TestStack() {
+  ~TestEvaluator() {
     delete stack_data;
+    delete temp_data;
   }
 };
 
@@ -36,9 +45,9 @@ TEST(EvalTest, Empty) {
   auto buffer = writer.Write();
   EXPECT_TRUE(reader.Read(buffer));
 
-  TestStack stack(4, {42});
-  EXPECT_EQ(stack.Eval(reader), EvalStatus::Ok);
-  EXPECT_THAT(stack, ElementsAre(42));
+  TestEvaluator eval(4, {42});
+  EXPECT_EQ(eval.Eval(reader), EvalStatus::Ok);
+  EXPECT_THAT(eval, ElementsAre(42));
 }
 
 TEST(EvalTest, Push) {
@@ -55,9 +64,9 @@ TEST(EvalTest, Push) {
   auto buffer = writer.Write();
   EXPECT_TRUE(reader.Read(buffer));
 
-  TestStack stack(4, {42});
-  EXPECT_EQ(stack.Eval(reader), EvalStatus::Ok);
-  EXPECT_THAT(stack, ElementsAre(42, 1, 2));
+  TestEvaluator eval(4, {42});
+  EXPECT_EQ(eval.Eval(reader), EvalStatus::Ok);
+  EXPECT_THAT(eval, ElementsAre(42, 1, 2));
 }
 
 TEST(EvalTest, PushMany) {
@@ -77,9 +86,9 @@ TEST(EvalTest, PushMany) {
   auto buffer = writer.Write();
   EXPECT_TRUE(reader.Read(buffer));
 
-  TestStack stack(4, {42});
-  EXPECT_EQ(stack.Eval(reader), EvalStatus::Ok);
-  EXPECT_THAT(stack, ElementsAre(42, 1, 2, 3));
+  TestEvaluator eval(4, {42});
+  EXPECT_EQ(eval.Eval(reader), EvalStatus::Ok);
+  EXPECT_THAT(eval, ElementsAre(42, 1, 2, 3));
 }
 
 TEST(EvalTest, PushIntUnderflow) {
@@ -91,8 +100,8 @@ TEST(EvalTest, PushIntUnderflow) {
   auto buffer = writer.Write();
   EXPECT_TRUE(reader.Read(buffer));
 
-  TestStack stack(4, {42});
-  EXPECT_EQ(stack.Eval(reader), EvalStatus::IntLiteralsUnderflow);
+  TestEvaluator eval(4, {42});
+  EXPECT_EQ(eval.Eval(reader), EvalStatus::IntLiteralsUnderflow);
 }
 
 TEST(EvalTest, PushFloatUnderflow) {
@@ -105,8 +114,8 @@ TEST(EvalTest, PushFloatUnderflow) {
   auto buffer = writer.Write();
   EXPECT_TRUE(reader.Read(buffer));
 
-  TestStack stack(4, {42});
-  EXPECT_EQ(stack.Eval(reader), EvalStatus::FloatLiteralsUnderflow);
+  TestEvaluator eval(4, {42});
+  EXPECT_EQ(eval.Eval(reader), EvalStatus::FloatLiteralsUnderflow);
 }
 
 TEST(EvalTest, Pop) {
@@ -118,9 +127,9 @@ TEST(EvalTest, Pop) {
   auto buffer = writer.Write();
   EXPECT_TRUE(reader.Read(buffer));
 
-  TestStack stack(4, {1, 2, 3});
-  EXPECT_EQ(stack.Eval(reader), EvalStatus::Ok);
-  EXPECT_THAT(stack, ElementsAre(1));
+  TestEvaluator eval(4, {1, 2, 3});
+  EXPECT_EQ(eval.Eval(reader), EvalStatus::Ok);
+  EXPECT_THAT(eval, ElementsAre(1));
 }
 
 TEST(EvalTest, PopStackUnderflow) {
@@ -132,8 +141,8 @@ TEST(EvalTest, PopStackUnderflow) {
   auto buffer = writer.Write();
   EXPECT_TRUE(reader.Read(buffer));
 
-  TestStack stack(4, {1, 2});
-  EXPECT_EQ(stack.Eval(reader), EvalStatus::StackUnderflow);
+  TestEvaluator eval(4, {1, 2});
+  EXPECT_EQ(eval.Eval(reader), EvalStatus::StackUnderflow);
 }
 
 TEST(EvalTest, PopIntUnderflow) {
@@ -145,8 +154,8 @@ TEST(EvalTest, PopIntUnderflow) {
   auto buffer = writer.Write();
   EXPECT_TRUE(reader.Read(buffer));
 
-  TestStack stack(4, {1, 2, 3});
-  EXPECT_EQ(stack.Eval(reader), EvalStatus::IntLiteralsUnderflow);
+  TestEvaluator eval(4, {1, 2, 3});
+  EXPECT_EQ(eval.Eval(reader), EvalStatus::IntLiteralsUnderflow);
 }
 
 TEST(EvalTest, Dup) {
@@ -158,9 +167,9 @@ TEST(EvalTest, Dup) {
   auto buffer = writer.Write();
   EXPECT_TRUE(reader.Read(buffer));
 
-  TestStack stack(4, {1, 2, 3});
-  EXPECT_EQ(stack.Eval(reader), EvalStatus::Ok);
-  EXPECT_THAT(stack, ElementsAre(1, 2, 3, 2));
+  TestEvaluator eval(4, {1, 2, 3});
+  EXPECT_EQ(eval.Eval(reader), EvalStatus::Ok);
+  EXPECT_THAT(eval, ElementsAre(1, 2, 3, 2));
 }
 
 TEST(EvalTest, DupStackUnderflow) {
@@ -172,8 +181,8 @@ TEST(EvalTest, DupStackUnderflow) {
   auto buffer = writer.Write();
   EXPECT_TRUE(reader.Read(buffer));
 
-  TestStack stack(4, {1, 2});
-  EXPECT_EQ(stack.Eval(reader), EvalStatus::StackUnderflow);
+  TestEvaluator eval(4, {1, 2});
+  EXPECT_EQ(eval.Eval(reader), EvalStatus::StackUnderflow);
 }
 
 TEST(EvalTest, DupIntUnderflow) {
@@ -184,8 +193,8 @@ TEST(EvalTest, DupIntUnderflow) {
   auto buffer = writer.Write();
   EXPECT_TRUE(reader.Read(buffer));
 
-  TestStack stack(4, {1, 2, 3});
-  EXPECT_EQ(stack.Eval(reader), EvalStatus::IntLiteralsUnderflow);
+  TestEvaluator eval(4, {1, 2, 3});
+  EXPECT_EQ(eval.Eval(reader), EvalStatus::IntLiteralsUnderflow);
 }
 
 TEST(EvalTest, RotL) {
@@ -197,9 +206,9 @@ TEST(EvalTest, RotL) {
   auto buffer = writer.Write();
   EXPECT_TRUE(reader.Read(buffer));
 
-  TestStack stack(4, {1, 2, 3, 4});
-  EXPECT_EQ(stack.Eval(reader), EvalStatus::Ok);
-  EXPECT_THAT(stack, ElementsAre(1, 3, 4, 2));
+  TestEvaluator eval(4, {1, 2, 3, 4});
+  EXPECT_EQ(eval.Eval(reader), EvalStatus::Ok);
+  EXPECT_THAT(eval, ElementsAre(1, 3, 4, 2));
 }
 
 TEST(EvalTest, RotLStackUnderflow) {
@@ -211,8 +220,8 @@ TEST(EvalTest, RotLStackUnderflow) {
   auto buffer = writer.Write();
   EXPECT_TRUE(reader.Read(buffer));
 
-  TestStack stack(4, {1, 2});
-  EXPECT_EQ(stack.Eval(reader), EvalStatus::StackUnderflow);
+  TestEvaluator eval(4, {1, 2});
+  EXPECT_EQ(eval.Eval(reader), EvalStatus::StackUnderflow);
 }
 
 TEST(EvalTest, RotLIntUnderflow) {
@@ -223,8 +232,8 @@ TEST(EvalTest, RotLIntUnderflow) {
   auto buffer = writer.Write();
   EXPECT_TRUE(reader.Read(buffer));
 
-  TestStack stack(4, {1, 2, 3, 4});
-  EXPECT_EQ(stack.Eval(reader), EvalStatus::IntLiteralsUnderflow);
+  TestEvaluator eval(4, {1, 2, 3, 4});
+  EXPECT_EQ(eval.Eval(reader), EvalStatus::IntLiteralsUnderflow);
 }
 
 TEST(EvalTest, RotR) {
@@ -236,9 +245,9 @@ TEST(EvalTest, RotR) {
   auto buffer = writer.Write();
   EXPECT_TRUE(reader.Read(buffer));
 
-  TestStack stack(4, {1, 2, 3, 4});
-  EXPECT_EQ(stack.Eval(reader), EvalStatus::Ok);
-  EXPECT_THAT(stack, ElementsAre(1, 4, 2, 3));
+  TestEvaluator eval(4, {1, 2, 3, 4});
+  EXPECT_EQ(eval.Eval(reader), EvalStatus::Ok);
+  EXPECT_THAT(eval, ElementsAre(1, 4, 2, 3));
 }
 
 TEST(EvalTest, RotRStackUnderflow) {
@@ -250,8 +259,8 @@ TEST(EvalTest, RotRStackUnderflow) {
   auto buffer = writer.Write();
   EXPECT_TRUE(reader.Read(buffer));
 
-  TestStack stack(4, {1, 2});
-  EXPECT_EQ(stack.Eval(reader), EvalStatus::StackUnderflow);
+  TestEvaluator eval(4, {1, 2});
+  EXPECT_EQ(eval.Eval(reader), EvalStatus::StackUnderflow);
 }
 
 TEST(EvalTest, RotRIntUnderflow) {
@@ -262,8 +271,8 @@ TEST(EvalTest, RotRIntUnderflow) {
   auto buffer = writer.Write();
   EXPECT_TRUE(reader.Read(buffer));
 
-  TestStack stack(4, {1, 2, 3, 4});
-  EXPECT_EQ(stack.Eval(reader), EvalStatus::IntLiteralsUnderflow);
+  TestEvaluator eval(4, {1, 2, 3, 4});
+  EXPECT_EQ(eval.Eval(reader), EvalStatus::IntLiteralsUnderflow);
 }
 
 TEST(EvalTest, Rev) {
@@ -275,9 +284,9 @@ TEST(EvalTest, Rev) {
   auto buffer = writer.Write();
   EXPECT_TRUE(reader.Read(buffer));
 
-  TestStack stack(4, {1, 2, 3, 4});
-  EXPECT_EQ(stack.Eval(reader), EvalStatus::Ok);
-  EXPECT_THAT(stack, ElementsAre(1, 4, 3, 2));
+  TestEvaluator eval(4, {1, 2, 3, 4});
+  EXPECT_EQ(eval.Eval(reader), EvalStatus::Ok);
+  EXPECT_THAT(eval, ElementsAre(1, 4, 3, 2));
 }
 
 TEST(EvalTest, RevStackUnderflow) {
@@ -289,8 +298,8 @@ TEST(EvalTest, RevStackUnderflow) {
   auto buffer = writer.Write();
   EXPECT_TRUE(reader.Read(buffer));
 
-  TestStack stack(4, {1, 2});
-  EXPECT_EQ(stack.Eval(reader), EvalStatus::StackUnderflow);
+  TestEvaluator eval(4, {1, 2});
+  EXPECT_EQ(eval.Eval(reader), EvalStatus::StackUnderflow);
 }
 
 TEST(EvalTest, RevIntUnderflow) {
@@ -301,8 +310,8 @@ TEST(EvalTest, RevIntUnderflow) {
   auto buffer = writer.Write();
   EXPECT_TRUE(reader.Read(buffer));
 
-  TestStack stack(4, {1, 2, 3, 4});
-  EXPECT_EQ(stack.Eval(reader), EvalStatus::IntLiteralsUnderflow);
+  TestEvaluator eval(4, {1, 2, 3, 4});
+  EXPECT_EQ(eval.Eval(reader), EvalStatus::IntLiteralsUnderflow);
 }
 
 TEST(EvalTest, Transpose) {
@@ -315,9 +324,23 @@ TEST(EvalTest, Transpose) {
   auto buffer = writer.Write();
   EXPECT_TRUE(reader.Read(buffer));
 
-  TestStack stack(8, {0, 1, 2, 3, 4, 5, 6});
-  EXPECT_EQ(stack.Eval(reader), EvalStatus::Ok);
-  EXPECT_THAT(stack, ElementsAre(0, 1, 4, 2, 5, 3, 6));
+  TestEvaluator eval(8, 6, {0, 1, 2, 3, 4, 5, 6});
+  EXPECT_EQ(eval.Eval(reader), EvalStatus::Ok);
+  EXPECT_THAT(eval, ElementsAre(0, 1, 4, 2, 5, 3, 6));
+}
+
+TEST(EvalTest, TransposeTempOverflow) {
+  PostfixWriter writer;
+  writer.add_op(PostfixOp::Transpose);
+  writer.add_i(2);
+  writer.add_i(3 << 1);
+
+  PostfixReader reader;
+  auto buffer = writer.Write();
+  EXPECT_TRUE(reader.Read(buffer));
+
+  TestEvaluator eval(8, 5, {0, 1, 2, 3, 4, 5, 6});
+  EXPECT_EQ(eval.Eval(reader), EvalStatus::TempOverflow);
 }
 
 TEST(EvalTest, TransposeStackUnderflow) {
@@ -330,8 +353,8 @@ TEST(EvalTest, TransposeStackUnderflow) {
   auto buffer = writer.Write();
   EXPECT_TRUE(reader.Read(buffer));
 
-  TestStack stack(8, {1, 2, 3, 4, 5});
-  EXPECT_EQ(stack.Eval(reader), EvalStatus::StackUnderflow);
+  TestEvaluator eval(8, {1, 2, 3, 4, 5});
+  EXPECT_EQ(eval.Eval(reader), EvalStatus::StackUnderflow);
 }
 
 TEST(EvalTest, TransposeIntUnderflow) {
@@ -343,8 +366,8 @@ TEST(EvalTest, TransposeIntUnderflow) {
   auto buffer = writer.Write();
   EXPECT_TRUE(reader.Read(buffer));
 
-  TestStack stack(8, {0, 1, 2, 3, 4, 5, 6});
-  EXPECT_EQ(stack.Eval(reader), EvalStatus::IntLiteralsUnderflow);
+  TestEvaluator eval(8, {0, 1, 2, 3, 4, 5, 6});
+  EXPECT_EQ(eval.Eval(reader), EvalStatus::IntLiteralsUnderflow);
 }
 
 TEST(EvalTest, PushTranspose) {
@@ -363,9 +386,9 @@ TEST(EvalTest, PushTranspose) {
   auto buffer = writer.Write();
   EXPECT_TRUE(reader.Read(buffer));
 
-  TestStack stack(8, {0});
-  EXPECT_EQ(stack.Eval(reader), EvalStatus::Ok);
-  EXPECT_THAT(stack, ElementsAre(0, 1, 4, 2, 5, 3, 6));
+  TestEvaluator eval(8, 6, {0});
+  EXPECT_EQ(eval.Eval(reader), EvalStatus::Ok);
+  EXPECT_THAT(eval, ElementsAre(0, 1, 4, 2, 5, 3, 6));
 }
 
 TEST(EvalTest, PushTransposeFloatUnderflow) {
@@ -383,8 +406,8 @@ TEST(EvalTest, PushTransposeFloatUnderflow) {
   auto buffer = writer.Write();
   EXPECT_TRUE(reader.Read(buffer));
 
-  TestStack stack(8, {0});
-  EXPECT_EQ(stack.Eval(reader), EvalStatus::FloatLiteralsUnderflow);
+  TestEvaluator eval(8, {0});
+  EXPECT_EQ(eval.Eval(reader), EvalStatus::FloatLiteralsUnderflow);
 }
 
 TEST(EvalTest, Add) {
@@ -395,9 +418,9 @@ TEST(EvalTest, Add) {
   auto buffer = writer.Write();
   EXPECT_TRUE(reader.Read(buffer));
 
-  TestStack stack(4, {0, 1, 2});
-  EXPECT_EQ(stack.Eval(reader), EvalStatus::Ok);
-  EXPECT_THAT(stack, ElementsAre(0, 3));
+  TestEvaluator eval(4, {0, 1, 2});
+  EXPECT_EQ(eval.Eval(reader), EvalStatus::Ok);
+  EXPECT_THAT(eval, ElementsAre(0, 3));
 }
 
 TEST(EvalTest, AddStackUnderflow) {
@@ -408,8 +431,8 @@ TEST(EvalTest, AddStackUnderflow) {
   auto buffer = writer.Write();
   EXPECT_TRUE(reader.Read(buffer));
 
-  TestStack stack(4, {1});
-  EXPECT_EQ(stack.Eval(reader), EvalStatus::StackUnderflow);
+  TestEvaluator eval(4, {1});
+  EXPECT_EQ(eval.Eval(reader), EvalStatus::StackUnderflow);
 }
 
 TEST(EvalTest, Sub) {
@@ -420,9 +443,9 @@ TEST(EvalTest, Sub) {
   auto buffer = writer.Write();
   EXPECT_TRUE(reader.Read(buffer));
 
-  TestStack stack(4, {0, 1, 2});
-  EXPECT_EQ(stack.Eval(reader), EvalStatus::Ok);
-  EXPECT_THAT(stack, ElementsAre(0, -1));
+  TestEvaluator eval(4, {0, 1, 2});
+  EXPECT_EQ(eval.Eval(reader), EvalStatus::Ok);
+  EXPECT_THAT(eval, ElementsAre(0, -1));
 }
 
 TEST(EvalTest, SubStackUnderflow) {
@@ -433,8 +456,8 @@ TEST(EvalTest, SubStackUnderflow) {
   auto buffer = writer.Write();
   EXPECT_TRUE(reader.Read(buffer));
 
-  TestStack stack(4, {1});
-  EXPECT_EQ(stack.Eval(reader), EvalStatus::StackUnderflow);
+  TestEvaluator eval(4, {1});
+  EXPECT_EQ(eval.Eval(reader), EvalStatus::StackUnderflow);
 }
 
 TEST(EvalTest, Mul) {
@@ -445,9 +468,9 @@ TEST(EvalTest, Mul) {
   auto buffer = writer.Write();
   EXPECT_TRUE(reader.Read(buffer));
 
-  TestStack stack(4, {0, 2, 3});
-  EXPECT_EQ(stack.Eval(reader), EvalStatus::Ok);
-  EXPECT_THAT(stack, ElementsAre(0, 6));
+  TestEvaluator eval(4, {0, 2, 3});
+  EXPECT_EQ(eval.Eval(reader), EvalStatus::Ok);
+  EXPECT_THAT(eval, ElementsAre(0, 6));
 }
 
 TEST(EvalTest, MulStackUnderflow) {
@@ -458,8 +481,8 @@ TEST(EvalTest, MulStackUnderflow) {
   auto buffer = writer.Write();
   EXPECT_TRUE(reader.Read(buffer));
 
-  TestStack stack(4, {1});
-  EXPECT_EQ(stack.Eval(reader), EvalStatus::StackUnderflow);
+  TestEvaluator eval(4, {1});
+  EXPECT_EQ(eval.Eval(reader), EvalStatus::StackUnderflow);
 }
 
 TEST(EvalTest, MulAdd) {
@@ -470,9 +493,9 @@ TEST(EvalTest, MulAdd) {
   auto buffer = writer.Write();
   EXPECT_TRUE(reader.Read(buffer));
 
-  TestStack stack(4, {0, 3, 2, 1});
-  EXPECT_EQ(stack.Eval(reader), EvalStatus::Ok);
-  EXPECT_THAT(stack, ElementsAre(0, 7));
+  TestEvaluator eval(4, {0, 3, 2, 1});
+  EXPECT_EQ(eval.Eval(reader), EvalStatus::Ok);
+  EXPECT_THAT(eval, ElementsAre(0, 7));
 }
 
 TEST(EvalTest, MulAddStackUnderflow) {
@@ -483,8 +506,8 @@ TEST(EvalTest, MulAddStackUnderflow) {
   auto buffer = writer.Write();
   EXPECT_TRUE(reader.Read(buffer));
 
-  TestStack stack(4, {1, 2});
-  EXPECT_EQ(stack.Eval(reader), EvalStatus::StackUnderflow);
+  TestEvaluator eval(4, {1, 2});
+  EXPECT_EQ(eval.Eval(reader), EvalStatus::StackUnderflow);
 }
 
 TEST(EvalTest, Div) {
@@ -495,9 +518,9 @@ TEST(EvalTest, Div) {
   auto buffer = writer.Write();
   EXPECT_TRUE(reader.Read(buffer));
 
-  TestStack stack(4, {0, 1, 2});
-  EXPECT_EQ(stack.Eval(reader), EvalStatus::Ok);
-  EXPECT_THAT(stack, ElementsAre(0, 0.5));
+  TestEvaluator eval(4, {0, 1, 2});
+  EXPECT_EQ(eval.Eval(reader), EvalStatus::Ok);
+  EXPECT_THAT(eval, ElementsAre(0, 0.5));
 }
 
 TEST(EvalTest, DivStackUnderflow) {
@@ -508,8 +531,8 @@ TEST(EvalTest, DivStackUnderflow) {
   auto buffer = writer.Write();
   EXPECT_TRUE(reader.Read(buffer));
 
-  TestStack stack(4, {1});
-  EXPECT_EQ(stack.Eval(reader), EvalStatus::StackUnderflow);
+  TestEvaluator eval(4, {1});
+  EXPECT_EQ(eval.Eval(reader), EvalStatus::StackUnderflow);
 }
 
 TEST(EvalTest, Mod) {
@@ -520,9 +543,9 @@ TEST(EvalTest, Mod) {
   auto buffer = writer.Write();
   EXPECT_TRUE(reader.Read(buffer));
 
-  TestStack stack(4, {0, 8, 3});
-  EXPECT_EQ(stack.Eval(reader), EvalStatus::Ok);
-  EXPECT_THAT(stack, ElementsAre(0, 2));
+  TestEvaluator eval(4, {0, 8, 3});
+  EXPECT_EQ(eval.Eval(reader), EvalStatus::Ok);
+  EXPECT_THAT(eval, ElementsAre(0, 2));
 }
 
 TEST(EvalTest, ModStackUnderflow) {
@@ -533,8 +556,8 @@ TEST(EvalTest, ModStackUnderflow) {
   auto buffer = writer.Write();
   EXPECT_TRUE(reader.Read(buffer));
 
-  TestStack stack(4, {1});
-  EXPECT_EQ(stack.Eval(reader), EvalStatus::StackUnderflow);
+  TestEvaluator eval(4, {1});
+  EXPECT_EQ(eval.Eval(reader), EvalStatus::StackUnderflow);
 }
 
 TEST(EvalTest, Neg) {
@@ -545,9 +568,9 @@ TEST(EvalTest, Neg) {
   auto buffer = writer.Write();
   EXPECT_TRUE(reader.Read(buffer));
 
-  TestStack stack(4, {0, 2});
-  EXPECT_EQ(stack.Eval(reader), EvalStatus::Ok);
-  EXPECT_THAT(stack, ElementsAre(0, -2));
+  TestEvaluator eval(4, {0, 2});
+  EXPECT_EQ(eval.Eval(reader), EvalStatus::Ok);
+  EXPECT_THAT(eval, ElementsAre(0, -2));
 }
 
 TEST(EvalTest, NegStackUnderflow) {
@@ -558,8 +581,8 @@ TEST(EvalTest, NegStackUnderflow) {
   auto buffer = writer.Write();
   EXPECT_TRUE(reader.Read(buffer));
 
-  TestStack stack(4, {});
-  EXPECT_EQ(stack.Eval(reader), EvalStatus::StackUnderflow);
+  TestEvaluator eval(4, {});
+  EXPECT_EQ(eval.Eval(reader), EvalStatus::StackUnderflow);
 }
 
 TEST(EvalTest, Abs) {
@@ -570,9 +593,9 @@ TEST(EvalTest, Abs) {
   auto buffer = writer.Write();
   EXPECT_TRUE(reader.Read(buffer));
 
-  TestStack stack(4, {0, -2});
-  EXPECT_EQ(stack.Eval(reader), EvalStatus::Ok);
-  EXPECT_THAT(stack, ElementsAre(0, 2));
+  TestEvaluator eval(4, {0, -2});
+  EXPECT_EQ(eval.Eval(reader), EvalStatus::Ok);
+  EXPECT_THAT(eval, ElementsAre(0, 2));
 }
 
 TEST(EvalTest, AbsStackUnderflow) {
@@ -583,8 +606,8 @@ TEST(EvalTest, AbsStackUnderflow) {
   auto buffer = writer.Write();
   EXPECT_TRUE(reader.Read(buffer));
 
-  TestStack stack(4, {});
-  EXPECT_EQ(stack.Eval(reader), EvalStatus::StackUnderflow);
+  TestEvaluator eval(4, {});
+  EXPECT_EQ(eval.Eval(reader), EvalStatus::StackUnderflow);
 }
 
 TEST(EvalTest, Inv) {
@@ -595,9 +618,9 @@ TEST(EvalTest, Inv) {
   auto buffer = writer.Write();
   EXPECT_TRUE(reader.Read(buffer));
 
-  TestStack stack(4, {0, 2});
-  EXPECT_EQ(stack.Eval(reader), EvalStatus::Ok);
-  EXPECT_THAT(stack, ElementsAre(0, 0.5));
+  TestEvaluator eval(4, {0, 2});
+  EXPECT_EQ(eval.Eval(reader), EvalStatus::Ok);
+  EXPECT_THAT(eval, ElementsAre(0, 0.5));
 }
 
 TEST(EvalTest, InvStackUnderflow) {
@@ -608,8 +631,8 @@ TEST(EvalTest, InvStackUnderflow) {
   auto buffer = writer.Write();
   EXPECT_TRUE(reader.Read(buffer));
 
-  TestStack stack(4, {});
-  EXPECT_EQ(stack.Eval(reader), EvalStatus::StackUnderflow);
+  TestEvaluator eval(4, {});
+  EXPECT_EQ(eval.Eval(reader), EvalStatus::StackUnderflow);
 }
 
 TEST(EvalTest, Pow) {
@@ -620,9 +643,9 @@ TEST(EvalTest, Pow) {
   auto buffer = writer.Write();
   EXPECT_TRUE(reader.Read(buffer));
 
-  TestStack stack(4, {0, 2, 3});
-  EXPECT_EQ(stack.Eval(reader), EvalStatus::Ok);
-  EXPECT_THAT(stack, ElementsAre(0, 8));
+  TestEvaluator eval(4, {0, 2, 3});
+  EXPECT_EQ(eval.Eval(reader), EvalStatus::Ok);
+  EXPECT_THAT(eval, ElementsAre(0, 8));
 }
 
 TEST(EvalTest, PowStackUnderflow) {
@@ -633,8 +656,8 @@ TEST(EvalTest, PowStackUnderflow) {
   auto buffer = writer.Write();
   EXPECT_TRUE(reader.Read(buffer));
 
-  TestStack stack(4, {1});
-  EXPECT_EQ(stack.Eval(reader), EvalStatus::StackUnderflow);
+  TestEvaluator eval(4, {1});
+  EXPECT_EQ(eval.Eval(reader), EvalStatus::StackUnderflow);
 }
 
 TEST(EvalTest, Sqrt) {
@@ -645,9 +668,9 @@ TEST(EvalTest, Sqrt) {
   auto buffer = writer.Write();
   EXPECT_TRUE(reader.Read(buffer));
 
-  TestStack stack(4, {0, 7});
-  EXPECT_EQ(stack.Eval(reader), EvalStatus::Ok);
-  EXPECT_THAT(stack, ElementsAre(0, std::sqrt(7)));
+  TestEvaluator eval(4, {0, 7});
+  EXPECT_EQ(eval.Eval(reader), EvalStatus::Ok);
+  EXPECT_THAT(eval, ElementsAre(0, std::sqrt(7)));
 }
 
 TEST(EvalTest, SqrtStackUnderflow) {
@@ -658,8 +681,8 @@ TEST(EvalTest, SqrtStackUnderflow) {
   auto buffer = writer.Write();
   EXPECT_TRUE(reader.Read(buffer));
 
-  TestStack stack(4, {});
-  EXPECT_EQ(stack.Eval(reader), EvalStatus::StackUnderflow);
+  TestEvaluator eval(4, {});
+  EXPECT_EQ(eval.Eval(reader), EvalStatus::StackUnderflow);
 }
 
 TEST(EvalTest, Exp) {
@@ -670,9 +693,9 @@ TEST(EvalTest, Exp) {
   auto buffer = writer.Write();
   EXPECT_TRUE(reader.Read(buffer));
 
-  TestStack stack(4, {0, 4});
-  EXPECT_EQ(stack.Eval(reader), EvalStatus::Ok);
-  EXPECT_THAT(stack, ElementsAre(0, std::exp(4)));
+  TestEvaluator eval(4, {0, 4});
+  EXPECT_EQ(eval.Eval(reader), EvalStatus::Ok);
+  EXPECT_THAT(eval, ElementsAre(0, std::exp(4)));
 }
 
 TEST(EvalTest, ExpStackUnderflow) {
@@ -683,8 +706,8 @@ TEST(EvalTest, ExpStackUnderflow) {
   auto buffer = writer.Write();
   EXPECT_TRUE(reader.Read(buffer));
 
-  TestStack stack(4, {});
-  EXPECT_EQ(stack.Eval(reader), EvalStatus::StackUnderflow);
+  TestEvaluator eval(4, {});
+  EXPECT_EQ(eval.Eval(reader), EvalStatus::StackUnderflow);
 }
 
 TEST(EvalTest, Ln) {
@@ -695,9 +718,9 @@ TEST(EvalTest, Ln) {
   auto buffer = writer.Write();
   EXPECT_TRUE(reader.Read(buffer));
 
-  TestStack stack(4, {0, 5});
-  EXPECT_EQ(stack.Eval(reader), EvalStatus::Ok);
-  EXPECT_THAT(stack, ElementsAre(0, std::log(5)));
+  TestEvaluator eval(4, {0, 5});
+  EXPECT_EQ(eval.Eval(reader), EvalStatus::Ok);
+  EXPECT_THAT(eval, ElementsAre(0, std::log(5)));
 }
 
 TEST(EvalTest, LnStackUnderflow) {
@@ -708,8 +731,8 @@ TEST(EvalTest, LnStackUnderflow) {
   auto buffer = writer.Write();
   EXPECT_TRUE(reader.Read(buffer));
 
-  TestStack stack(4, {});
-  EXPECT_EQ(stack.Eval(reader), EvalStatus::StackUnderflow);
+  TestEvaluator eval(4, {});
+  EXPECT_EQ(eval.Eval(reader), EvalStatus::StackUnderflow);
 }
 
 TEST(EvalTest, Sin) {
@@ -720,9 +743,9 @@ TEST(EvalTest, Sin) {
   auto buffer = writer.Write();
   EXPECT_TRUE(reader.Read(buffer));
 
-  TestStack stack(4, {0, 5});
-  EXPECT_EQ(stack.Eval(reader), EvalStatus::Ok);
-  EXPECT_THAT(stack, ElementsAre(0, std::sin(5)));
+  TestEvaluator eval(4, {0, 5});
+  EXPECT_EQ(eval.Eval(reader), EvalStatus::Ok);
+  EXPECT_THAT(eval, ElementsAre(0, std::sin(5)));
 }
 
 TEST(EvalTest, SinStackUnderflow) {
@@ -733,8 +756,8 @@ TEST(EvalTest, SinStackUnderflow) {
   auto buffer = writer.Write();
   EXPECT_TRUE(reader.Read(buffer));
 
-  TestStack stack(4, {});
-  EXPECT_EQ(stack.Eval(reader), EvalStatus::StackUnderflow);
+  TestEvaluator eval(4, {});
+  EXPECT_EQ(eval.Eval(reader), EvalStatus::StackUnderflow);
 }
 
 TEST(EvalTest, Cos) {
@@ -745,9 +768,9 @@ TEST(EvalTest, Cos) {
   auto buffer = writer.Write();
   EXPECT_TRUE(reader.Read(buffer));
 
-  TestStack stack(4, {0, 5});
-  EXPECT_EQ(stack.Eval(reader), EvalStatus::Ok);
-  EXPECT_THAT(stack, ElementsAre(0, std::cos(5)));
+  TestEvaluator eval(4, {0, 5});
+  EXPECT_EQ(eval.Eval(reader), EvalStatus::Ok);
+  EXPECT_THAT(eval, ElementsAre(0, std::cos(5)));
 }
 
 TEST(EvalTest, CosStackUnderflow) {
@@ -758,8 +781,8 @@ TEST(EvalTest, CosStackUnderflow) {
   auto buffer = writer.Write();
   EXPECT_TRUE(reader.Read(buffer));
 
-  TestStack stack(4, {});
-  EXPECT_EQ(stack.Eval(reader), EvalStatus::StackUnderflow);
+  TestEvaluator eval(4, {});
+  EXPECT_EQ(eval.Eval(reader), EvalStatus::StackUnderflow);
 }
 
 TEST(EvalTest, Tan) {
@@ -770,9 +793,9 @@ TEST(EvalTest, Tan) {
   auto buffer = writer.Write();
   EXPECT_TRUE(reader.Read(buffer));
 
-  TestStack stack(4, {0, 5});
-  EXPECT_EQ(stack.Eval(reader), EvalStatus::Ok);
-  EXPECT_THAT(stack, ElementsAre(0, std::tan(5)));
+  TestEvaluator eval(4, {0, 5});
+  EXPECT_EQ(eval.Eval(reader), EvalStatus::Ok);
+  EXPECT_THAT(eval, ElementsAre(0, std::tan(5)));
 }
 
 TEST(EvalTest, TanStackUnderflow) {
@@ -783,8 +806,8 @@ TEST(EvalTest, TanStackUnderflow) {
   auto buffer = writer.Write();
   EXPECT_TRUE(reader.Read(buffer));
 
-  TestStack stack(4, {});
-  EXPECT_EQ(stack.Eval(reader), EvalStatus::StackUnderflow);
+  TestEvaluator eval(4, {});
+  EXPECT_EQ(eval.Eval(reader), EvalStatus::StackUnderflow);
 }
 
 TEST(EvalTest, Asin) {
@@ -795,9 +818,9 @@ TEST(EvalTest, Asin) {
   auto buffer = writer.Write();
   EXPECT_TRUE(reader.Read(buffer));
 
-  TestStack stack(4, {0, 0.5});
-  EXPECT_EQ(stack.Eval(reader), EvalStatus::Ok);
-  EXPECT_THAT(stack, ElementsAre(0, std::asin(0.5)));
+  TestEvaluator eval(4, {0, 0.5});
+  EXPECT_EQ(eval.Eval(reader), EvalStatus::Ok);
+  EXPECT_THAT(eval, ElementsAre(0, std::asin(0.5)));
 }
 
 TEST(EvalTest, AsinStackUnderflow) {
@@ -808,8 +831,8 @@ TEST(EvalTest, AsinStackUnderflow) {
   auto buffer = writer.Write();
   EXPECT_TRUE(reader.Read(buffer));
 
-  TestStack stack(4, {});
-  EXPECT_EQ(stack.Eval(reader), EvalStatus::StackUnderflow);
+  TestEvaluator eval(4, {});
+  EXPECT_EQ(eval.Eval(reader), EvalStatus::StackUnderflow);
 }
 
 TEST(EvalTest, Acos) {
@@ -820,9 +843,9 @@ TEST(EvalTest, Acos) {
   auto buffer = writer.Write();
   EXPECT_TRUE(reader.Read(buffer));
 
-  TestStack stack(4, {0, 0.5});
-  EXPECT_EQ(stack.Eval(reader), EvalStatus::Ok);
-  EXPECT_THAT(stack, ElementsAre(0, std::acos(0.5)));
+  TestEvaluator eval(4, {0, 0.5});
+  EXPECT_EQ(eval.Eval(reader), EvalStatus::Ok);
+  EXPECT_THAT(eval, ElementsAre(0, std::acos(0.5)));
 }
 
 TEST(EvalTest, AcosStackUnderflow) {
@@ -833,8 +856,8 @@ TEST(EvalTest, AcosStackUnderflow) {
   auto buffer = writer.Write();
   EXPECT_TRUE(reader.Read(buffer));
 
-  TestStack stack(4, {});
-  EXPECT_EQ(stack.Eval(reader), EvalStatus::StackUnderflow);
+  TestEvaluator eval(4, {});
+  EXPECT_EQ(eval.Eval(reader), EvalStatus::StackUnderflow);
 }
 
 TEST(EvalTest, Atan2) {
@@ -845,9 +868,9 @@ TEST(EvalTest, Atan2) {
   auto buffer = writer.Write();
   EXPECT_TRUE(reader.Read(buffer));
 
-  TestStack stack(4, {0, 5, 4});
-  EXPECT_EQ(stack.Eval(reader), EvalStatus::Ok);
-  EXPECT_THAT(stack, ElementsAre(0, std::atan2(5, 4)));
+  TestEvaluator eval(4, {0, 5, 4});
+  EXPECT_EQ(eval.Eval(reader), EvalStatus::Ok);
+  EXPECT_THAT(eval, ElementsAre(0, std::atan2(5, 4)));
 }
 
 TEST(EvalTest, Atan2StackUnderflow) {
@@ -858,8 +881,8 @@ TEST(EvalTest, Atan2StackUnderflow) {
   auto buffer = writer.Write();
   EXPECT_TRUE(reader.Read(buffer));
 
-  TestStack stack(4, {5});
-  EXPECT_EQ(stack.Eval(reader), EvalStatus::StackUnderflow);
+  TestEvaluator eval(4, {5});
+  EXPECT_EQ(eval.Eval(reader), EvalStatus::StackUnderflow);
 }
 
 TEST(EvalTest, PolyVec) {
@@ -871,9 +894,9 @@ TEST(EvalTest, PolyVec) {
   auto buffer = writer.Write();
   EXPECT_TRUE(reader.Read(buffer));
 
-  TestStack stack(6, {0, 2, 3, 4, 5, 6});
-  EXPECT_EQ(stack.Eval(reader), EvalStatus::Ok);
-  EXPECT_THAT(stack, ElementsAre(0, 79));
+  TestEvaluator eval(6, {0, 2, 3, 4, 5, 6});
+  EXPECT_EQ(eval.Eval(reader), EvalStatus::Ok);
+  EXPECT_THAT(eval, ElementsAre(0, 79));
 }
 
 TEST(EvalTest, PolyVecStackUnderflow) {
@@ -885,8 +908,8 @@ TEST(EvalTest, PolyVecStackUnderflow) {
   auto buffer = writer.Write();
   EXPECT_TRUE(reader.Read(buffer));
 
-  TestStack stack(6, {2, 3, 4});
-  EXPECT_EQ(stack.Eval(reader), EvalStatus::StackUnderflow);
+  TestEvaluator eval(6, {2, 3, 4});
+  EXPECT_EQ(eval.Eval(reader), EvalStatus::StackUnderflow);
 }
 
 TEST(EvalTest, PolyVecIntUnderflow) {
@@ -897,8 +920,8 @@ TEST(EvalTest, PolyVecIntUnderflow) {
   auto buffer = writer.Write();
   EXPECT_TRUE(reader.Read(buffer));
 
-  TestStack stack(6, {0, 2, 3, 4, 5});
-  EXPECT_EQ(stack.Eval(reader), EvalStatus::IntLiteralsUnderflow);
+  TestEvaluator eval(6, {0, 2, 3, 4, 5});
+  EXPECT_EQ(eval.Eval(reader), EvalStatus::IntLiteralsUnderflow);
 }
 
 TEST(EvalTest, PushPolyVec) {
@@ -914,9 +937,9 @@ TEST(EvalTest, PushPolyVec) {
   auto buffer = writer.Write();
   EXPECT_TRUE(reader.Read(buffer));
 
-  TestStack stack(6, {0, 2});
-  EXPECT_EQ(stack.Eval(reader), EvalStatus::Ok);
-  EXPECT_THAT(stack, ElementsAre(0, 79));
+  TestEvaluator eval(6, {0, 2});
+  EXPECT_EQ(eval.Eval(reader), EvalStatus::Ok);
+  EXPECT_THAT(eval, ElementsAre(0, 79));
 }
 
 TEST(EvalTest, PushPolyVecFloatUnderflow) {
@@ -931,8 +954,8 @@ TEST(EvalTest, PushPolyVecFloatUnderflow) {
   auto buffer = writer.Write();
   EXPECT_TRUE(reader.Read(buffer));
 
-  TestStack stack(6, {0, 2});
-  EXPECT_EQ(stack.Eval(reader), EvalStatus::FloatLiteralsUnderflow);
+  TestEvaluator eval(6, {0, 2});
+  EXPECT_EQ(eval.Eval(reader), EvalStatus::FloatLiteralsUnderflow);
 }
 
 TEST(EvalTest, PolyMat) {
@@ -945,9 +968,9 @@ TEST(EvalTest, PolyMat) {
   auto buffer = writer.Write();
   EXPECT_TRUE(reader.Read(buffer));
 
-  TestStack stack(12, {0, 2, 3, 4, 5, 6, 7, 8, 9, 10});
-  EXPECT_EQ(stack.Eval(reader), EvalStatus::Ok);
-  EXPECT_THAT(stack, ElementsAre(0, 3 + 2*5 + 4*7 + 8*9, 4 + 2*6 + 4*8 + 8*10));
+  TestEvaluator eval(12, {0, 2, 3, 4, 5, 6, 7, 8, 9, 10});
+  EXPECT_EQ(eval.Eval(reader), EvalStatus::Ok);
+  EXPECT_THAT(eval, ElementsAre(0, 3 + 2*5 + 4*7 + 8*9, 4 + 2*6 + 4*8 + 8*10));
 }
 
 TEST(EvalTest, PolyMatStackUnderflow) {
@@ -960,8 +983,8 @@ TEST(EvalTest, PolyMatStackUnderflow) {
   auto buffer = writer.Write();
   EXPECT_TRUE(reader.Read(buffer));
 
-  TestStack stack(12, {2, 3, 4, 5, 6, 7, 8, 9});
-  EXPECT_EQ(stack.Eval(reader), EvalStatus::StackUnderflow);
+  TestEvaluator eval(12, {2, 3, 4, 5, 6, 7, 8, 9});
+  EXPECT_EQ(eval.Eval(reader), EvalStatus::StackUnderflow);
 }
 
 TEST(EvalTest, PolyMatIntUnderflow) {
@@ -973,8 +996,8 @@ TEST(EvalTest, PolyMatIntUnderflow) {
   auto buffer = writer.Write();
   EXPECT_TRUE(reader.Read(buffer));
 
-  TestStack stack(12, {0, 2, 3, 4, 5, 6, 7, 8, 9, 10});
-  EXPECT_EQ(stack.Eval(reader), EvalStatus::IntLiteralsUnderflow);
+  TestEvaluator eval(12, {0, 2, 3, 4, 5, 6, 7, 8, 9, 10});
+  EXPECT_EQ(eval.Eval(reader), EvalStatus::IntLiteralsUnderflow);
 }
 
 TEST(EvalTest, PushPolyMat) {
@@ -995,9 +1018,9 @@ TEST(EvalTest, PushPolyMat) {
   auto buffer = writer.Write();
   EXPECT_TRUE(reader.Read(buffer));
 
-  TestStack stack(12, {0, 2});
-  EXPECT_EQ(stack.Eval(reader), EvalStatus::Ok);
-  EXPECT_THAT(stack, ElementsAre(0, 3 + 2*5 + 4*7 + 8*9, 4 + 2*6 + 4*8 + 8*10));
+  TestEvaluator eval(12, {0, 2});
+  EXPECT_EQ(eval.Eval(reader), EvalStatus::Ok);
+  EXPECT_THAT(eval, ElementsAre(0, 3 + 2*5 + 4*7 + 8*9, 4 + 2*6 + 4*8 + 8*10));
 }
 
 TEST(EvalTest, PushPolyMatFloatUnderflow) {
@@ -1017,8 +1040,8 @@ TEST(EvalTest, PushPolyMatFloatUnderflow) {
   auto buffer = writer.Write();
   EXPECT_TRUE(reader.Read(buffer));
 
-  TestStack stack(12, {0, 2});
-  EXPECT_EQ(stack.Eval(reader), EvalStatus::FloatLiteralsUnderflow);
+  TestEvaluator eval(12, {0, 2});
+  EXPECT_EQ(eval.Eval(reader), EvalStatus::FloatLiteralsUnderflow);
 }
 
 TEST(EvalTest, AddVec) {
@@ -1030,9 +1053,9 @@ TEST(EvalTest, AddVec) {
   auto buffer = writer.Write();
   EXPECT_TRUE(reader.Read(buffer));
 
-  TestStack stack(8, {0, 1, 2, 3, 4, 5, 6});
-  EXPECT_EQ(stack.Eval(reader), EvalStatus::Ok);
-  EXPECT_THAT(stack, ElementsAre(0, 5, 7, 9));
+  TestEvaluator eval(8, {0, 1, 2, 3, 4, 5, 6});
+  EXPECT_EQ(eval.Eval(reader), EvalStatus::Ok);
+  EXPECT_THAT(eval, ElementsAre(0, 5, 7, 9));
 }
 
 TEST(EvalTest, AddVecStackUnderflow) {
@@ -1044,8 +1067,8 @@ TEST(EvalTest, AddVecStackUnderflow) {
   auto buffer = writer.Write();
   EXPECT_TRUE(reader.Read(buffer));
 
-  TestStack stack(8, {1, 2, 3, 4, 5});
-  EXPECT_EQ(stack.Eval(reader), EvalStatus::StackUnderflow);
+  TestEvaluator eval(8, {1, 2, 3, 4, 5});
+  EXPECT_EQ(eval.Eval(reader), EvalStatus::StackUnderflow);
 }
 
 TEST(EvalTest, AddVecIntUnderflow) {
@@ -1056,8 +1079,8 @@ TEST(EvalTest, AddVecIntUnderflow) {
   auto buffer = writer.Write();
   EXPECT_TRUE(reader.Read(buffer));
 
-  TestStack stack(8, {0, 1, 2, 3, 4, 5, 6});
-  EXPECT_EQ(stack.Eval(reader), EvalStatus::IntLiteralsUnderflow);
+  TestEvaluator eval(8, {0, 1, 2, 3, 4, 5, 6});
+  EXPECT_EQ(eval.Eval(reader), EvalStatus::IntLiteralsUnderflow);
 }
 
 TEST(EvalTest, PushAddVec) {
@@ -1072,9 +1095,9 @@ TEST(EvalTest, PushAddVec) {
   auto buffer = writer.Write();
   EXPECT_TRUE(reader.Read(buffer));
 
-  TestStack stack(8, {0, 1, 2, 3});
-  EXPECT_EQ(stack.Eval(reader), EvalStatus::Ok);
-  EXPECT_THAT(stack, ElementsAre(0, 5, 7, 9));
+  TestEvaluator eval(8, {0, 1, 2, 3});
+  EXPECT_EQ(eval.Eval(reader), EvalStatus::Ok);
+  EXPECT_THAT(eval, ElementsAre(0, 5, 7, 9));
 }
 
 TEST(EvalTest, PushAddVecFloatUnderflow) {
@@ -1088,8 +1111,8 @@ TEST(EvalTest, PushAddVecFloatUnderflow) {
   auto buffer = writer.Write();
   EXPECT_TRUE(reader.Read(buffer));
 
-  TestStack stack(8, {0, 1, 2, 3});
-  EXPECT_EQ(stack.Eval(reader), EvalStatus::FloatLiteralsUnderflow);
+  TestEvaluator eval(8, {0, 1, 2, 3});
+  EXPECT_EQ(eval.Eval(reader), EvalStatus::FloatLiteralsUnderflow);
 }
 
 TEST(EvalTest, SubVec) {
@@ -1101,9 +1124,9 @@ TEST(EvalTest, SubVec) {
   auto buffer = writer.Write();
   EXPECT_TRUE(reader.Read(buffer));
 
-  TestStack stack(8, {0, 1, 2, 3, 4, 2, 1});
-  EXPECT_EQ(stack.Eval(reader), EvalStatus::Ok);
-  EXPECT_THAT(stack, ElementsAre(0, -3, 0, 2));
+  TestEvaluator eval(8, {0, 1, 2, 3, 4, 2, 1});
+  EXPECT_EQ(eval.Eval(reader), EvalStatus::Ok);
+  EXPECT_THAT(eval, ElementsAre(0, -3, 0, 2));
 }
 
 TEST(EvalTest, SubVecStackUnderflow) {
@@ -1115,8 +1138,8 @@ TEST(EvalTest, SubVecStackUnderflow) {
   auto buffer = writer.Write();
   EXPECT_TRUE(reader.Read(buffer));
 
-  TestStack stack(8, {1, 2, 3, 4, 5});
-  EXPECT_EQ(stack.Eval(reader), EvalStatus::StackUnderflow);
+  TestEvaluator eval(8, {1, 2, 3, 4, 5});
+  EXPECT_EQ(eval.Eval(reader), EvalStatus::StackUnderflow);
 }
 
 TEST(EvalTest, SubVecIntUnderflow) {
@@ -1127,8 +1150,8 @@ TEST(EvalTest, SubVecIntUnderflow) {
   auto buffer = writer.Write();
   EXPECT_TRUE(reader.Read(buffer));
 
-  TestStack stack(8, {0, 1, 2, 3, 4, 5, 6});
-  EXPECT_EQ(stack.Eval(reader), EvalStatus::IntLiteralsUnderflow);
+  TestEvaluator eval(8, {0, 1, 2, 3, 4, 5, 6});
+  EXPECT_EQ(eval.Eval(reader), EvalStatus::IntLiteralsUnderflow);
 }
 
 TEST(EvalTest, PushSubVec) {
@@ -1143,9 +1166,9 @@ TEST(EvalTest, PushSubVec) {
   auto buffer = writer.Write();
   EXPECT_TRUE(reader.Read(buffer));
 
-  TestStack stack(8, {0, 1, 2, 3});
-  EXPECT_EQ(stack.Eval(reader), EvalStatus::Ok);
-  EXPECT_THAT(stack, ElementsAre(0, -3, 0, 2));
+  TestEvaluator eval(8, {0, 1, 2, 3});
+  EXPECT_EQ(eval.Eval(reader), EvalStatus::Ok);
+  EXPECT_THAT(eval, ElementsAre(0, -3, 0, 2));
 }
 
 TEST(EvalTest, PushSubVecFloatUnderflow) {
@@ -1159,8 +1182,8 @@ TEST(EvalTest, PushSubVecFloatUnderflow) {
   auto buffer = writer.Write();
   EXPECT_TRUE(reader.Read(buffer));
 
-  TestStack stack(8, {0, 1, 2, 3});
-  EXPECT_EQ(stack.Eval(reader), EvalStatus::FloatLiteralsUnderflow);
+  TestEvaluator eval(8, {0, 1, 2, 3});
+  EXPECT_EQ(eval.Eval(reader), EvalStatus::FloatLiteralsUnderflow);
 }
 
 TEST(EvalTest, MulVec) {
@@ -1172,9 +1195,9 @@ TEST(EvalTest, MulVec) {
   auto buffer = writer.Write();
   EXPECT_TRUE(reader.Read(buffer));
 
-  TestStack stack(8, {0, 1, 2, 3, 4, 3, -1});
-  EXPECT_EQ(stack.Eval(reader), EvalStatus::Ok);
-  EXPECT_THAT(stack, ElementsAre(0, 4, 6, -3));
+  TestEvaluator eval(8, {0, 1, 2, 3, 4, 3, -1});
+  EXPECT_EQ(eval.Eval(reader), EvalStatus::Ok);
+  EXPECT_THAT(eval, ElementsAre(0, 4, 6, -3));
 }
 
 TEST(EvalTest, MulVecStackUnderflow) {
@@ -1186,8 +1209,8 @@ TEST(EvalTest, MulVecStackUnderflow) {
   auto buffer = writer.Write();
   EXPECT_TRUE(reader.Read(buffer));
 
-  TestStack stack(8, {1, 2, 3, 4, 5});
-  EXPECT_EQ(stack.Eval(reader), EvalStatus::StackUnderflow);
+  TestEvaluator eval(8, {1, 2, 3, 4, 5});
+  EXPECT_EQ(eval.Eval(reader), EvalStatus::StackUnderflow);
 }
 
 TEST(EvalTest, MulVecIntUnderflow) {
@@ -1198,8 +1221,8 @@ TEST(EvalTest, MulVecIntUnderflow) {
   auto buffer = writer.Write();
   EXPECT_TRUE(reader.Read(buffer));
 
-  TestStack stack(8, {0, 1, 2, 3, 4, 5, 6});
-  EXPECT_EQ(stack.Eval(reader), EvalStatus::IntLiteralsUnderflow);
+  TestEvaluator eval(8, {0, 1, 2, 3, 4, 5, 6});
+  EXPECT_EQ(eval.Eval(reader), EvalStatus::IntLiteralsUnderflow);
 }
 
 TEST(EvalTest, PushMulVec) {
@@ -1214,9 +1237,9 @@ TEST(EvalTest, PushMulVec) {
   auto buffer = writer.Write();
   EXPECT_TRUE(reader.Read(buffer));
 
-  TestStack stack(8, {0, 1, 2, 3});
-  EXPECT_EQ(stack.Eval(reader), EvalStatus::Ok);
-  EXPECT_THAT(stack, ElementsAre(0, 4, 6, -3));
+  TestEvaluator eval(8, {0, 1, 2, 3});
+  EXPECT_EQ(eval.Eval(reader), EvalStatus::Ok);
+  EXPECT_THAT(eval, ElementsAre(0, 4, 6, -3));
 }
 
 TEST(EvalTest, PushMulVecFloatUnderflow) {
@@ -1230,8 +1253,8 @@ TEST(EvalTest, PushMulVecFloatUnderflow) {
   auto buffer = writer.Write();
   EXPECT_TRUE(reader.Read(buffer));
 
-  TestStack stack(8, {0, 1, 2, 3});
-  EXPECT_EQ(stack.Eval(reader), EvalStatus::FloatLiteralsUnderflow);
+  TestEvaluator eval(8, {0, 1, 2, 3});
+  EXPECT_EQ(eval.Eval(reader), EvalStatus::FloatLiteralsUnderflow);
 }
 
 TEST(EvalTest, MulAddVec) {
@@ -1243,9 +1266,9 @@ TEST(EvalTest, MulAddVec) {
   auto buffer = writer.Write();
   EXPECT_TRUE(reader.Read(buffer));
 
-  TestStack stack(12, {0, 1, 2, 3, 4, 3, -1, 0, 1, 2});
-  EXPECT_EQ(stack.Eval(reader), EvalStatus::Ok);
-  EXPECT_THAT(stack, ElementsAre(0, 1 * 4 + 0, 2 * 3 + 1, 3 * -1 + 2));
+  TestEvaluator eval(12, {0, 1, 2, 3, 4, 3, -1, 0, 1, 2});
+  EXPECT_EQ(eval.Eval(reader), EvalStatus::Ok);
+  EXPECT_THAT(eval, ElementsAre(0, 1 * 4 + 0, 2 * 3 + 1, 3 * -1 + 2));
 }
 
 TEST(EvalTest, MulAddVecStackUnderflow) {
@@ -1257,8 +1280,8 @@ TEST(EvalTest, MulAddVecStackUnderflow) {
   auto buffer = writer.Write();
   EXPECT_TRUE(reader.Read(buffer));
 
-  TestStack stack(12, {1, 2, 3, 4, 5, 6, 7, 8});
-  EXPECT_EQ(stack.Eval(reader), EvalStatus::StackUnderflow);
+  TestEvaluator eval(12, {1, 2, 3, 4, 5, 6, 7, 8});
+  EXPECT_EQ(eval.Eval(reader), EvalStatus::StackUnderflow);
 }
 
 TEST(EvalTest, MulAddVecIntUnderflow) {
@@ -1269,8 +1292,8 @@ TEST(EvalTest, MulAddVecIntUnderflow) {
   auto buffer = writer.Write();
   EXPECT_TRUE(reader.Read(buffer));
 
-  TestStack stack(12, {0, 1, 2, 3, 4, 5, 6, 7, 8});
-  EXPECT_EQ(stack.Eval(reader), EvalStatus::IntLiteralsUnderflow);
+  TestEvaluator eval(12, {0, 1, 2, 3, 4, 5, 6, 7, 8});
+  EXPECT_EQ(eval.Eval(reader), EvalStatus::IntLiteralsUnderflow);
 }
 
 TEST(EvalTest, PushMulAddVec1) {
@@ -1285,9 +1308,9 @@ TEST(EvalTest, PushMulAddVec1) {
   auto buffer = writer.Write();
   EXPECT_TRUE(reader.Read(buffer));
 
-  TestStack stack(12, {0, 1, 2, 3, 4, 3, -1});
-  EXPECT_EQ(stack.Eval(reader), EvalStatus::Ok);
-  EXPECT_THAT(stack, ElementsAre(0, 1 * 4 + 0, 2 * 3 + 1, 3 * -1 + 2));
+  TestEvaluator eval(12, {0, 1, 2, 3, 4, 3, -1});
+  EXPECT_EQ(eval.Eval(reader), EvalStatus::Ok);
+  EXPECT_THAT(eval, ElementsAre(0, 1 * 4 + 0, 2 * 3 + 1, 3 * -1 + 2));
 }
 
 TEST(EvalTest, PushMulAddVec2) {
@@ -1305,9 +1328,9 @@ TEST(EvalTest, PushMulAddVec2) {
   auto buffer = writer.Write();
   EXPECT_TRUE(reader.Read(buffer));
 
-  TestStack stack(12, {0, 1, 2, 3});
-  EXPECT_EQ(stack.Eval(reader), EvalStatus::Ok);
-  EXPECT_THAT(stack, ElementsAre(0, 1 * 4 + 0, 2 * 3 + 1, 3 * -1 + 2));
+  TestEvaluator eval(12, {0, 1, 2, 3});
+  EXPECT_EQ(eval.Eval(reader), EvalStatus::Ok);
+  EXPECT_THAT(eval, ElementsAre(0, 1 * 4 + 0, 2 * 3 + 1, 3 * -1 + 2));
 }
 
 TEST(EvalTest, PushMulAddVecFloatUnderflow) {
@@ -1321,8 +1344,8 @@ TEST(EvalTest, PushMulAddVecFloatUnderflow) {
   auto buffer = writer.Write();
   EXPECT_TRUE(reader.Read(buffer));
 
-  TestStack stack(12, {0, 1, 2, 3, 4, 3, -1});
-  EXPECT_EQ(stack.Eval(reader), EvalStatus::FloatLiteralsUnderflow);
+  TestEvaluator eval(12, {0, 1, 2, 3, 4, 3, -1});
+  EXPECT_EQ(eval.Eval(reader), EvalStatus::FloatLiteralsUnderflow);
 }
 
 TEST(EvalTest, ScaleVec) {
@@ -1334,9 +1357,9 @@ TEST(EvalTest, ScaleVec) {
   auto buffer = writer.Write();
   EXPECT_TRUE(reader.Read(buffer));
 
-  TestStack stack(8, {0, 2, 3, 4, -2});
-  EXPECT_EQ(stack.Eval(reader), EvalStatus::Ok);
-  EXPECT_THAT(stack, ElementsAre(0, 6, 8, -4));
+  TestEvaluator eval(8, {0, 2, 3, 4, -2});
+  EXPECT_EQ(eval.Eval(reader), EvalStatus::Ok);
+  EXPECT_THAT(eval, ElementsAre(0, 6, 8, -4));
 }
 
 TEST(EvalTest, ScaleVecStackUnderflow) {
@@ -1348,8 +1371,8 @@ TEST(EvalTest, ScaleVecStackUnderflow) {
   auto buffer = writer.Write();
   EXPECT_TRUE(reader.Read(buffer));
 
-  TestStack stack(8, {1, 2, 3});
-  EXPECT_EQ(stack.Eval(reader), EvalStatus::StackUnderflow);
+  TestEvaluator eval(8, {1, 2, 3});
+  EXPECT_EQ(eval.Eval(reader), EvalStatus::StackUnderflow);
 }
 
 TEST(EvalTest, ScaleVecIntUnderflow) {
@@ -1360,8 +1383,8 @@ TEST(EvalTest, ScaleVecIntUnderflow) {
   auto buffer = writer.Write();
   EXPECT_TRUE(reader.Read(buffer));
 
-  TestStack stack(8, {0, 1, 2, 3, 4});
-  EXPECT_EQ(stack.Eval(reader), EvalStatus::IntLiteralsUnderflow);
+  TestEvaluator eval(8, {0, 1, 2, 3, 4});
+  EXPECT_EQ(eval.Eval(reader), EvalStatus::IntLiteralsUnderflow);
 }
 
 TEST(EvalTest, PushScaleVec) {
@@ -1376,9 +1399,9 @@ TEST(EvalTest, PushScaleVec) {
   auto buffer = writer.Write();
   EXPECT_TRUE(reader.Read(buffer));
 
-  TestStack stack(8, {0, 2});
-  EXPECT_EQ(stack.Eval(reader), EvalStatus::Ok);
-  EXPECT_THAT(stack, ElementsAre(0, 6, 8, -4));
+  TestEvaluator eval(8, {0, 2});
+  EXPECT_EQ(eval.Eval(reader), EvalStatus::Ok);
+  EXPECT_THAT(eval, ElementsAre(0, 6, 8, -4));
 }
 
 TEST(EvalTest, PushScaleVecFloatUnderflow) {
@@ -1392,8 +1415,8 @@ TEST(EvalTest, PushScaleVecFloatUnderflow) {
   auto buffer = writer.Write();
   EXPECT_TRUE(reader.Read(buffer));
 
-  TestStack stack(8, {0, 2});
-  EXPECT_EQ(stack.Eval(reader), EvalStatus::FloatLiteralsUnderflow);
+  TestEvaluator eval(8, {0, 2});
+  EXPECT_EQ(eval.Eval(reader), EvalStatus::FloatLiteralsUnderflow);
 }
 
 TEST(EvalTest, NegVec) {
@@ -1405,9 +1428,9 @@ TEST(EvalTest, NegVec) {
   auto buffer = writer.Write();
   EXPECT_TRUE(reader.Read(buffer));
 
-  TestStack stack(8, {0, 3, 4, -2});
-  EXPECT_EQ(stack.Eval(reader), EvalStatus::Ok);
-  EXPECT_THAT(stack, ElementsAre(0, -3, -4, 2));
+  TestEvaluator eval(8, {0, 3, 4, -2});
+  EXPECT_EQ(eval.Eval(reader), EvalStatus::Ok);
+  EXPECT_THAT(eval, ElementsAre(0, -3, -4, 2));
 }
 
 TEST(EvalTest, NegVecStackUnderflow) {
@@ -1419,8 +1442,8 @@ TEST(EvalTest, NegVecStackUnderflow) {
   auto buffer = writer.Write();
   EXPECT_TRUE(reader.Read(buffer));
 
-  TestStack stack(8, {1, 2});
-  EXPECT_EQ(stack.Eval(reader), EvalStatus::StackUnderflow);
+  TestEvaluator eval(8, {1, 2});
+  EXPECT_EQ(eval.Eval(reader), EvalStatus::StackUnderflow);
 }
 
 TEST(EvalTest, NegVecIntUnderflow) {
@@ -1431,8 +1454,8 @@ TEST(EvalTest, NegVecIntUnderflow) {
   auto buffer = writer.Write();
   EXPECT_TRUE(reader.Read(buffer));
 
-  TestStack stack(8, {0, 1, 2, 3});
-  EXPECT_EQ(stack.Eval(reader), EvalStatus::IntLiteralsUnderflow);
+  TestEvaluator eval(8, {0, 1, 2, 3});
+  EXPECT_EQ(eval.Eval(reader), EvalStatus::IntLiteralsUnderflow);
 }
 
 TEST(EvalTest, PushNegVec) {
@@ -1447,9 +1470,9 @@ TEST(EvalTest, PushNegVec) {
   auto buffer = writer.Write();
   EXPECT_TRUE(reader.Read(buffer));
 
-  TestStack stack(8, {0});
-  EXPECT_EQ(stack.Eval(reader), EvalStatus::Ok);
-  EXPECT_THAT(stack, ElementsAre(0, -3, -4, 2));
+  TestEvaluator eval(8, {0});
+  EXPECT_EQ(eval.Eval(reader), EvalStatus::Ok);
+  EXPECT_THAT(eval, ElementsAre(0, -3, -4, 2));
 }
 
 TEST(EvalTest, PushNegVecFloatUnderflow) {
@@ -1463,8 +1486,8 @@ TEST(EvalTest, PushNegVecFloatUnderflow) {
   auto buffer = writer.Write();
   EXPECT_TRUE(reader.Read(buffer));
 
-  TestStack stack(8, {0});
-  EXPECT_EQ(stack.Eval(reader), EvalStatus::FloatLiteralsUnderflow);
+  TestEvaluator eval(8, {0});
+  EXPECT_EQ(eval.Eval(reader), EvalStatus::FloatLiteralsUnderflow);
 }
 
 TEST(EvalTest, NormVec) {
@@ -1476,9 +1499,9 @@ TEST(EvalTest, NormVec) {
   auto buffer = writer.Write();
   EXPECT_TRUE(reader.Read(buffer));
 
-  TestStack stack(8, {0, 2, 3, 4});
-  EXPECT_EQ(stack.Eval(reader), EvalStatus::Ok);
-  EXPECT_THAT(stack, ElementsAre(0, std::sqrt(2*2 + 3*3 + 4*4)));
+  TestEvaluator eval(8, {0, 2, 3, 4});
+  EXPECT_EQ(eval.Eval(reader), EvalStatus::Ok);
+  EXPECT_THAT(eval, ElementsAre(0, std::sqrt(2*2 + 3*3 + 4*4)));
 }
 
 TEST(EvalTest, NormVecStackUnderflow) {
@@ -1490,8 +1513,8 @@ TEST(EvalTest, NormVecStackUnderflow) {
   auto buffer = writer.Write();
   EXPECT_TRUE(reader.Read(buffer));
 
-  TestStack stack(8, {1, 2});
-  EXPECT_EQ(stack.Eval(reader), EvalStatus::StackUnderflow);
+  TestEvaluator eval(8, {1, 2});
+  EXPECT_EQ(eval.Eval(reader), EvalStatus::StackUnderflow);
 }
 
 TEST(EvalTest, NormVecIntUnderflow) {
@@ -1502,8 +1525,8 @@ TEST(EvalTest, NormVecIntUnderflow) {
   auto buffer = writer.Write();
   EXPECT_TRUE(reader.Read(buffer));
 
-  TestStack stack(8, {0, 2, 3, 4});
-  EXPECT_EQ(stack.Eval(reader), EvalStatus::IntLiteralsUnderflow);
+  TestEvaluator eval(8, {0, 2, 3, 4});
+  EXPECT_EQ(eval.Eval(reader), EvalStatus::IntLiteralsUnderflow);
 }
 
 TEST(EvalTest, PushNormVec) {
@@ -1518,9 +1541,9 @@ TEST(EvalTest, PushNormVec) {
   auto buffer = writer.Write();
   EXPECT_TRUE(reader.Read(buffer));
 
-  TestStack stack(8, {0});
-  EXPECT_EQ(stack.Eval(reader), EvalStatus::Ok);
-  EXPECT_THAT(stack, ElementsAre(0, std::sqrt(2*2 + 3*3 + 4*4)));
+  TestEvaluator eval(8, {0});
+  EXPECT_EQ(eval.Eval(reader), EvalStatus::Ok);
+  EXPECT_THAT(eval, ElementsAre(0, std::sqrt(2*2 + 3*3 + 4*4)));
 }
 
 TEST(EvalTest, PushNormVecFloatUnderflow) {
@@ -1534,8 +1557,8 @@ TEST(EvalTest, PushNormVecFloatUnderflow) {
   auto buffer = writer.Write();
   EXPECT_TRUE(reader.Read(buffer));
 
-  TestStack stack(8, {0});
-  EXPECT_EQ(stack.Eval(reader), EvalStatus::FloatLiteralsUnderflow);
+  TestEvaluator eval(8, {0});
+  EXPECT_EQ(eval.Eval(reader), EvalStatus::FloatLiteralsUnderflow);
 }
 
 TEST(EvalTest, MulMat) {
@@ -1549,12 +1572,27 @@ TEST(EvalTest, MulMat) {
   auto buffer = writer.Write();
   EXPECT_TRUE(reader.Read(buffer));
 
-  TestStack stack(32, {0, 1, 2, 3, 4, 5, 6, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12});
-  EXPECT_EQ(stack.Eval(reader), EvalStatus::Ok);
-  EXPECT_THAT(stack, ElementsAre(
+  TestEvaluator eval(32, 8, {0, 1, 2, 3, 4, 5, 6, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12});
+  EXPECT_EQ(eval.Eval(reader), EvalStatus::Ok);
+  EXPECT_THAT(eval, ElementsAre(
     0,
     1*1 + 2*5 + 3*9, 1*2 + 2*6 + 3*10, 1*3 + 2*7 + 3*11, 1*4 + 2*8 + 3*12,
     4*1 + 5*5 + 6*9, 4*2 + 5*6 + 6*10, 4*3 + 5*7 + 6*11, 4*4 + 5*8 + 6*12));
+}
+
+TEST(EvalTest, MulMatTempOverflow) {
+  PostfixWriter writer;
+  writer.add_op(PostfixOp::MulMat);
+  writer.add_i(2);
+  writer.add_i(3);
+  writer.add_i(4 << 1);
+
+  PostfixReader reader;
+  auto buffer = writer.Write();
+  EXPECT_TRUE(reader.Read(buffer));
+
+  TestEvaluator eval(32, 7, {0, 1, 2, 3, 4, 5, 6, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12});
+  EXPECT_EQ(eval.Eval(reader), EvalStatus::TempOverflow);
 }
 
 TEST(EvalTest, MulMatStackUnderflow) {
@@ -1568,8 +1606,8 @@ TEST(EvalTest, MulMatStackUnderflow) {
   auto buffer = writer.Write();
   EXPECT_TRUE(reader.Read(buffer));
 
-  TestStack stack(32, {1, 2, 3, 4, 5, 6, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11});
-  EXPECT_EQ(stack.Eval(reader), EvalStatus::StackUnderflow);
+  TestEvaluator eval(32, {1, 2, 3, 4, 5, 6, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11});
+  EXPECT_EQ(eval.Eval(reader), EvalStatus::StackUnderflow);
 }
 
 TEST(EvalTest, MulMatIntUnderflow) {
@@ -1582,8 +1620,8 @@ TEST(EvalTest, MulMatIntUnderflow) {
   auto buffer = writer.Write();
   EXPECT_TRUE(reader.Read(buffer));
 
-  TestStack stack(32, {0, 1, 2, 3, 4, 5, 6, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12});
-  EXPECT_EQ(stack.Eval(reader), EvalStatus::IntLiteralsUnderflow);
+  TestEvaluator eval(32, {0, 1, 2, 3, 4, 5, 6, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12});
+  EXPECT_EQ(eval.Eval(reader), EvalStatus::IntLiteralsUnderflow);
 }
 
 TEST(EvalTest, PushMulMat) {
@@ -1609,9 +1647,9 @@ TEST(EvalTest, PushMulMat) {
   auto buffer = writer.Write();
   EXPECT_TRUE(reader.Read(buffer));
 
-  TestStack stack(32, {0, 1, 2, 3, 4, 5, 6});
-  EXPECT_EQ(stack.Eval(reader), EvalStatus::Ok);
-  EXPECT_THAT(stack, ElementsAre(
+  TestEvaluator eval(32, 8, {0, 1, 2, 3, 4, 5, 6});
+  EXPECT_EQ(eval.Eval(reader), EvalStatus::Ok);
+  EXPECT_THAT(eval, ElementsAre(
     0,
     1*1 + 2*5 + 3*9, 1*2 + 2*6 + 3*10, 1*3 + 2*7 + 3*11, 1*4 + 2*8 + 3*12,
     4*1 + 5*5 + 6*9, 4*2 + 5*6 + 6*10, 4*3 + 5*7 + 6*11, 4*4 + 5*8 + 6*12));
@@ -1639,8 +1677,8 @@ TEST(EvalTest, PushMulMatFloatUnderflow) {
   auto buffer = writer.Write();
   EXPECT_TRUE(reader.Read(buffer));
 
-  TestStack stack(32, {1, 2, 3, 4, 5, 6});
-  EXPECT_EQ(stack.Eval(reader), EvalStatus::FloatLiteralsUnderflow);
+  TestEvaluator eval(32, {1, 2, 3, 4, 5, 6});
+  EXPECT_EQ(eval.Eval(reader), EvalStatus::FloatLiteralsUnderflow);
 }
 
 TEST(EvalTest, Lerp) {
@@ -1652,9 +1690,9 @@ TEST(EvalTest, Lerp) {
   auto buffer = writer.Write();
   EXPECT_TRUE(reader.Read(buffer));
 
-  TestStack stack(8, {0, 0.25, 2, 3, 4, 6, 7, 8});
-  EXPECT_EQ(stack.Eval(reader), EvalStatus::Ok);
-  EXPECT_THAT(stack, ElementsAre(0, 3, 4, 5));
+  TestEvaluator eval(8, {0, 0.25, 2, 3, 4, 6, 7, 8});
+  EXPECT_EQ(eval.Eval(reader), EvalStatus::Ok);
+  EXPECT_THAT(eval, ElementsAre(0, 3, 4, 5));
 }
 
 TEST(EvalTest, LerpStackUnderflow) {
@@ -1666,8 +1704,8 @@ TEST(EvalTest, LerpStackUnderflow) {
   auto buffer = writer.Write();
   EXPECT_TRUE(reader.Read(buffer));
 
-  TestStack stack(8, {0.25, 2, 3, 4, 6, 7});
-  EXPECT_EQ(stack.Eval(reader), EvalStatus::StackUnderflow);
+  TestEvaluator eval(8, {0.25, 2, 3, 4, 6, 7});
+  EXPECT_EQ(eval.Eval(reader), EvalStatus::StackUnderflow);
 }
 
 TEST(EvalTest, LerpIntUnderflow) {
@@ -1678,8 +1716,8 @@ TEST(EvalTest, LerpIntUnderflow) {
   auto buffer = writer.Write();
   EXPECT_TRUE(reader.Read(buffer));
 
-  TestStack stack(12, {0, 0.25, 2, 3, 4, 5, 6, 7, 8});
-  EXPECT_EQ(stack.Eval(reader), EvalStatus::IntLiteralsUnderflow);
+  TestEvaluator eval(12, {0, 0.25, 2, 3, 4, 5, 6, 7, 8});
+  EXPECT_EQ(eval.Eval(reader), EvalStatus::IntLiteralsUnderflow);
 }
 
 TEST(EvalTest, PushLerp1) {
@@ -1694,9 +1732,9 @@ TEST(EvalTest, PushLerp1) {
   auto buffer = writer.Write();
   EXPECT_TRUE(reader.Read(buffer));
 
-  TestStack stack(8, {0, 0.25, 2, 3, 4});
-  EXPECT_EQ(stack.Eval(reader), EvalStatus::Ok);
-  EXPECT_THAT(stack, ElementsAre(0, 3, 4, 5));
+  TestEvaluator eval(8, {0, 0.25, 2, 3, 4});
+  EXPECT_EQ(eval.Eval(reader), EvalStatus::Ok);
+  EXPECT_THAT(eval, ElementsAre(0, 3, 4, 5));
 }
 
 TEST(EvalTest, PushLerp2) {
@@ -1714,9 +1752,9 @@ TEST(EvalTest, PushLerp2) {
   auto buffer = writer.Write();
   EXPECT_TRUE(reader.Read(buffer));
 
-  TestStack stack(8, {0, 0.25});
-  EXPECT_EQ(stack.Eval(reader), EvalStatus::Ok);
-  EXPECT_THAT(stack, ElementsAre(0, 3, 4, 5));
+  TestEvaluator eval(8, {0, 0.25});
+  EXPECT_EQ(eval.Eval(reader), EvalStatus::Ok);
+  EXPECT_THAT(eval, ElementsAre(0, 3, 4, 5));
 }
 
 TEST(EvalTest, PushLerpFloatUnderflow) {
@@ -1730,8 +1768,8 @@ TEST(EvalTest, PushLerpFloatUnderflow) {
   auto buffer = writer.Write();
   EXPECT_TRUE(reader.Read(buffer));
 
-  TestStack stack(8, {0, 0.25, 2, 3, 4});
-  EXPECT_EQ(stack.Eval(reader), EvalStatus::FloatLiteralsUnderflow);
+  TestEvaluator eval(8, {0, 0.25, 2, 3, 4});
+  EXPECT_EQ(eval.Eval(reader), EvalStatus::FloatLiteralsUnderflow);
 }
 
 TEST(EvalTest, Lut_n1) {
@@ -1744,9 +1782,9 @@ TEST(EvalTest, Lut_n1) {
   auto buffer = writer.Write();
   EXPECT_TRUE(reader.Read(buffer));
 
-  TestStack stack(16, {0, -1, 0, 1, 2, 3, 2, 4, 3, 7, 6, 8, 2, 0});
-  EXPECT_EQ(stack.Eval(reader), EvalStatus::Ok);
-  EXPECT_THAT(stack, ElementsAre(0, 1, 2, 3));
+  TestEvaluator eval(16, {0, -1, 0, 1, 2, 3, 2, 4, 3, 7, 6, 8, 2, 0});
+  EXPECT_EQ(eval.Eval(reader), EvalStatus::Ok);
+  EXPECT_THAT(eval, ElementsAre(0, 1, 2, 3));
 }
 
 TEST(EvalTest, Lut_0) {
@@ -1759,9 +1797,9 @@ TEST(EvalTest, Lut_0) {
   auto buffer = writer.Write();
   EXPECT_TRUE(reader.Read(buffer));
 
-  TestStack stack(16, {0, 0, 0, 1, 2, 3, 2, 4, 3, 7, 6, 8, 2, 0});
-  EXPECT_EQ(stack.Eval(reader), EvalStatus::Ok);
-  EXPECT_THAT(stack, ElementsAre(0, 1, 2, 3));
+  TestEvaluator eval(16, {0, 0, 0, 1, 2, 3, 2, 4, 3, 7, 6, 8, 2, 0});
+  EXPECT_EQ(eval.Eval(reader), EvalStatus::Ok);
+  EXPECT_THAT(eval, ElementsAre(0, 1, 2, 3));
 }
 
 TEST(EvalTest, Lut_0_5) {
@@ -1774,9 +1812,9 @@ TEST(EvalTest, Lut_0_5) {
   auto buffer = writer.Write();
   EXPECT_TRUE(reader.Read(buffer));
 
-  TestStack stack(16, {0, 0.5, 0, 1, 2, 3, 2, 4, 3, 7, 6, 8, 2, 0});
-  EXPECT_EQ(stack.Eval(reader), EvalStatus::Ok);
-  EXPECT_THAT(stack, ElementsAre(0, 1.75, 2.25, 4));
+  TestEvaluator eval(16, {0, 0.5, 0, 1, 2, 3, 2, 4, 3, 7, 6, 8, 2, 0});
+  EXPECT_EQ(eval.Eval(reader), EvalStatus::Ok);
+  EXPECT_THAT(eval, ElementsAre(0, 1.75, 2.25, 4));
 }
 
 TEST(EvalTest, Lut_2) {
@@ -1789,9 +1827,9 @@ TEST(EvalTest, Lut_2) {
   auto buffer = writer.Write();
   EXPECT_TRUE(reader.Read(buffer));
 
-  TestStack stack(16, {0, 2, 0, 1, 2, 3, 2, 4, 3, 7, 6, 8, 2, 0});
-  EXPECT_EQ(stack.Eval(reader), EvalStatus::Ok);
-  EXPECT_THAT(stack, ElementsAre(0, 4, 3, 7));
+  TestEvaluator eval(16, {0, 2, 0, 1, 2, 3, 2, 4, 3, 7, 6, 8, 2, 0});
+  EXPECT_EQ(eval.Eval(reader), EvalStatus::Ok);
+  EXPECT_THAT(eval, ElementsAre(0, 4, 3, 7));
 }
 
 TEST(EvalTest, Lut_4) {
@@ -1804,9 +1842,9 @@ TEST(EvalTest, Lut_4) {
   auto buffer = writer.Write();
   EXPECT_TRUE(reader.Read(buffer));
 
-  TestStack stack(16, {0, 4, 0, 1, 2, 3, 2, 4, 3, 7, 6, 8, 2, 0});
-  EXPECT_EQ(stack.Eval(reader), EvalStatus::Ok);
-  EXPECT_THAT(stack, ElementsAre(0, 6, 2.5, 3.5));
+  TestEvaluator eval(16, {0, 4, 0, 1, 2, 3, 2, 4, 3, 7, 6, 8, 2, 0});
+  EXPECT_EQ(eval.Eval(reader), EvalStatus::Ok);
+  EXPECT_THAT(eval, ElementsAre(0, 6, 2.5, 3.5));
 }
 
 TEST(EvalTest, Lut_6) {
@@ -1819,9 +1857,9 @@ TEST(EvalTest, Lut_6) {
   auto buffer = writer.Write();
   EXPECT_TRUE(reader.Read(buffer));
 
-  TestStack stack(16, {0, 6, 0, 1, 2, 3, 2, 4, 3, 7, 6, 8, 2, 0});
-  EXPECT_EQ(stack.Eval(reader), EvalStatus::Ok);
-  EXPECT_THAT(stack, ElementsAre(0, 8, 2, 0));
+  TestEvaluator eval(16, {0, 6, 0, 1, 2, 3, 2, 4, 3, 7, 6, 8, 2, 0});
+  EXPECT_EQ(eval.Eval(reader), EvalStatus::Ok);
+  EXPECT_THAT(eval, ElementsAre(0, 8, 2, 0));
 }
 
 TEST(EvalTest, Lut_7) {
@@ -1834,9 +1872,9 @@ TEST(EvalTest, Lut_7) {
   auto buffer = writer.Write();
   EXPECT_TRUE(reader.Read(buffer));
 
-  TestStack stack(16, {0, 7, 0, 1, 2, 3, 2, 4, 3, 7, 6, 8, 2, 0});
-  EXPECT_EQ(stack.Eval(reader), EvalStatus::Ok);
-  EXPECT_THAT(stack, ElementsAre(0, 8, 2, 0));
+  TestEvaluator eval(16, {0, 7, 0, 1, 2, 3, 2, 4, 3, 7, 6, 8, 2, 0});
+  EXPECT_EQ(eval.Eval(reader), EvalStatus::Ok);
+  EXPECT_THAT(eval, ElementsAre(0, 8, 2, 0));
 }
 
 TEST(EvalTest, LutStackUnderflow) {
@@ -1849,8 +1887,8 @@ TEST(EvalTest, LutStackUnderflow) {
   auto buffer = writer.Write();
   EXPECT_TRUE(reader.Read(buffer));
 
-  TestStack stack(16, {0.5, 0, 1, 2, 2, 4, 3, 6, 8});
-  EXPECT_EQ(stack.Eval(reader), EvalStatus::StackUnderflow);
+  TestEvaluator eval(16, {0.5, 0, 1, 2, 2, 4, 3, 6, 8});
+  EXPECT_EQ(eval.Eval(reader), EvalStatus::StackUnderflow);
 }
 
 TEST(EvalTest, LutIntUnderflow) {
@@ -1862,8 +1900,8 @@ TEST(EvalTest, LutIntUnderflow) {
   auto buffer = writer.Write();
   EXPECT_TRUE(reader.Read(buffer));
 
-  TestStack stack(16, {0, 0.5, 0, 1, 2, 2, 4, 3, 6, 8, 2});
-  EXPECT_EQ(stack.Eval(reader), EvalStatus::IntLiteralsUnderflow);
+  TestEvaluator eval(16, {0, 0.5, 0, 1, 2, 2, 4, 3, 6, 8, 2});
+  EXPECT_EQ(eval.Eval(reader), EvalStatus::IntLiteralsUnderflow);
 }
 
 TEST(EvalTest, LutIllegalOperation) {
@@ -1876,9 +1914,9 @@ TEST(EvalTest, LutIllegalOperation) {
   auto buffer = writer.Write();
   EXPECT_TRUE(reader.Read(buffer));
 
-  TestStack stack(16, {0, 4});
-  EXPECT_EQ(stack.Eval(reader), EvalStatus::IllegalOperation);
-  EXPECT_THAT(stack, ElementsAre(0, 4));
+  TestEvaluator eval(16, {0, 4});
+  EXPECT_EQ(eval.Eval(reader), EvalStatus::IllegalOperation);
+  EXPECT_THAT(eval, ElementsAre(0, 4));
 }
 
 TEST(EvalTest, PushLut) {
@@ -1903,9 +1941,9 @@ TEST(EvalTest, PushLut) {
   auto buffer = writer.Write();
   EXPECT_TRUE(reader.Read(buffer));
 
-  TestStack stack(16, {0, 4});
-  EXPECT_EQ(stack.Eval(reader), EvalStatus::Ok);
-  EXPECT_THAT(stack, ElementsAre(0, 6, 2.5, 3.5));
+  TestEvaluator eval(16, {0, 4});
+  EXPECT_EQ(eval.Eval(reader), EvalStatus::Ok);
+  EXPECT_THAT(eval, ElementsAre(0, 6, 2.5, 3.5));
 }
 
 TEST(EvalTest, PushLutFloatUnderflow) {
@@ -1929,8 +1967,8 @@ TEST(EvalTest, PushLutFloatUnderflow) {
   auto buffer = writer.Write();
   EXPECT_TRUE(reader.Read(buffer));
 
-  TestStack stack(16, {0, 4});
-  EXPECT_EQ(stack.Eval(reader), EvalStatus::FloatLiteralsUnderflow);
+  TestEvaluator eval(16, {0, 4});
+  EXPECT_EQ(eval.Eval(reader), EvalStatus::FloatLiteralsUnderflow);
 }
 
 }

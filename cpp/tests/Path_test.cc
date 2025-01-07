@@ -12,20 +12,24 @@ using ::testing::Pointwise;
 namespace wickedwinch::protocol {
 namespace {
 
-struct TestStack : PostfixStack {
-  float buffer[8];
+struct TestEvaluator : PostfixEvaluator {
+  float stack_buffer[8];
+  float temp_buffer[4];
 
-  TestStack() {
-    stack_data = buffer;
+  TestEvaluator() {
+    stack_data = stack_buffer;
     stack_size = 0;
-    stack_capacity = sizeof(buffer);
+    stack_capacity = sizeof(stack_buffer) / sizeof(float);
+
+    temp_data = temp_buffer;
+    temp_capacity = sizeof(temp_buffer) / sizeof(float);
   }
 };
 
 TEST(PathEvalTest, Empty) {
   PathReader reader;
 
-  TestStack stack;
+  TestEvaluator stack;
   EXPECT_EQ(reader.Eval(0, stack), EvalStatus::UndefinedOperation);
 
   PathWriter writer;
@@ -52,7 +56,7 @@ TEST(PathEvalTest, Eval) {
   EXPECT_EQ(reader.flags(), 0);
   EXPECT_EQ(reader.segment_header_size(), 2);
 
-  TestStack stack;
+  TestEvaluator stack;
 
   EXPECT_EQ(reader.Eval(500, stack), EvalStatus::UndefinedOperation);
 
@@ -83,7 +87,7 @@ TEST(PathEvalTest, Overflow) {
   EXPECT_EQ(reader.flags(), PathHeader::Overflow);
   EXPECT_EQ(reader.segment_header_size(), 2);
 
-  TestStack stack;
+  TestEvaluator stack;
 
   EXPECT_EQ(reader.Eval(-1000, stack), EvalStatus::Ok);
   EXPECT_THAT(stack, Pointwise(FloatEq(), {0}));

@@ -4,12 +4,13 @@ namespace wickedwinch::protocol {
 
 enum class [[nodiscard]] EvalStatus {
   Ok,
-	UndefinedOperation,
-	IllegalOperation,
-	StackOverflow,
-	StackUnderflow,
-	IntLiteralsUnderflow,
-	FloatLiteralsUnderflow,
+  UndefinedOperation,
+  IllegalOperation,
+  StackOverflow,
+  StackUnderflow,
+  IntLiteralsUnderflow,
+  FloatLiteralsUnderflow,
+  TempOverflow,
 };
 
 }

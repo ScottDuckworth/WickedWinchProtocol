@@ -39,7 +39,7 @@ public:
 
   static constexpr uint8_t kNoSegment = 255;
   uint8_t SegmentAt(uint32_t) const;
-  EvalStatus Eval(uint32_t t, PostfixStack& stack) const;
+  EvalStatus Eval(uint32_t t, PostfixEvaluator& eval) const;
 
   uint8_t flags() const { return header()->flags; }
 
