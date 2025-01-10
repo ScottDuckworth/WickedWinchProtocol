@@ -2,23 +2,11 @@
 
 #include "EvalStatus.h"
 
-#ifdef __cplusplus
-
-#include <algorithm>
-#include <bit>
-#include <cstdint>
-#include <cstring>
-#include <initializer_list>
-#include <ostream>
-#include <span>
-#include <vector>
-
-extern "C" {
-
-#else
-
+#include <stdbool.h>
 #include <stdint.h>
 
+#ifdef __cplusplus
+extern "C" {
 #endif
 
 typedef struct WickedPostfixHeader {
@@ -89,8 +77,16 @@ bool WickedPostfixRead(const uint8_t* data, size_t size, WickedPostfixEval_t* ev
 WickedEvalStatus WickedPostfixEvaluate(WickedPostfixEval_t* eval);
 
 #ifdef __cplusplus
-
 }
+
+#include <algorithm>
+#include <bit>
+#include <cstdint>
+#include <cstring>
+#include <initializer_list>
+#include <ostream>
+#include <span>
+#include <vector>
 
 inline std::ostream& operator<<(std::ostream& out, WickedPostfixOp op) {
   return out << WickedPostfixOpToString(op);
