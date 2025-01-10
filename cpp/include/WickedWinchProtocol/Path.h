@@ -3,62 +3,47 @@
 #include "EvalStatus.h"
 #include "Postfix.h"
 
-#include <span>
-#include <vector>
+#include <stdbool.h>
+#include <stdint.h>
 
-namespace wickedwinch::protocol {
+#ifdef __cplusplus
+extern "C" {
+#endif
 
-struct PathHeader {
+typedef struct WickedPathHeader {
   uint16_t segment_size;
   uint8_t flags;
   uint8_t padding;
+} WickedPathHeader_t;
 
-  static constexpr uint8_t Overflow = 1 << 0;
-};
-
-struct PathSegmentHeader {
+typedef struct WickedPathSegmentHeader {
   uint32_t start_time;
   uint16_t offset;
   uint16_t size;
-};
+} WickedPathSegmentHeader_t;
 
-class PathReader {
-public:
-  bool Read(std::span<const uint8_t> buffer) { return Read(buffer.data(), buffer.size()); }
-  bool Read(const uint8_t* data, size_t size);
+typedef struct WickedPathSegmentDescriptor {
+  uint32_t start_time;
+  const uint8_t* postfix_data;
+  uint16_t postfix_size;
+} WickedPathSegmentDescriptor_t;
 
-  static constexpr uint8_t kNoSegment = 255;
-  uint8_t SegmentAt(uint32_t) const;
-  WickedEvalStatus Eval(uint32_t t, WickedPostfixEval& eval) const;
+bool WickedPathValidate(const uint8_t* path_data, size_t path_size);
+bool WickedPathSegmentAt(const uint8_t* path_data, uint32_t t, WickedPathSegmentDescriptor_t* descriptor);
+WickedEvalStatus WickedPathEvaluate(const uint8_t* path_data, uint32_t t, WickedPostfixEval_t* eval);
 
-  uint8_t flags() const { return header()->flags; }
+#ifdef __cplusplus
+}
 
-  const PathSegmentHeader* segment_header_data() const {
-    return reinterpret_cast<const PathSegmentHeader*>(buffer_ + segment_header_offset());
-  }
-  uint8_t segment_header_size() const { return header()->segment_size; }
-  const PathSegmentHeader& segment_header(uint8_t i) const { return segment_header_data()[i]; };
+#include <span>
+#include <vector>
 
-  std::span<const uint8_t> segment_data(uint8_t i) const {
-    if (i == kNoSegment) return {};
-    const PathSegmentHeader& segment = segment_header(i);
-    return {buffer_ + segment.offset, segment.size};
-  }
-
-private:
-	const PathHeader* header() const { return reinterpret_cast<const PathHeader*>(buffer_); }
-
-  constexpr size_t segment_header_offset() const { return sizeof(PathHeader); }
-
-	const uint8_t* buffer_ = nullptr;
-};
-
-struct PathSegmentWriter {
+struct WickedPathSegmentWriter {
   uint32_t start_time;
   WickedPostfixWriter expr;
 };
 
-class PathWriter {
+class WickedPathWriter {
 public:
   uint16_t data_size() const;
 	bool Write(uint8_t* data, size_t size) const;
@@ -68,12 +53,12 @@ public:
     return buffer;
   }
 
-  PathSegmentWriter* add_segments() { return &segments_.emplace_back(); }
-  std::span<PathSegmentWriter> segments() { return segments_; }
-  std::span<const PathSegmentWriter> segments() const { return segments_; }
+  WickedPathSegmentWriter* add_segments() { return &segments_.emplace_back(); }
+  std::span<WickedPathSegmentWriter> segments() { return segments_; }
+  std::span<const WickedPathSegmentWriter> segments() const { return segments_; }
 
 private:
-  std::vector<PathSegmentWriter> segments_;
+  std::vector<WickedPathSegmentWriter> segments_;
 };
 
-}
+#endif

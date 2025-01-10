@@ -30,84 +30,72 @@ struct TestEval {
 };
 
 TEST(PathEvalTest, Empty) {
-  PathReader reader;
+  EXPECT_FALSE(WickedPathValidate(nullptr, 3));
+
+  WickedPathWriter writer;
+  auto buffer = writer.Write();
+  EXPECT_TRUE(WickedPathValidate(buffer.data(), buffer.size()));
 
   TestEval eval;
-  EXPECT_EQ(reader.Eval(0, eval.eval), WickedEvalStatus_UndefinedOperation);
-
-  PathWriter writer;
-  auto buffer = writer.Write();
-  EXPECT_TRUE(reader.Read(buffer));
-  EXPECT_EQ(reader.segment_header_size(), 0);
-
-  EXPECT_EQ(reader.Eval(0, eval.eval), WickedEvalStatus_UndefinedOperation);
+  EXPECT_EQ(WickedPathEvaluate(buffer.data(), 0, &eval.eval), WickedEvalStatus_UndefinedOperation);
 }
 
 TEST(PathEvalTest, Eval) {
-  PathWriter writer;
-  PathSegmentWriter* segment;
+  WickedPathWriter writer;
+  WickedPathSegmentWriter* segment;
   segment = writer.add_segments();
   segment->start_time = 1000;
   segment = writer.add_segments();
   segment->start_time = 2000;
   segment->expr.Pop(1);
   segment->expr.Push({99});
-
-  PathReader reader;
   auto buffer = writer.Write();
-  EXPECT_TRUE(reader.Read(buffer));
-  EXPECT_EQ(reader.flags(), 0);
-  EXPECT_EQ(reader.segment_header_size(), 2);
+  EXPECT_TRUE(WickedPathValidate(buffer.data(), buffer.size()));
 
   TestEval eval;
 
-  EXPECT_EQ(reader.Eval(500, eval.eval), WickedEvalStatus_UndefinedOperation);
-
-  EXPECT_EQ(reader.Eval(1000, eval.eval), WickedEvalStatus_Ok);
+  EXPECT_EQ(WickedPathEvaluate(buffer.data(), 1000, &eval.eval), WickedEvalStatus_Ok);
   EXPECT_THAT(eval.stack(), Pointwise(FloatEq(), {0}));
 
-  EXPECT_EQ(reader.Eval(1750, eval.eval), WickedEvalStatus_Ok);
+  EXPECT_EQ(WickedPathEvaluate(buffer.data(), 1750, &eval.eval), WickedEvalStatus_Ok);
   EXPECT_THAT(eval.stack(), Pointwise(FloatEq(), {0.75}));
 
-  EXPECT_EQ(reader.Eval(2000, eval.eval), WickedEvalStatus_Ok);
+  EXPECT_EQ(WickedPathEvaluate(buffer.data(), 2000, &eval.eval), WickedEvalStatus_Ok);
   EXPECT_THAT(eval.stack(), Pointwise(FloatEq(), {99}));
 
-  EXPECT_EQ(reader.Eval(2100, eval.eval), WickedEvalStatus_Ok);
+  EXPECT_EQ(WickedPathEvaluate(buffer.data(), 2100, &eval.eval), WickedEvalStatus_Ok);
   EXPECT_THAT(eval.stack(), Pointwise(FloatEq(), {99}));
 }
 
-TEST(PathEvalTest, Overflow) {
-  PathWriter writer;
-  PathSegmentWriter* segment;
+TEST(PathEvalTest, Wraparound) {
+  WickedPathWriter writer;
+  WickedPathSegmentWriter* segment;
   segment = writer.add_segments();
   segment->start_time = -1000;
   segment = writer.add_segments();
   segment->start_time = 1000;
 
-  PathReader reader;
   auto buffer = writer.Write();
-  EXPECT_TRUE(reader.Read(buffer));
-  EXPECT_EQ(reader.flags(), PathHeader::Overflow);
-  EXPECT_EQ(reader.segment_header_size(), 2);
+  EXPECT_TRUE(WickedPathValidate(buffer.data(), buffer.size()));
 
   TestEval eval;
 
-  EXPECT_EQ(reader.Eval(-1000, eval.eval), WickedEvalStatus_Ok);
+  EXPECT_EQ(WickedPathEvaluate(buffer.data(), -1000, &eval.eval), WickedEvalStatus_Ok);
   EXPECT_THAT(eval.stack(), Pointwise(FloatEq(), {0}));
 
-  EXPECT_EQ(reader.Eval(-500, eval.eval), WickedEvalStatus_Ok);
+  EXPECT_EQ(WickedPathEvaluate(buffer.data(), -500, &eval.eval), WickedEvalStatus_Ok);
   EXPECT_THAT(eval.stack(), Pointwise(FloatEq(), {0.5}));
 
-  EXPECT_EQ(reader.Eval(0, eval.eval), WickedEvalStatus_Ok);
+  EXPECT_EQ(WickedPathEvaluate(buffer.data(), 0, &eval.eval), WickedEvalStatus_Ok);
   EXPECT_THAT(eval.stack(), Pointwise(FloatEq(), {1}));
 
-  EXPECT_EQ(reader.Eval(500, eval.eval), WickedEvalStatus_Ok);
+  EXPECT_EQ(WickedPathEvaluate(buffer.data(), 500, &eval.eval), WickedEvalStatus_Ok);
   EXPECT_THAT(eval.stack(), Pointwise(FloatEq(), {1.5}));
 
-  EXPECT_EQ(reader.Eval(1000, eval.eval), WickedEvalStatus_Ok);
+  EXPECT_EQ(WickedPathEvaluate(buffer.data(), 1000, &eval.eval), WickedEvalStatus_Ok);
   EXPECT_THAT(eval.stack(), Pointwise(FloatEq(), {0}));
 
-  EXPECT_EQ(reader.Eval(1500, eval.eval), WickedEvalStatus_Ok);
+  EXPECT_EQ(WickedPathEvaluate(buffer.data(), 1500, &eval.eval), WickedEvalStatus_Ok);
   EXPECT_THAT(eval.stack(), Pointwise(FloatEq(), {0.5}));
 }
 
