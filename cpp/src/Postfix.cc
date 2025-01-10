@@ -1,6 +1,7 @@
 #include <WickedWinchProtocol/Postfix.h>
 
 #include <algorithm>
+#include <bit>
 #include <cmath>
 #include <cstring>
 #include <iterator>
@@ -9,6 +10,10 @@
 #define CHECK_STATUS(expr) if (WickedEvalStatus status = expr; status != WickedEvalStatus_Ok) return status
 
 namespace {
+
+static_assert(std::endian::native == std::endian::little);
+static_assert(sizeof(float) == 4);
+static_assert(sizeof(WickedPostfixHeader) == 4);
 
 template <typename Pred>
 size_t search(size_t base, size_t n, const Pred& pred) {

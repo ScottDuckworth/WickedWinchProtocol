@@ -57,6 +57,8 @@ enum WickedPostfixOp {
   WickedPostfixOp_Lut       = 38,
 };
 
+const char* WickedPostfixOpToString(WickedPostfixOp op);
+
 typedef struct WickedPostfixEval {
   const uint8_t* op_head;
   const uint8_t* i_head;
@@ -78,18 +80,12 @@ WickedEvalStatus WickedPostfixEval_pushv(WickedPostfixEval_t* eval, const float*
 WickedEvalStatus WickedPostfixEval_pop(WickedPostfixEval_t* eval, float* v);
 WickedEvalStatus WickedPostfixEval_popv(WickedPostfixEval_t* eval, float* v, size_t n);
 
-const char* WickedPostfixOpToString(WickedPostfixOp op);
 bool WickedPostfixRead(const uint8_t* data, size_t size, WickedPostfixEval_t* eval);
 WickedEvalStatus WickedPostfixEvaluate(WickedPostfixEval_t* eval);
 
 #ifdef __cplusplus
 }
 
-#include <algorithm>
-#include <bit>
-#include <cstdint>
-#include <cstring>
-#include <initializer_list>
 #include <ostream>
 #include <span>
 #include <vector>
@@ -97,10 +93,6 @@ WickedEvalStatus WickedPostfixEvaluate(WickedPostfixEval_t* eval);
 inline std::ostream& operator<<(std::ostream& out, WickedPostfixOp op) {
   return out << WickedPostfixOpToString(op);
 }
-
-static_assert(std::endian::native == std::endian::little);
-static_assert(sizeof(WickedPostfixHeader) == 4);
-static_assert(sizeof(float) == 4);
 
 class WickedPostfixWriter {
 public:
@@ -139,7 +131,7 @@ public:
 	float f(uint16_t index) const { return f_data()[index]; }
 	float& f(uint16_t index) { return f_data()[index]; }
 
-  void Push(std::initializer_list<float> values) {
+  void Push(std::span<const float> values) {
     add_op(WickedPostfixOp_Push);
     add_i(values.size());
     for (float value : values) add_f(value);
