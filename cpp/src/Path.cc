@@ -9,11 +9,10 @@ extern "C" bool WickedPathValidate(const uint8_t* path_data, size_t path_size) {
 
   if (path_size < sizeof(WickedPathHeader_t) + header->segment_size * sizeof(WickedPathSegmentHeader_t)) return false;
 
-  WickedPostfixEval postfix_eval;
   for (uint8_t i = 0; i < header->segment_size; ++i) {
     const WickedPathSegmentHeader_t& segment = segments[i];
     if (path_size < segment.offset + segment.size) return false;
-    if (!WickedPostfixRead(path_data + segment.offset, segment.size, &postfix_eval)) return false;
+    if (!WickedPostfixRead(path_data + segment.offset, segment.size, nullptr)) return false;
   }
   return true;
 }
@@ -26,11 +25,13 @@ bool WickedPathSegmentAt(const uint8_t* path_data, uint32_t t, WickedPathSegment
     return t - segments[0].start_time < segments[i].start_time - segments[0].start_time;
   });
   if (i == 0) return false;
-  const WickedPathSegmentHeader_t* segment = &segments[i - 1];
+  const WickedPathSegmentHeader_t& segment = segments[i - 1];
 
-  descriptor->start_time = segment->start_time;
-  descriptor->postfix_data = path_data + segment->offset;
-  descriptor->postfix_size = segment->size;
+  if (descriptor) {
+    descriptor->start_time = segment.start_time;
+    descriptor->postfix_data = path_data + segment.offset;
+    descriptor->postfix_size = segment.size;
+  }
   return true;
 }
 

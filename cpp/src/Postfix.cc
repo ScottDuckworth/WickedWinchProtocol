@@ -75,12 +75,14 @@ extern "C" bool WickedPostfixRead(const uint8_t* data, size_t size, WickedPostfi
 	size_t data_size = f_offset + f_size * 4;
   if (size != data_size) return false;
 
-  eval->op_head = data + op_offset;
-  eval->i_head = data + i_offset;
-  eval->f_head = reinterpret_cast<const float*>(data + f_offset);
-  eval->op_size = op_size;
-  eval->i_size = i_size;
-  eval->f_size = f_size;
+  if (eval) {
+    eval->op_head = data + op_offset;
+    eval->i_head = data + i_offset;
+    eval->f_head = reinterpret_cast<const float*>(data + f_offset);
+    eval->op_size = op_size;
+    eval->i_size = i_size;
+    eval->f_size = f_size;
+  }
   return true;
 }
 
