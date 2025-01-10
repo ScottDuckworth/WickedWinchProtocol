@@ -9,7 +9,6 @@
 using ::testing::FloatEq;
 using ::testing::Pointwise;
 
-namespace wickedwinch::protocol {
 namespace {
 
 struct TestEval {
@@ -99,5 +98,4 @@ TEST(PathEvalTest, Wraparound) {
   EXPECT_THAT(eval.stack(), Pointwise(FloatEq(), {500}));
 }
 
-}
 }
