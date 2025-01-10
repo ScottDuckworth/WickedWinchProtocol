@@ -11,18 +11,18 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 include(FetchContent)
 
 include_directories(
-  ${CMAKE_CURRENT_SOURCE_DIR}/cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/cpp/src
   ${CMAKE_CURRENT_BINARY_DIR}
 )
 
 add_library(WickedWinchProtocol
-  cpp/include/WickedWinchProtocol.h
-  cpp/include/WickedWinchProtocol/EvalStatus.h
-  cpp/include/WickedWinchProtocol/Postfix.h
-  cpp/include/WickedWinchProtocol/Path.h
-  cpp/include/WickedWinchProtocol/upper_bound.hh
-  cpp/src/Postfix.cc
-  cpp/src/Path.cc
+  cpp/src/WickedWinchProtocol.h
+  cpp/src/WickedWinchProtocol/EvalStatus.h
+  cpp/src/WickedWinchProtocol/Postfix.h
+  cpp/src/WickedWinchProtocol/Path.h
+  cpp/src/WickedWinchProtocol/upper_bound.hh
+  cpp/src/WickedWinchProtocol/Postfix.cc
+  cpp/src/WickedWinchProtocol/Path.cc
 )
 
 target_include_directories(WickedWinchProtocol PUBLIC
