@@ -1,36 +1,36 @@
 #pragma once
 
-#include <ostream>
-
-namespace wickedwinch::protocol {
-
-enum class [[nodiscard]] EvalStatus {
-  Ok,
-  UndefinedOperation,
-  IllegalOperation,
-  StackOverflow,
-  StackUnderflow,
-  IntLiteralsUnderflow,
-  FloatLiteralsUnderflow,
-  TempOverflow,
+enum WickedEvalStatus {
+  WickedEvalStatus_Ok,
+  WickedEvalStatus_UndefinedOperation,
+  WickedEvalStatus_IllegalOperation,
+  WickedEvalStatus_StackOverflow,
+  WickedEvalStatus_StackUnderflow,
+  WickedEvalStatus_IntLiteralsUnderflow,
+  WickedEvalStatus_FloatLiteralsUnderflow,
+  WickedEvalStatus_TempOverflow,
 };
 
-inline constexpr const char* ToString(EvalStatus status) {
+inline constexpr const char* WickedEvalStatus_ToString(WickedEvalStatus status) {
   switch (status) {
-    case EvalStatus::Ok:                     return "Ok";
-    case EvalStatus::UndefinedOperation:     return "UndefinedOperation";
-    case EvalStatus::IllegalOperation:       return "IllegalOperation";
-    case EvalStatus::StackOverflow:          return "StackOverflow";
-    case EvalStatus::StackUnderflow:         return "StackUnderflow";
-    case EvalStatus::IntLiteralsUnderflow:   return "IntLiteralsUnderflow";
-    case EvalStatus::FloatLiteralsUnderflow: return "FloatLiteralsUnderflow";
-    case EvalStatus::TempOverflow:           return "TempOverflow";
+    case WickedEvalStatus_Ok:                     return "Ok";
+    case WickedEvalStatus_UndefinedOperation:     return "Undefined Operation";
+    case WickedEvalStatus_IllegalOperation:       return "Illegal Operation";
+    case WickedEvalStatus_StackOverflow:          return "Stack Overflow";
+    case WickedEvalStatus_StackUnderflow:         return "Stack Underflow";
+    case WickedEvalStatus_IntLiteralsUnderflow:   return "Int Literals Underflow";
+    case WickedEvalStatus_FloatLiteralsUnderflow: return "Float Literals Underflow";
+    case WickedEvalStatus_TempOverflow:           return "Temp Overflow";
   }
   return "UNKNOWN";
 }
 
-inline std::ostream& operator<<(std::ostream& out, EvalStatus status) {
-  return out << ToString(status);
+#ifdef __cplusplus
+
+#include <ostream>
+
+inline std::ostream& operator<<(std::ostream& out, WickedEvalStatus status) {
+  return out << WickedEvalStatus_ToString(status);
 }
 
-}
+#endif

@@ -22,16 +22,6 @@ struct PathSegmentHeader {
   uint16_t size;
 };
 
-struct PathSegmentReader {
-  uint32_t start_time;
-  PostfixReader expr;
-};
-
-struct PathSegmentWriter {
-  uint32_t start_time;
-  PostfixWriter expr;
-};
-
 class PathReader {
 public:
   bool Read(std::span<const uint8_t> buffer) { return Read(buffer.data(), buffer.size()); }
@@ -39,7 +29,7 @@ public:
 
   static constexpr uint8_t kNoSegment = 255;
   uint8_t SegmentAt(uint32_t) const;
-  EvalStatus Eval(uint32_t t, PostfixEvaluator& eval) const;
+  WickedEvalStatus Eval(uint32_t t, WickedPostfixEval& eval) const;
 
   uint8_t flags() const { return header()->flags; }
 
@@ -61,6 +51,11 @@ private:
   constexpr size_t segment_header_offset() const { return sizeof(PathHeader); }
 
 	const uint8_t* buffer_ = nullptr;
+};
+
+struct PathSegmentWriter {
+  uint32_t start_time;
+  WickedPostfixWriter expr;
 };
 
 class PathWriter {

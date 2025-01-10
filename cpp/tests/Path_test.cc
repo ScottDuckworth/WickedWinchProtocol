@@ -1,7 +1,7 @@
 #include <WickedWinchProtocol/Path.h>
 #include <WickedWinchProtocol/Postfix.h>
 
-#include <vector>
+#include <span>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
@@ -12,32 +12,35 @@ using ::testing::Pointwise;
 namespace wickedwinch::protocol {
 namespace {
 
-struct TestEvaluator : PostfixEvaluator {
+struct TestEval {
+  struct WickedPostfixEval eval;
   float stack_buffer[8];
   float temp_buffer[4];
 
-  TestEvaluator() {
-    stack_data = stack_buffer;
-    stack_size = 0;
-    stack_capacity = sizeof(stack_buffer) / sizeof(float);
+  TestEval() {
+    eval.stack_data = stack_buffer;
+    eval.stack_size = 0;
+    eval.stack_capacity = sizeof(stack_buffer) / sizeof(float);
 
-    temp_data = temp_buffer;
-    temp_capacity = sizeof(temp_buffer) / sizeof(float);
+    eval.temp_data = temp_buffer;
+    eval.temp_capacity = sizeof(temp_buffer) / sizeof(float);
   }
+
+  std::span<float> stack() { return std::span<float>(eval.stack_data, eval.stack_size); }
 };
 
 TEST(PathEvalTest, Empty) {
   PathReader reader;
 
-  TestEvaluator eval;
-  EXPECT_EQ(reader.Eval(0, eval), EvalStatus::UndefinedOperation);
+  TestEval eval;
+  EXPECT_EQ(reader.Eval(0, eval.eval), WickedEvalStatus_UndefinedOperation);
 
   PathWriter writer;
   auto buffer = writer.Write();
   EXPECT_TRUE(reader.Read(buffer));
   EXPECT_EQ(reader.segment_header_size(), 0);
 
-  EXPECT_EQ(reader.Eval(0, eval), EvalStatus::UndefinedOperation);
+  EXPECT_EQ(reader.Eval(0, eval.eval), WickedEvalStatus_UndefinedOperation);
 }
 
 TEST(PathEvalTest, Eval) {
@@ -56,20 +59,20 @@ TEST(PathEvalTest, Eval) {
   EXPECT_EQ(reader.flags(), 0);
   EXPECT_EQ(reader.segment_header_size(), 2);
 
-  TestEvaluator eval;
+  TestEval eval;
 
-  EXPECT_EQ(reader.Eval(500, eval), EvalStatus::UndefinedOperation);
+  EXPECT_EQ(reader.Eval(500, eval.eval), WickedEvalStatus_UndefinedOperation);
 
-  EXPECT_EQ(reader.Eval(1000, eval), EvalStatus::Ok);
+  EXPECT_EQ(reader.Eval(1000, eval.eval), WickedEvalStatus_Ok);
   EXPECT_THAT(eval.stack(), Pointwise(FloatEq(), {0}));
 
-  EXPECT_EQ(reader.Eval(1750, eval), EvalStatus::Ok);
+  EXPECT_EQ(reader.Eval(1750, eval.eval), WickedEvalStatus_Ok);
   EXPECT_THAT(eval.stack(), Pointwise(FloatEq(), {0.75}));
 
-  EXPECT_EQ(reader.Eval(2000, eval), EvalStatus::Ok);
+  EXPECT_EQ(reader.Eval(2000, eval.eval), WickedEvalStatus_Ok);
   EXPECT_THAT(eval.stack(), Pointwise(FloatEq(), {99}));
 
-  EXPECT_EQ(reader.Eval(2100, eval), EvalStatus::Ok);
+  EXPECT_EQ(reader.Eval(2100, eval.eval), WickedEvalStatus_Ok);
   EXPECT_THAT(eval.stack(), Pointwise(FloatEq(), {99}));
 }
 
@@ -87,24 +90,24 @@ TEST(PathEvalTest, Overflow) {
   EXPECT_EQ(reader.flags(), PathHeader::Overflow);
   EXPECT_EQ(reader.segment_header_size(), 2);
 
-  TestEvaluator eval;
+  TestEval eval;
 
-  EXPECT_EQ(reader.Eval(-1000, eval), EvalStatus::Ok);
+  EXPECT_EQ(reader.Eval(-1000, eval.eval), WickedEvalStatus_Ok);
   EXPECT_THAT(eval.stack(), Pointwise(FloatEq(), {0}));
 
-  EXPECT_EQ(reader.Eval(-500, eval), EvalStatus::Ok);
+  EXPECT_EQ(reader.Eval(-500, eval.eval), WickedEvalStatus_Ok);
   EXPECT_THAT(eval.stack(), Pointwise(FloatEq(), {0.5}));
 
-  EXPECT_EQ(reader.Eval(0, eval), EvalStatus::Ok);
+  EXPECT_EQ(reader.Eval(0, eval.eval), WickedEvalStatus_Ok);
   EXPECT_THAT(eval.stack(), Pointwise(FloatEq(), {1}));
 
-  EXPECT_EQ(reader.Eval(500, eval), EvalStatus::Ok);
+  EXPECT_EQ(reader.Eval(500, eval.eval), WickedEvalStatus_Ok);
   EXPECT_THAT(eval.stack(), Pointwise(FloatEq(), {1.5}));
 
-  EXPECT_EQ(reader.Eval(1000, eval), EvalStatus::Ok);
+  EXPECT_EQ(reader.Eval(1000, eval.eval), WickedEvalStatus_Ok);
   EXPECT_THAT(eval.stack(), Pointwise(FloatEq(), {0}));
 
-  EXPECT_EQ(reader.Eval(1500, eval), EvalStatus::Ok);
+  EXPECT_EQ(reader.Eval(1500, eval.eval), WickedEvalStatus_Ok);
   EXPECT_THAT(eval.stack(), Pointwise(FloatEq(), {0.5}));
 }
 

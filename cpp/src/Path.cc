@@ -29,21 +29,19 @@ uint8_t PathReader::SegmentAt(uint32_t t) const {
   return uint8_t(segment - begin);
 }
 
-EvalStatus PathReader::Eval(uint32_t t, PostfixEvaluator& eval) const {
+WickedEvalStatus PathReader::Eval(uint32_t t, WickedPostfixEval& eval) const {
   uint8_t i = SegmentAt(t);
-  if (i == kNoSegment) return EvalStatus::UndefinedOperation;
+  if (i == kNoSegment) return WickedEvalStatus_UndefinedOperation;
 
   const PathSegmentHeader& segment = segment_header(i);
-  PathSegmentReader reader;
-  reader.start_time = segment.start_time;
-  if (!reader.expr.Read(buffer_ + segment.offset, segment.size)) {
-    return EvalStatus::IllegalOperation;
+  if (!WickedPostfixRead(buffer_ + segment.offset, segment.size, &eval)) {
+    return WickedEvalStatus_IllegalOperation;
   }
 
   float st = float(t - segment.start_time) * 1e-3f;
-  eval.clear();
-  eval.push(st);
-  return eval.Eval(reader.expr);
+  eval.stack_size = 1;
+  eval.stack_data[0] = st;
+  return WickedPostfixEvaluate(&eval);
 }
 
 bool PathReader::Read(const uint8_t* data, size_t size) {
@@ -53,11 +51,11 @@ bool PathReader::Read(const uint8_t* data, size_t size) {
     return false;
   }
 
-  PostfixReader expr;
+  WickedPostfixEval eval;
   for (uint8_t i = 0; i < segment_header_size(); ++i) {
     const PathSegmentHeader& segment = segment_header(i);
     if (size < segment.offset + segment.size) return false;
-    if (!expr.Read(buffer_ + segment.offset, segment.size)) return false;
+    if (!WickedPostfixRead(buffer_ + segment.offset, segment.size, &eval)) return false;
   }
   return true;
 }
