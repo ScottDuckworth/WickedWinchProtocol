@@ -13,7 +13,7 @@ static_assert(std::endian::native == std::endian::little);
 static_assert(sizeof(float) == 4);
 static_assert(sizeof(WickedPostfixHeader) == 4);
 
-// Return the smallest index i in [0, n) at which pred(i) is true.
+// Return the smallest index i in [first, last) at which pred(i) is true.
 template <typename Pred>
 static size_t upper_bound(size_t first, size_t last, const Pred& pred) {
   size_t i = first;
