@@ -20,6 +20,7 @@ add_library(WickedWinchProtocol
   cpp/include/WickedWinchProtocol/EvalStatus.h
   cpp/include/WickedWinchProtocol/Postfix.h
   cpp/include/WickedWinchProtocol/Path.h
+  cpp/include/WickedWinchProtocol/upper_bound.hh
   cpp/src/Postfix.cc
   cpp/src/Path.cc
 )

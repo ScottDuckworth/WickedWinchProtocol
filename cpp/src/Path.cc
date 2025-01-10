@@ -1,7 +1,5 @@
 #include <WickedWinchProtocol/Path.h>
-
-#include <algorithm>
-#include <cassert>
+#include <WickedWinchProtocol/upper_bound.hh>
 
 extern "C" bool WickedPathValidate(const uint8_t* path_data, size_t path_size) {
   if (path_size < sizeof(WickedPathHeader_t)) return false;
@@ -24,20 +22,11 @@ bool WickedPathSegmentAt(const uint8_t* path_data, uint32_t t, WickedPathSegment
   auto* const header = reinterpret_cast<const WickedPathHeader_t*>(path_data);
   auto* const segments = reinterpret_cast<const WickedPathSegmentHeader_t*>(path_data + sizeof(WickedPathHeader_t));
 
-  const WickedPathSegmentHeader_t* begin = segments;
-  const WickedPathSegmentHeader_t* end = begin + header->segment_size;
-
-  struct StartTimeLess {
-    uint32_t begin_time;
-
-    bool operator()(uint32_t t, const WickedPathSegmentHeader_t& segment) const {
-      return t - begin_time < segment.start_time - begin_time;
-    }
-  };
-  const WickedPathSegmentHeader_t* segment =
-      std::upper_bound(begin, end, t, StartTimeLess{.begin_time = begin->start_time});
-  if (segment == begin) return false;
-  --segment;
+  uint16_t i = wicked_upper_bound(uint16_t(0), header->segment_size, [segments, t](uint16_t i) {
+    return t - segments[0].start_time < segments[i].start_time - segments[0].start_time;
+  });
+  if (i == 0) return false;
+  const WickedPathSegmentHeader_t* segment = &segments[i - 1];
 
   descriptor->start_time = segment->start_time;
   descriptor->postfix_data = path_data + segment->offset;
