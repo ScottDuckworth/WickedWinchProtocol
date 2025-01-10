@@ -12,7 +12,7 @@ using ::testing::Pointwise;
 namespace {
 
 struct TestEval {
-  struct WickedPostfixEval eval;
+  WickedPostfixEval_t eval;
   float stack_buffer[8];
   float temp_buffer[4];
 
@@ -37,6 +37,18 @@ TEST(PathEvalTest, Empty) {
 
   TestEval eval;
   EXPECT_EQ(WickedPathEvaluate(buffer.data(), 0, &eval.eval), WickedEvalStatus_UndefinedOperation);
+}
+
+TEST(PathEvalTest, NoStack) {
+  WickedPathWriter writer;
+  WickedPathSegmentWriter* segment;
+  segment = writer.add_segments();
+  segment->start_time = 0;
+  auto buffer = writer.Write();
+  EXPECT_TRUE(WickedPathValidate(buffer.data(), buffer.size()));
+
+  WickedPostfixEval_t eval = {.stack_capacity = 0};
+  EXPECT_EQ(WickedPathEvaluate(buffer.data(), 0, &eval), WickedEvalStatus_StackOverflow);
 }
 
 TEST(PathEvalTest, Eval) {

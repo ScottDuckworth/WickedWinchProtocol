@@ -72,6 +72,12 @@ typedef struct WickedPostfixEval {
   uint8_t temp_capacity;
 } WickedPostfixEval_t;
 
+void WickedPostfixEval_reset(WickedPostfixEval_t* eval);
+WickedEvalStatus WickedPostfixEval_push(WickedPostfixEval_t* eval, float v);
+WickedEvalStatus WickedPostfixEval_pushv(WickedPostfixEval_t* eval, const float* v, size_t size);
+WickedEvalStatus WickedPostfixEval_pop(WickedPostfixEval_t* eval, float* v);
+WickedEvalStatus WickedPostfixEval_popv(WickedPostfixEval_t* eval, float* v, size_t n);
+
 const char* WickedPostfixOpToString(WickedPostfixOp op);
 bool WickedPostfixRead(const uint8_t* data, size_t size, WickedPostfixEval_t* eval);
 WickedEvalStatus WickedPostfixEvaluate(WickedPostfixEval_t* eval);
