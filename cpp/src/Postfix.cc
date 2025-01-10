@@ -9,33 +9,25 @@
 
 #define CHECK_STATUS(expr) if (WickedEvalStatus status = expr; status != WickedEvalStatus_Ok) return status
 
-namespace {
-
 static_assert(std::endian::native == std::endian::little);
 static_assert(sizeof(float) == 4);
 static_assert(sizeof(WickedPostfixHeader) == 4);
 
-template <typename Pred>
-size_t search(size_t base, size_t n, const Pred& pred) {
-  while (n) {
-    size_t h = n >> 1;
-    if (pred(base + h)) {
-      n = h;
-    } else {
-      if (h == 0) break;
-      base += h;
-      n -= h;
-    }
-  }
-  return base + n;
-}
-
 // Return the smallest index i in [0, n) at which pred(i) is true.
 template <typename Pred>
-size_t search(size_t n, const Pred& pred) {
-  return search(0, n, pred);
-}
-
+static size_t upper_bound(size_t first, size_t last, const Pred& pred) {
+  size_t i = first;
+  size_t n = last - first;
+  while (n > 0) {
+    size_t h = n / 2;
+    if (pred(i + h)) {
+      n = h;
+    } else {
+      i += h + 1;
+      n -= h + 1;
+    }
+  }
+  return i;
 }
 
 extern "C" const char* WickedPostfixOpToString(WickedPostfixOp op) {
@@ -577,7 +569,7 @@ extern "C" WickedEvalStatus WickedPostfixEvaluate(WickedPostfixEval_t* eval) {
       CHECK_STATUS(WickedPostfixEval_popv(eval, size, &lut));
       CHECK_STATUS(WickedPostfixEval_pop(eval, &t));
       CHECK_STATUS(WickedPostfixEval_allocv(eval, n, &result));
-      size_t ubrow = search(rows, [t, cols, lut](size_t i) -> bool {
+      size_t ubrow = upper_bound(0, rows, [t, cols, lut](size_t i) -> bool {
         return t < lut[cols*i];
       });
       if (ubrow == 0) {
