@@ -58,7 +58,7 @@ TEST(PathEvalTest, Eval) {
   EXPECT_THAT(eval.stack(), Pointwise(FloatEq(), {0}));
 
   EXPECT_EQ(WickedPathEvaluate(buffer.data(), 1750, &eval.eval), WickedEvalStatus_Ok);
-  EXPECT_THAT(eval.stack(), Pointwise(FloatEq(), {0.75}));
+  EXPECT_THAT(eval.stack(), Pointwise(FloatEq(), {750}));
 
   EXPECT_EQ(WickedPathEvaluate(buffer.data(), 2000, &eval.eval), WickedEvalStatus_Ok);
   EXPECT_THAT(eval.stack(), Pointwise(FloatEq(), {99}));
@@ -84,19 +84,19 @@ TEST(PathEvalTest, Wraparound) {
   EXPECT_THAT(eval.stack(), Pointwise(FloatEq(), {0}));
 
   EXPECT_EQ(WickedPathEvaluate(buffer.data(), -500, &eval.eval), WickedEvalStatus_Ok);
-  EXPECT_THAT(eval.stack(), Pointwise(FloatEq(), {0.5}));
+  EXPECT_THAT(eval.stack(), Pointwise(FloatEq(), {500}));
 
   EXPECT_EQ(WickedPathEvaluate(buffer.data(), 0, &eval.eval), WickedEvalStatus_Ok);
-  EXPECT_THAT(eval.stack(), Pointwise(FloatEq(), {1}));
+  EXPECT_THAT(eval.stack(), Pointwise(FloatEq(), {1000}));
 
   EXPECT_EQ(WickedPathEvaluate(buffer.data(), 500, &eval.eval), WickedEvalStatus_Ok);
-  EXPECT_THAT(eval.stack(), Pointwise(FloatEq(), {1.5}));
+  EXPECT_THAT(eval.stack(), Pointwise(FloatEq(), {1500}));
 
   EXPECT_EQ(WickedPathEvaluate(buffer.data(), 1000, &eval.eval), WickedEvalStatus_Ok);
   EXPECT_THAT(eval.stack(), Pointwise(FloatEq(), {0}));
 
   EXPECT_EQ(WickedPathEvaluate(buffer.data(), 1500, &eval.eval), WickedEvalStatus_Ok);
-  EXPECT_THAT(eval.stack(), Pointwise(FloatEq(), {0.5}));
+  EXPECT_THAT(eval.stack(), Pointwise(FloatEq(), {500}));
 }
 
 }
