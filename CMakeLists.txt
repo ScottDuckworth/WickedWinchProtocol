@@ -17,10 +17,10 @@ add_library(WickedWinchProtocol
   cpp/include/WickedEvalStatus.h
   cpp/include/WickedPostfix.h
   cpp/include/WickedPath.h
-  cpp/include/WickedUtil.hh
   cpp/src/WickedEvalStatus.cc
   cpp/src/WickedPostfix.cc
   cpp/src/WickedPath.cc
+  cpp/src/WickedUtil.hh
 )
 
 target_include_directories(WickedWinchProtocol PUBLIC
