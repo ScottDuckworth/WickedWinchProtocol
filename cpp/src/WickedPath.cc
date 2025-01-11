@@ -1,5 +1,5 @@
-#include <WickedWinchProtocol/Path.h>
-#include <WickedWinchProtocol/upper_bound.hh>
+#include "WickedPath.h"
+#include "WickedUtil.hh"
 
 extern "C" bool WickedPathValidate(const uint8_t* path_data, size_t path_size) {
   if (path_size < sizeof(WickedPathHeader_t)) return false;

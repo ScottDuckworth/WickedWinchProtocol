@@ -1,6 +1,6 @@
 #pragma once
 
-#include "EvalStatus.h"
+#include "WickedEvalStatus.h"
 
 #include <stdbool.h>
 #include <stdint.h>

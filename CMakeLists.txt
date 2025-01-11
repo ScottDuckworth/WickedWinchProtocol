@@ -8,22 +8,19 @@ project(
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-include(FetchContent)
-
 include_directories(
   ${CMAKE_CURRENT_SOURCE_DIR}/cpp/include
   ${CMAKE_CURRENT_BINARY_DIR}
 )
 
 add_library(WickedWinchProtocol
-  cpp/include/WickedWinchProtocol.h
-  cpp/include/WickedWinchProtocol/EvalStatus.h
-  cpp/src/WickedWinchProtocol/EvalStatus.cc
-  cpp/include/WickedWinchProtocol/Postfix.h
-  cpp/src/WickedWinchProtocol/Postfix.cc
-  cpp/include/WickedWinchProtocol/Path.h
-  cpp/src/WickedWinchProtocol/Path.cc
-  cpp/include/WickedWinchProtocol/upper_bound.hh
+  cpp/include/WickedEvalStatus.h
+  cpp/include/WickedPostfix.h
+  cpp/include/WickedPath.h
+  cpp/include/WickedUtil.hh
+  cpp/src/WickedEvalStatus.cc
+  cpp/src/WickedPostfix.cc
+  cpp/src/WickedPath.cc
 )
 
 target_include_directories(WickedWinchProtocol PUBLIC
@@ -31,6 +28,8 @@ target_include_directories(WickedWinchProtocol PUBLIC
 )
 
 if(NOT WICKEDWINCHPROTOCOL_TESTING_DISABLED)
+  include(FetchContent)
+
   FetchContent_Declare(
     googletest
     URL https://github.com/google/googletest/archive/refs/tags/v1.14.0.zip
@@ -41,23 +40,23 @@ if(NOT WICKEDWINCHPROTOCOL_TESTING_DISABLED)
   enable_testing()
   include(GoogleTest)
 
-  add_executable(Postfix_test
-    cpp/tests/Postfix_test.cc
+  add_executable(WickedPostfix_test
+    cpp/tests/WickedPostfix_test.cc
   )
-  target_link_libraries(Postfix_test
+  target_link_libraries(WickedPostfix_test
     GTest::gmock
     GTest::gtest_main
     WickedWinchProtocol
   )
-  gtest_discover_tests(Postfix_test)
+  gtest_discover_tests(WickedPostfix_test)
 
-  add_executable(Path_test
-    cpp/tests/Path_test.cc
+  add_executable(WickedPath_test
+    cpp/tests/WickedPath_test.cc
   )
-  target_link_libraries(Path_test
+  target_link_libraries(WickedPath_test
     GTest::gmock
     GTest::gtest_main
     WickedWinchProtocol
   )
-  gtest_discover_tests(Path_test)
+  gtest_discover_tests(WickedPath_test)
 endif()

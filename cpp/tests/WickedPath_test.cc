@@ -1,5 +1,5 @@
-#include <WickedWinchProtocol/Path.h>
-#include <WickedWinchProtocol/Postfix.h>
+#include "WickedPath.h"
+#include "WickedPostfix.h"
 
 #include <array>
 #include <span>

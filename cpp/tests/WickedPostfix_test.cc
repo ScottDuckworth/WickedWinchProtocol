@@ -1,7 +1,6 @@
-#include <WickedWinchProtocol/Postfix.h>
+#include "WickedPostfix.h"
 
 #include <cmath>
-#include <memory>
 #include <span>
 
 #include <gmock/gmock.h>

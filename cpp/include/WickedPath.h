@@ -1,7 +1,7 @@
 #pragma once
 
-#include "EvalStatus.h"
-#include "Postfix.h"
+#include "WickedEvalStatus.h"
+#include "WickedPostfix.h"
 
 #include <stdbool.h>
 #include <stdint.h>
