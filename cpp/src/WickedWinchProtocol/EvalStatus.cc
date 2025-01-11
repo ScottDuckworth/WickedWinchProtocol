@@ -1,4 +1,4 @@
-#include "EvalStatus.h"
+#include <WickedWinchProtocol/EvalStatus.h>
 
 extern "C" const char* WickedEvalStatus_ToString(WickedEvalStatus_t status) {
   switch (status) {
