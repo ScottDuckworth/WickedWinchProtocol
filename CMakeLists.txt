@@ -18,11 +18,12 @@ include_directories(
 add_library(WickedWinchProtocol
   cpp/src/WickedWinchProtocol.h
   cpp/src/WickedWinchProtocol/EvalStatus.h
+  cpp/src/WickedWinchProtocol/EvalStatus.cc
   cpp/src/WickedWinchProtocol/Postfix.h
-  cpp/src/WickedWinchProtocol/Path.h
-  cpp/src/WickedWinchProtocol/upper_bound.hh
   cpp/src/WickedWinchProtocol/Postfix.cc
+  cpp/src/WickedWinchProtocol/Path.h
   cpp/src/WickedWinchProtocol/Path.cc
+  cpp/src/WickedWinchProtocol/upper_bound.hh
 )
 
 target_include_directories(WickedWinchProtocol PUBLIC

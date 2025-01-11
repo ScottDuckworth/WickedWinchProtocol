@@ -1,5 +1,9 @@
 #pragma once
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 typedef enum WickedEvalStatus {
   WickedEvalStatus_Ok,
   WickedEvalStatus_UndefinedOperation,
@@ -11,21 +15,10 @@ typedef enum WickedEvalStatus {
   WickedEvalStatus_TempOverflow,
 } WickedEvalStatus_t;
 
-inline constexpr const char* WickedEvalStatus_ToString(WickedEvalStatus_t status) {
-  switch (status) {
-    case WickedEvalStatus_Ok:                     return "Ok";
-    case WickedEvalStatus_UndefinedOperation:     return "Undefined Operation";
-    case WickedEvalStatus_IllegalOperation:       return "Illegal Operation";
-    case WickedEvalStatus_StackOverflow:          return "Stack Overflow";
-    case WickedEvalStatus_StackUnderflow:         return "Stack Underflow";
-    case WickedEvalStatus_IntLiteralsUnderflow:   return "Int Literals Underflow";
-    case WickedEvalStatus_FloatLiteralsUnderflow: return "Float Literals Underflow";
-    case WickedEvalStatus_TempOverflow:           return "Temp Overflow";
-  }
-  return "UNKNOWN";
-}
+const char* WickedEvalStatus_ToString(WickedEvalStatus_t status);
 
 #ifdef __cplusplus
+}
 
 #include <ostream>
 
