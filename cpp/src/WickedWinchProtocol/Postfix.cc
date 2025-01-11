@@ -8,13 +8,13 @@
 #include <iterator>
 #include <span>
 
-#define CHECK_STATUS(expr) if (WickedEvalStatus status = expr; status != WickedEvalStatus_Ok) return status
+#define CHECK_STATUS(expr) if (WickedEvalStatus_t status = expr; status != WickedEvalStatus_Ok) return status
 
 static_assert(std::endian::native == std::endian::little);
 static_assert(sizeof(float) == 4);
 static_assert(sizeof(WickedPostfixHeader) == 4);
 
-extern "C" const char* WickedPostfixOpToString(WickedPostfixOp op) {
+extern "C" const char* WickedPostfixOpToString(WickedPostfixOp_t op) {
   switch (op) {
     case WickedPostfixOp_Undefined: return "Undefined";
     case WickedPostfixOp_Push:      return "Push";
@@ -92,24 +92,24 @@ extern "C" void WickedPostfixEval_reset(WickedPostfixEval_t* eval) {
   eval->stack_size = 0;
 }
 
-extern "C" WickedEvalStatus WickedPostfixEval_push(WickedPostfixEval_t* eval, float v) {
+extern "C" WickedEvalStatus_t WickedPostfixEval_push(WickedPostfixEval_t* eval, float v) {
   if (eval->stack_capacity - eval->stack_size < 1) return WickedEvalStatus_StackOverflow;
   eval->stack_data[eval->stack_size++] = v;
   return WickedEvalStatus_Ok;
 }
 
-extern "C" WickedEvalStatus WickedPostfixEval_pushv(WickedPostfixEval_t* eval, const float* v, size_t size) {
+extern "C" WickedEvalStatus_t WickedPostfixEval_pushv(WickedPostfixEval_t* eval, const float* v, size_t size) {
   if (eval->stack_capacity - eval->stack_size < size) return WickedEvalStatus_StackOverflow;
   memcpy(&eval->stack_data[eval->stack_size], v, size * sizeof(float));
   eval->stack_size += size;
   return WickedEvalStatus_Ok;
 }
 
-static WickedEvalStatus WickedPostfixEval_pushv(WickedPostfixEval_t* eval, std::span<const float> v) {
+static WickedEvalStatus_t WickedPostfixEval_pushv(WickedPostfixEval_t* eval, std::span<const float> v) {
   return WickedPostfixEval_pushv(eval, v.data(), v.size());
 }
 
-static WickedEvalStatus WickedPostfixEval_pushf(WickedPostfixEval_t* eval, uint16_t n) {
+static WickedEvalStatus_t WickedPostfixEval_pushf(WickedPostfixEval_t* eval, uint16_t n) {
   if (n > eval->f_size) return WickedEvalStatus_FloatLiteralsUnderflow;
   CHECK_STATUS(WickedPostfixEval_pushv(eval, std::span<const float>(eval->f_head, n)));
   eval->f_size -= n;
@@ -117,7 +117,7 @@ static WickedEvalStatus WickedPostfixEval_pushf(WickedPostfixEval_t* eval, uint1
   return WickedEvalStatus_Ok;
 }
 
-static WickedEvalStatus WickedPostfixEval_implicitPushArg(WickedPostfixEval_t* eval, uint8_t* arg, uint8_t multiple, uint8_t instances) {
+static WickedEvalStatus_t WickedPostfixEval_implicitPushArg(WickedPostfixEval_t* eval, uint8_t* arg, uint8_t multiple, uint8_t instances) {
   uint8_t mask = uint8_t(1 << instances) - 1;
   uint8_t push_count = *arg & mask;
   *arg >>= instances;
@@ -126,47 +126,47 @@ static WickedEvalStatus WickedPostfixEval_implicitPushArg(WickedPostfixEval_t* e
   return WickedPostfixEval_pushf(eval, size);
 }
 
-static WickedEvalStatus WickedPostfixEval_allocv(WickedPostfixEval_t* eval, uint8_t n, std::span<float>* v) {
+static WickedEvalStatus_t WickedPostfixEval_allocv(WickedPostfixEval_t* eval, uint8_t n, std::span<float>* v) {
   if (eval->stack_size + n > eval->stack_capacity) return WickedEvalStatus_StackOverflow;
   *v = std::span<float>(&eval->stack_data[eval->stack_size], n);
   eval->stack_size += n;
   return WickedEvalStatus_Ok;
 }
 
-extern "C" WickedEvalStatus WickedPostfixEval_pop(WickedPostfixEval_t* eval, float* v) {
+extern "C" WickedEvalStatus_t WickedPostfixEval_pop(WickedPostfixEval_t* eval, float* v) {
   if (eval->stack_size < 1) return WickedEvalStatus_StackUnderflow;
   *v = eval->stack_data[--eval->stack_size];
   return WickedEvalStatus_Ok;
 }
 
-static WickedEvalStatus WickedPostfixEval_popv(WickedPostfixEval_t* eval, uint8_t n, std::span<float>* v) {
+static WickedEvalStatus_t WickedPostfixEval_popv(WickedPostfixEval_t* eval, uint8_t n, std::span<float>* v) {
   if (eval->stack_size < n) return WickedEvalStatus_StackUnderflow;
   eval->stack_size -= n;
   *v = std::span<float>(&eval->stack_data[eval->stack_size], n);
   return WickedEvalStatus_Ok;
 }
 
-extern "C" WickedEvalStatus WickedPostfixEval_popv(WickedPostfixEval_t* eval, float* v, size_t n) {
+extern "C" WickedEvalStatus_t WickedPostfixEval_popv(WickedPostfixEval_t* eval, float* v, size_t n) {
   std::span<float> src;
-  WickedEvalStatus status = WickedPostfixEval_popv(eval, n, &src);
+  WickedEvalStatus_t status = WickedPostfixEval_popv(eval, n, &src);
   if (status != WickedEvalStatus_Ok) return status;
   for (float s : src) *v++ = s;
   return status;
 }
 
-static WickedEvalStatus WickedPostfixEval_peek(WickedPostfixEval_t* eval, float* v) {
+static WickedEvalStatus_t WickedPostfixEval_peek(WickedPostfixEval_t* eval, float* v) {
   if (eval->stack_size < 1) return WickedEvalStatus_StackUnderflow;
   *v = eval->stack_data[eval->stack_size-1];
   return WickedEvalStatus_Ok;
 }
 
-static WickedEvalStatus WickedPostfixEval_peekv(WickedPostfixEval_t* eval, uint8_t n, std::span<float>* v) {
+static WickedEvalStatus_t WickedPostfixEval_peekv(WickedPostfixEval_t* eval, uint8_t n, std::span<float>* v) {
   if (eval->stack_size < n) return WickedEvalStatus_StackUnderflow;
   *v = std::span<float>(&eval->stack_data[eval->stack_size - n], n);
   return WickedEvalStatus_Ok;
 }
 
-static WickedEvalStatus WickedPostfixEval_geti(WickedPostfixEval_t* eval, uint8_t* n) {
+static WickedEvalStatus_t WickedPostfixEval_geti(WickedPostfixEval_t* eval, uint8_t* n) {
   if (eval->i_size < 1) return WickedEvalStatus_IntLiteralsUnderflow;
   *n = eval->i_head[0];
   --eval->i_size;
@@ -174,7 +174,7 @@ static WickedEvalStatus WickedPostfixEval_geti(WickedPostfixEval_t* eval, uint8_
   return WickedEvalStatus_Ok;
 }
 
-extern "C" WickedEvalStatus WickedPostfixEvaluate(WickedPostfixEval_t* eval) {
+extern "C" WickedEvalStatus_t WickedPostfixEvaluate(WickedPostfixEval_t* eval) {
   for (uint8_t opi = 0; opi < eval->op_size; ++opi) {
     const uint8_t op = eval->op_head[opi];
     switch (op) {

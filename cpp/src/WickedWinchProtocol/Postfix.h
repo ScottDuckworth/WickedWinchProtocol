@@ -15,7 +15,7 @@ typedef struct WickedPostfixHeader {
 	uint16_t f_size;
 } WickedPostfixHeader_t;
 
-enum WickedPostfixOp {
+typedef enum WickedPostfixOp {
   WickedPostfixOp_Undefined = 0,
   WickedPostfixOp_Push      = 1,
   WickedPostfixOp_Pop       = 2,
@@ -55,9 +55,9 @@ enum WickedPostfixOp {
   WickedPostfixOp_PolyMat   = 36,
   WickedPostfixOp_Lerp      = 37,
   WickedPostfixOp_Lut       = 38,
-};
+} WickedPostfixOp_t;
 
-const char* WickedPostfixOpToString(WickedPostfixOp op);
+const char* WickedPostfixOpToString(WickedPostfixOp_t op);
 
 typedef struct WickedPostfixEval {
   const uint8_t* op_head;
@@ -75,13 +75,13 @@ typedef struct WickedPostfixEval {
 } WickedPostfixEval_t;
 
 void WickedPostfixEval_reset(WickedPostfixEval_t* eval);
-WickedEvalStatus WickedPostfixEval_push(WickedPostfixEval_t* eval, float v);
-WickedEvalStatus WickedPostfixEval_pushv(WickedPostfixEval_t* eval, const float* v, size_t size);
-WickedEvalStatus WickedPostfixEval_pop(WickedPostfixEval_t* eval, float* v);
-WickedEvalStatus WickedPostfixEval_popv(WickedPostfixEval_t* eval, float* v, size_t n);
+WickedEvalStatus_t WickedPostfixEval_push(WickedPostfixEval_t* eval, float v);
+WickedEvalStatus_t WickedPostfixEval_pushv(WickedPostfixEval_t* eval, const float* v, size_t size);
+WickedEvalStatus_t WickedPostfixEval_pop(WickedPostfixEval_t* eval, float* v);
+WickedEvalStatus_t WickedPostfixEval_popv(WickedPostfixEval_t* eval, float* v, size_t n);
 
 bool WickedPostfixRead(const uint8_t* data, size_t size, WickedPostfixEval_t* eval);
-WickedEvalStatus WickedPostfixEvaluate(WickedPostfixEval_t* eval);
+WickedEvalStatus_t WickedPostfixEvaluate(WickedPostfixEval_t* eval);
 
 #ifdef __cplusplus
 }
@@ -90,7 +90,7 @@ WickedEvalStatus WickedPostfixEvaluate(WickedPostfixEval_t* eval);
 #include <span>
 #include <vector>
 
-inline std::ostream& operator<<(std::ostream& out, WickedPostfixOp op) {
+inline std::ostream& operator<<(std::ostream& out, WickedPostfixOp_t op) {
   return out << WickedPostfixOpToString(op);
 }
 

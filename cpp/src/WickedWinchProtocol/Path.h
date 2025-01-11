@@ -30,7 +30,7 @@ typedef struct WickedPathSegmentDescriptor {
 
 bool WickedPathValidate(const uint8_t* path_data, size_t path_size);
 bool WickedPathSegmentAt(const uint8_t* path_data, uint32_t t, WickedPathSegmentDescriptor_t* descriptor);
-WickedEvalStatus WickedPathEvaluate(const uint8_t* path_data, uint32_t t, WickedPostfixEval_t* eval);
+WickedEvalStatus_t WickedPathEvaluate(const uint8_t* path_data, uint32_t t, WickedPostfixEval_t* eval);
 
 #ifdef __cplusplus
 }

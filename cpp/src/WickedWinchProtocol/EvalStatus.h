@@ -1,6 +1,6 @@
 #pragma once
 
-enum WickedEvalStatus {
+typedef enum WickedEvalStatus {
   WickedEvalStatus_Ok,
   WickedEvalStatus_UndefinedOperation,
   WickedEvalStatus_IllegalOperation,
@@ -9,9 +9,9 @@ enum WickedEvalStatus {
   WickedEvalStatus_IntLiteralsUnderflow,
   WickedEvalStatus_FloatLiteralsUnderflow,
   WickedEvalStatus_TempOverflow,
-};
+} WickedEvalStatus_t;
 
-inline constexpr const char* WickedEvalStatus_ToString(WickedEvalStatus status) {
+inline constexpr const char* WickedEvalStatus_ToString(WickedEvalStatus_t status) {
   switch (status) {
     case WickedEvalStatus_Ok:                     return "Ok";
     case WickedEvalStatus_UndefinedOperation:     return "Undefined Operation";
@@ -29,7 +29,7 @@ inline constexpr const char* WickedEvalStatus_ToString(WickedEvalStatus status) 
 
 #include <ostream>
 
-inline std::ostream& operator<<(std::ostream& out, WickedEvalStatus status) {
+inline std::ostream& operator<<(std::ostream& out, WickedEvalStatus_t status) {
   return out << WickedEvalStatus_ToString(status);
 }
 
