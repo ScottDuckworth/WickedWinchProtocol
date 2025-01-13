@@ -19,16 +19,15 @@ struct TestEval {
   TestEval(uint8_t stack_capacity, uint8_t temp_capacity, std::initializer_list<float> stack_values) {
     assert(stack_capacity >= stack_values.size());
 
-    eval.stack_data = new float[stack_capacity];
-    eval.stack_size = stack_values.size();
+    eval.stack_data = new uint32_t[stack_capacity];
+    eval.stack_size = 0;
     eval.stack_capacity = stack_capacity;
 
-    eval.temp_data = new float[temp_capacity];
+    eval.temp_data = new uint32_t[temp_capacity];
     eval.temp_capacity = temp_capacity;
 
-    float* v = eval.stack_data;
     for (float value : stack_values) {
-      *v++ = value;
+      WickedPostfixEval_pushf(&eval, value);
     }
   }
 
@@ -37,7 +36,7 @@ struct TestEval {
     delete[] eval.temp_data;
   }
 
-  std::span<float> stack() { return std::span<float>(eval.stack_data, eval.stack_size); }
+  std::span<float> stack() { return std::span<float>(reinterpret_cast<float*>(eval.stack_data), eval.stack_size); }
 };
 
 TEST(EvalTest, Empty) {
@@ -52,11 +51,11 @@ TEST(EvalTest, Empty) {
 
 TEST(EvalTest, Push) {
   WickedPostfixWriter writer;
-  writer.add_i(WickedPostfixOp_Push);
-  writer.add_i(2);
+  writer.add_p(WickedPostfixOp_Push);
+  writer.add_p(2);
   writer.add_f(1);
   writer.add_f(2);
-  EXPECT_EQ(writer.i_size(), 2);
+  EXPECT_EQ(writer.p_size(), 2);
   EXPECT_EQ(writer.d_size(), 2);
   auto buffer = writer.Write();
 
@@ -68,14 +67,14 @@ TEST(EvalTest, Push) {
 
 TEST(EvalTest, PushMany) {
   WickedPostfixWriter writer;
-  writer.add_i(WickedPostfixOp_Push);
-  writer.add_i(2);
-  writer.add_i(WickedPostfixOp_Push);
-  writer.add_i(1);
+  writer.add_p(WickedPostfixOp_Push);
+  writer.add_p(2);
+  writer.add_p(WickedPostfixOp_Push);
+  writer.add_p(1);
   writer.add_f(1);
   writer.add_f(2);
   writer.add_f(3);
-  EXPECT_EQ(writer.i_size(), 4);
+  EXPECT_EQ(writer.p_size(), 4);
   EXPECT_EQ(writer.d_size(), 3);
   auto buffer = writer.Write();
 
@@ -87,7 +86,7 @@ TEST(EvalTest, PushMany) {
 
 TEST(EvalTest, PushIntUnderflow) {
   WickedPostfixWriter writer;
-  writer.add_i(WickedPostfixOp_Push);
+  writer.add_p(WickedPostfixOp_Push);
   writer.add_f(1);
   auto buffer = writer.Write();
 
@@ -98,8 +97,8 @@ TEST(EvalTest, PushIntUnderflow) {
 
 TEST(EvalTest, PushDataUnderflow) {
   WickedPostfixWriter writer;
-  writer.add_i(WickedPostfixOp_Push);
-  writer.add_i(2);
+  writer.add_p(WickedPostfixOp_Push);
+  writer.add_p(2);
   writer.add_f(1);
   auto buffer = writer.Write();
 
@@ -110,8 +109,8 @@ TEST(EvalTest, PushDataUnderflow) {
 
 TEST(EvalTest, Pop) {
   WickedPostfixWriter writer;
-  writer.add_i(WickedPostfixOp_Pop);
-  writer.add_i(2);
+  writer.add_p(WickedPostfixOp_Pop);
+  writer.add_p(2);
   auto buffer = writer.Write();
 
   TestEval eval(4, {1, 2, 3});
@@ -122,8 +121,8 @@ TEST(EvalTest, Pop) {
 
 TEST(EvalTest, PopStackUnderflow) {
   WickedPostfixWriter writer;
-  writer.add_i(WickedPostfixOp_Pop);
-  writer.add_i(3);
+  writer.add_p(WickedPostfixOp_Pop);
+  writer.add_p(3);
   auto buffer = writer.Write();
 
   TestEval eval(4, {1, 2});
@@ -133,7 +132,7 @@ TEST(EvalTest, PopStackUnderflow) {
 
 TEST(EvalTest, PopIntUnderflow) {
   WickedPostfixWriter writer;
-  writer.add_i(WickedPostfixOp_Pop);
+  writer.add_p(WickedPostfixOp_Pop);
   writer.add_f(1);
   auto buffer = writer.Write();
 
@@ -144,8 +143,8 @@ TEST(EvalTest, PopIntUnderflow) {
 
 TEST(EvalTest, Dup) {
   WickedPostfixWriter writer;
-  writer.add_i(WickedPostfixOp_Dup);
-  writer.add_i(1);
+  writer.add_p(WickedPostfixOp_Dup);
+  writer.add_p(1);
   auto buffer = writer.Write();
 
   TestEval eval(4, {1, 2, 3});
@@ -156,8 +155,8 @@ TEST(EvalTest, Dup) {
 
 TEST(EvalTest, DupStackUnderflow) {
   WickedPostfixWriter writer;
-  writer.add_i(WickedPostfixOp_Dup);
-  writer.add_i(2);
+  writer.add_p(WickedPostfixOp_Dup);
+  writer.add_p(2);
   auto buffer = writer.Write();
 
   TestEval eval(4, {1, 2});
@@ -167,7 +166,7 @@ TEST(EvalTest, DupStackUnderflow) {
 
 TEST(EvalTest, DupIntUnderflow) {
   WickedPostfixWriter writer;
-  writer.add_i(WickedPostfixOp_Dup);
+  writer.add_p(WickedPostfixOp_Dup);
   auto buffer = writer.Write();
 
   TestEval eval(4, {1, 2, 3});
@@ -177,8 +176,8 @@ TEST(EvalTest, DupIntUnderflow) {
 
 TEST(EvalTest, RotL) {
   WickedPostfixWriter writer;
-  writer.add_i(WickedPostfixOp_RotL);
-  writer.add_i(3);
+  writer.add_p(WickedPostfixOp_RotL);
+  writer.add_p(3);
   auto buffer = writer.Write();
 
   TestEval eval(4, {1, 2, 3, 4});
@@ -189,8 +188,8 @@ TEST(EvalTest, RotL) {
 
 TEST(EvalTest, RotLStackUnderflow) {
   WickedPostfixWriter writer;
-  writer.add_i(WickedPostfixOp_RotL);
-  writer.add_i(3);
+  writer.add_p(WickedPostfixOp_RotL);
+  writer.add_p(3);
   auto buffer = writer.Write();
 
   TestEval eval(4, {1, 2});
@@ -200,7 +199,7 @@ TEST(EvalTest, RotLStackUnderflow) {
 
 TEST(EvalTest, RotLIntUnderflow) {
   WickedPostfixWriter writer;
-  writer.add_i(WickedPostfixOp_RotL);
+  writer.add_p(WickedPostfixOp_RotL);
   auto buffer = writer.Write();
 
   TestEval eval(4, {1, 2, 3, 4});
@@ -210,8 +209,8 @@ TEST(EvalTest, RotLIntUnderflow) {
 
 TEST(EvalTest, RotR) {
   WickedPostfixWriter writer;
-  writer.add_i(WickedPostfixOp_RotR);
-  writer.add_i(3);
+  writer.add_p(WickedPostfixOp_RotR);
+  writer.add_p(3);
   auto buffer = writer.Write();
 
   TestEval eval(4, {1, 2, 3, 4});
@@ -222,8 +221,8 @@ TEST(EvalTest, RotR) {
 
 TEST(EvalTest, RotRStackUnderflow) {
   WickedPostfixWriter writer;
-  writer.add_i(WickedPostfixOp_RotR);
-  writer.add_i(3);
+  writer.add_p(WickedPostfixOp_RotR);
+  writer.add_p(3);
   auto buffer = writer.Write();
 
   TestEval eval(4, {1, 2});
@@ -233,7 +232,7 @@ TEST(EvalTest, RotRStackUnderflow) {
 
 TEST(EvalTest, RotRIntUnderflow) {
   WickedPostfixWriter writer;
-  writer.add_i(WickedPostfixOp_RotR);
+  writer.add_p(WickedPostfixOp_RotR);
   auto buffer = writer.Write();
 
   TestEval eval(4, {1, 2, 3, 4});
@@ -243,8 +242,8 @@ TEST(EvalTest, RotRIntUnderflow) {
 
 TEST(EvalTest, Rev) {
   WickedPostfixWriter writer;
-  writer.add_i(WickedPostfixOp_Rev);
-  writer.add_i(3);
+  writer.add_p(WickedPostfixOp_Rev);
+  writer.add_p(3);
   auto buffer = writer.Write();
 
   TestEval eval(4, {1, 2, 3, 4});
@@ -255,8 +254,8 @@ TEST(EvalTest, Rev) {
 
 TEST(EvalTest, RevStackUnderflow) {
   WickedPostfixWriter writer;
-  writer.add_i(WickedPostfixOp_Rev);
-  writer.add_i(3);
+  writer.add_p(WickedPostfixOp_Rev);
+  writer.add_p(3);
   auto buffer = writer.Write();
 
   TestEval eval(4, {1, 2});
@@ -266,7 +265,7 @@ TEST(EvalTest, RevStackUnderflow) {
 
 TEST(EvalTest, RevIntUnderflow) {
   WickedPostfixWriter writer;
-  writer.add_i(WickedPostfixOp_Rev);
+  writer.add_p(WickedPostfixOp_Rev);
   auto buffer = writer.Write();
 
   TestEval eval(4, {1, 2, 3, 4});
@@ -276,9 +275,9 @@ TEST(EvalTest, RevIntUnderflow) {
 
 TEST(EvalTest, Transpose) {
   WickedPostfixWriter writer;
-  writer.add_i(WickedPostfixOp_Transpose);
-  writer.add_i(2);
-  writer.add_i(3 << 1);
+  writer.add_p(WickedPostfixOp_Transpose);
+  writer.add_p(2);
+  writer.add_p(3 << 1);
   auto buffer = writer.Write();
 
   TestEval eval(8, 6, {0, 1, 2, 3, 4, 5, 6});
@@ -289,9 +288,9 @@ TEST(EvalTest, Transpose) {
 
 TEST(EvalTest, TransposeTempOverflow) {
   WickedPostfixWriter writer;
-  writer.add_i(WickedPostfixOp_Transpose);
-  writer.add_i(2);
-  writer.add_i(3 << 1);
+  writer.add_p(WickedPostfixOp_Transpose);
+  writer.add_p(2);
+  writer.add_p(3 << 1);
   auto buffer = writer.Write();
 
   TestEval eval(8, 5, {0, 1, 2, 3, 4, 5, 6});
@@ -301,9 +300,9 @@ TEST(EvalTest, TransposeTempOverflow) {
 
 TEST(EvalTest, TransposeStackUnderflow) {
   WickedPostfixWriter writer;
-  writer.add_i(WickedPostfixOp_Transpose);
-  writer.add_i(2);
-  writer.add_i(3 << 1);
+  writer.add_p(WickedPostfixOp_Transpose);
+  writer.add_p(2);
+  writer.add_p(3 << 1);
   auto buffer = writer.Write();
 
   TestEval eval(8, {1, 2, 3, 4, 5});
@@ -313,8 +312,8 @@ TEST(EvalTest, TransposeStackUnderflow) {
 
 TEST(EvalTest, TransposeIntUnderflow) {
   WickedPostfixWriter writer;
-  writer.add_i(WickedPostfixOp_Transpose);
-  writer.add_i(2);
+  writer.add_p(WickedPostfixOp_Transpose);
+  writer.add_p(2);
   auto buffer = writer.Write();
 
   TestEval eval(8, {0, 1, 2, 3, 4, 5, 6});
@@ -324,9 +323,9 @@ TEST(EvalTest, TransposeIntUnderflow) {
 
 TEST(EvalTest, PushTranspose) {
   WickedPostfixWriter writer;
-  writer.add_i(WickedPostfixOp_Transpose);
-  writer.add_i(2);
-  writer.add_i(3 << 1 | 1);
+  writer.add_p(WickedPostfixOp_Transpose);
+  writer.add_p(2);
+  writer.add_p(3 << 1 | 1);
   writer.add_f(1);
   writer.add_f(2);
   writer.add_f(3);
@@ -343,9 +342,9 @@ TEST(EvalTest, PushTranspose) {
 
 TEST(EvalTest, PushTransposeDataUnderflow) {
   WickedPostfixWriter writer;
-  writer.add_i(WickedPostfixOp_Transpose);
-  writer.add_i(2);
-  writer.add_i(3 << 1 | 1);
+  writer.add_p(WickedPostfixOp_Transpose);
+  writer.add_p(2);
+  writer.add_p(3 << 1 | 1);
   writer.add_f(1);
   writer.add_f(2);
   writer.add_f(3);
@@ -360,7 +359,7 @@ TEST(EvalTest, PushTransposeDataUnderflow) {
 
 TEST(EvalTest, Add) {
   WickedPostfixWriter writer;
-  writer.add_i(WickedPostfixOp_Add);
+  writer.add_p(WickedPostfixOp_Add);
   auto buffer = writer.Write();
 
   TestEval eval(4, {0, 1, 2});
@@ -371,7 +370,7 @@ TEST(EvalTest, Add) {
 
 TEST(EvalTest, AddStackUnderflow) {
   WickedPostfixWriter writer;
-  writer.add_i(WickedPostfixOp_Add);
+  writer.add_p(WickedPostfixOp_Add);
   auto buffer = writer.Write();
 
   TestEval eval(4, {1});
@@ -381,7 +380,7 @@ TEST(EvalTest, AddStackUnderflow) {
 
 TEST(EvalTest, Sub) {
   WickedPostfixWriter writer;
-  writer.add_i(WickedPostfixOp_Sub);
+  writer.add_p(WickedPostfixOp_Sub);
   auto buffer = writer.Write();
 
   TestEval eval(4, {0, 1, 2});
@@ -392,7 +391,7 @@ TEST(EvalTest, Sub) {
 
 TEST(EvalTest, SubStackUnderflow) {
   WickedPostfixWriter writer;
-  writer.add_i(WickedPostfixOp_Sub);
+  writer.add_p(WickedPostfixOp_Sub);
   auto buffer = writer.Write();
 
   TestEval eval(4, {1});
@@ -402,7 +401,7 @@ TEST(EvalTest, SubStackUnderflow) {
 
 TEST(EvalTest, Mul) {
   WickedPostfixWriter writer;
-  writer.add_i(WickedPostfixOp_Mul);
+  writer.add_p(WickedPostfixOp_Mul);
   auto buffer = writer.Write();
 
   TestEval eval(4, {0, 2, 3});
@@ -413,7 +412,7 @@ TEST(EvalTest, Mul) {
 
 TEST(EvalTest, MulStackUnderflow) {
   WickedPostfixWriter writer;
-  writer.add_i(WickedPostfixOp_Mul);
+  writer.add_p(WickedPostfixOp_Mul);
   auto buffer = writer.Write();
 
   TestEval eval(4, {1});
@@ -423,7 +422,7 @@ TEST(EvalTest, MulStackUnderflow) {
 
 TEST(EvalTest, MulAdd) {
   WickedPostfixWriter writer;
-  writer.add_i(WickedPostfixOp_MulAdd);
+  writer.add_p(WickedPostfixOp_MulAdd);
   auto buffer = writer.Write();
 
   TestEval eval(4, {0, 3, 2, 1});
@@ -434,7 +433,7 @@ TEST(EvalTest, MulAdd) {
 
 TEST(EvalTest, MulAddStackUnderflow) {
   WickedPostfixWriter writer;
-  writer.add_i(WickedPostfixOp_MulAdd);
+  writer.add_p(WickedPostfixOp_MulAdd);
   auto buffer = writer.Write();
 
   TestEval eval(4, {1, 2});
@@ -444,7 +443,7 @@ TEST(EvalTest, MulAddStackUnderflow) {
 
 TEST(EvalTest, Div) {
   WickedPostfixWriter writer;
-  writer.add_i(WickedPostfixOp_Div);
+  writer.add_p(WickedPostfixOp_Div);
   auto buffer = writer.Write();
 
   TestEval eval(4, {0, 1, 2});
@@ -455,7 +454,7 @@ TEST(EvalTest, Div) {
 
 TEST(EvalTest, DivStackUnderflow) {
   WickedPostfixWriter writer;
-  writer.add_i(WickedPostfixOp_Div);
+  writer.add_p(WickedPostfixOp_Div);
   auto buffer = writer.Write();
 
   TestEval eval(4, {1});
@@ -465,7 +464,7 @@ TEST(EvalTest, DivStackUnderflow) {
 
 TEST(EvalTest, Mod) {
   WickedPostfixWriter writer;
-  writer.add_i(WickedPostfixOp_Mod);
+  writer.add_p(WickedPostfixOp_Mod);
   auto buffer = writer.Write();
 
   TestEval eval(4, {0, 8, 3});
@@ -476,7 +475,7 @@ TEST(EvalTest, Mod) {
 
 TEST(EvalTest, ModStackUnderflow) {
   WickedPostfixWriter writer;
-  writer.add_i(WickedPostfixOp_Mod);
+  writer.add_p(WickedPostfixOp_Mod);
   auto buffer = writer.Write();
 
   TestEval eval(4, {1});
@@ -486,7 +485,7 @@ TEST(EvalTest, ModStackUnderflow) {
 
 TEST(EvalTest, Neg) {
   WickedPostfixWriter writer;
-  writer.add_i(WickedPostfixOp_Neg);
+  writer.add_p(WickedPostfixOp_Neg);
   auto buffer = writer.Write();
 
   TestEval eval(4, {0, 2});
@@ -497,7 +496,7 @@ TEST(EvalTest, Neg) {
 
 TEST(EvalTest, NegStackUnderflow) {
   WickedPostfixWriter writer;
-  writer.add_i(WickedPostfixOp_Neg);
+  writer.add_p(WickedPostfixOp_Neg);
   auto buffer = writer.Write();
 
   TestEval eval(4, {});
@@ -507,7 +506,7 @@ TEST(EvalTest, NegStackUnderflow) {
 
 TEST(EvalTest, Abs) {
   WickedPostfixWriter writer;
-  writer.add_i(WickedPostfixOp_Abs);
+  writer.add_p(WickedPostfixOp_Abs);
   auto buffer = writer.Write();
 
   TestEval eval(4, {0, -2});
@@ -518,7 +517,7 @@ TEST(EvalTest, Abs) {
 
 TEST(EvalTest, AbsStackUnderflow) {
   WickedPostfixWriter writer;
-  writer.add_i(WickedPostfixOp_Abs);
+  writer.add_p(WickedPostfixOp_Abs);
   auto buffer = writer.Write();
 
   TestEval eval(4, {});
@@ -528,7 +527,7 @@ TEST(EvalTest, AbsStackUnderflow) {
 
 TEST(EvalTest, Inv) {
   WickedPostfixWriter writer;
-  writer.add_i(WickedPostfixOp_Inv);
+  writer.add_p(WickedPostfixOp_Inv);
   auto buffer = writer.Write();
 
   TestEval eval(4, {0, 2});
@@ -539,7 +538,7 @@ TEST(EvalTest, Inv) {
 
 TEST(EvalTest, InvStackUnderflow) {
   WickedPostfixWriter writer;
-  writer.add_i(WickedPostfixOp_Inv);
+  writer.add_p(WickedPostfixOp_Inv);
   auto buffer = writer.Write();
 
   TestEval eval(4, {});
@@ -549,7 +548,7 @@ TEST(EvalTest, InvStackUnderflow) {
 
 TEST(EvalTest, Pow) {
   WickedPostfixWriter writer;
-  writer.add_i(WickedPostfixOp_Pow);
+  writer.add_p(WickedPostfixOp_Pow);
   auto buffer = writer.Write();
 
   TestEval eval(4, {0, 2, 3});
@@ -560,7 +559,7 @@ TEST(EvalTest, Pow) {
 
 TEST(EvalTest, PowStackUnderflow) {
   WickedPostfixWriter writer;
-  writer.add_i(WickedPostfixOp_Pow);
+  writer.add_p(WickedPostfixOp_Pow);
   auto buffer = writer.Write();
 
   TestEval eval(4, {1});
@@ -570,7 +569,7 @@ TEST(EvalTest, PowStackUnderflow) {
 
 TEST(EvalTest, Sqrt) {
   WickedPostfixWriter writer;
-  writer.add_i(WickedPostfixOp_Sqrt);
+  writer.add_p(WickedPostfixOp_Sqrt);
   auto buffer = writer.Write();
 
   TestEval eval(4, {0, 7});
@@ -581,7 +580,7 @@ TEST(EvalTest, Sqrt) {
 
 TEST(EvalTest, SqrtStackUnderflow) {
   WickedPostfixWriter writer;
-  writer.add_i(WickedPostfixOp_Sqrt);
+  writer.add_p(WickedPostfixOp_Sqrt);
   auto buffer = writer.Write();
 
   TestEval eval(4, {});
@@ -591,7 +590,7 @@ TEST(EvalTest, SqrtStackUnderflow) {
 
 TEST(EvalTest, Exp) {
   WickedPostfixWriter writer;
-  writer.add_i(WickedPostfixOp_Exp);
+  writer.add_p(WickedPostfixOp_Exp);
   auto buffer = writer.Write();
 
   TestEval eval(4, {0, 4});
@@ -602,7 +601,7 @@ TEST(EvalTest, Exp) {
 
 TEST(EvalTest, ExpStackUnderflow) {
   WickedPostfixWriter writer;
-  writer.add_i(WickedPostfixOp_Exp);
+  writer.add_p(WickedPostfixOp_Exp);
   auto buffer = writer.Write();
 
   TestEval eval(4, {});
@@ -612,7 +611,7 @@ TEST(EvalTest, ExpStackUnderflow) {
 
 TEST(EvalTest, Ln) {
   WickedPostfixWriter writer;
-  writer.add_i(WickedPostfixOp_Ln);
+  writer.add_p(WickedPostfixOp_Ln);
   auto buffer = writer.Write();
 
   TestEval eval(4, {0, 5});
@@ -623,7 +622,7 @@ TEST(EvalTest, Ln) {
 
 TEST(EvalTest, LnStackUnderflow) {
   WickedPostfixWriter writer;
-  writer.add_i(WickedPostfixOp_Ln);
+  writer.add_p(WickedPostfixOp_Ln);
   auto buffer = writer.Write();
 
   TestEval eval(4, {});
@@ -633,7 +632,7 @@ TEST(EvalTest, LnStackUnderflow) {
 
 TEST(EvalTest, Sin) {
   WickedPostfixWriter writer;
-  writer.add_i(WickedPostfixOp_Sin);
+  writer.add_p(WickedPostfixOp_Sin);
   auto buffer = writer.Write();
 
   TestEval eval(4, {0, 5});
@@ -644,7 +643,7 @@ TEST(EvalTest, Sin) {
 
 TEST(EvalTest, SinStackUnderflow) {
   WickedPostfixWriter writer;
-  writer.add_i(WickedPostfixOp_Sin);
+  writer.add_p(WickedPostfixOp_Sin);
   auto buffer = writer.Write();
 
   TestEval eval(4, {});
@@ -654,7 +653,7 @@ TEST(EvalTest, SinStackUnderflow) {
 
 TEST(EvalTest, Cos) {
   WickedPostfixWriter writer;
-  writer.add_i(WickedPostfixOp_Cos);
+  writer.add_p(WickedPostfixOp_Cos);
   auto buffer = writer.Write();
 
   TestEval eval(4, {0, 5});
@@ -665,7 +664,7 @@ TEST(EvalTest, Cos) {
 
 TEST(EvalTest, CosStackUnderflow) {
   WickedPostfixWriter writer;
-  writer.add_i(WickedPostfixOp_Cos);
+  writer.add_p(WickedPostfixOp_Cos);
   auto buffer = writer.Write();
 
   TestEval eval(4, {});
@@ -675,7 +674,7 @@ TEST(EvalTest, CosStackUnderflow) {
 
 TEST(EvalTest, Tan) {
   WickedPostfixWriter writer;
-  writer.add_i(WickedPostfixOp_Tan);
+  writer.add_p(WickedPostfixOp_Tan);
   auto buffer = writer.Write();
 
   TestEval eval(4, {0, 5});
@@ -686,7 +685,7 @@ TEST(EvalTest, Tan) {
 
 TEST(EvalTest, TanStackUnderflow) {
   WickedPostfixWriter writer;
-  writer.add_i(WickedPostfixOp_Tan);
+  writer.add_p(WickedPostfixOp_Tan);
   auto buffer = writer.Write();
 
   TestEval eval(4, {});
@@ -696,7 +695,7 @@ TEST(EvalTest, TanStackUnderflow) {
 
 TEST(EvalTest, Asin) {
   WickedPostfixWriter writer;
-  writer.add_i(WickedPostfixOp_Asin);
+  writer.add_p(WickedPostfixOp_Asin);
   auto buffer = writer.Write();
 
   TestEval eval(4, {0, 0.5});
@@ -707,7 +706,7 @@ TEST(EvalTest, Asin) {
 
 TEST(EvalTest, AsinStackUnderflow) {
   WickedPostfixWriter writer;
-  writer.add_i(WickedPostfixOp_Asin);
+  writer.add_p(WickedPostfixOp_Asin);
   auto buffer = writer.Write();
 
   TestEval eval(4, {});
@@ -717,7 +716,7 @@ TEST(EvalTest, AsinStackUnderflow) {
 
 TEST(EvalTest, Acos) {
   WickedPostfixWriter writer;
-  writer.add_i(WickedPostfixOp_Acos);
+  writer.add_p(WickedPostfixOp_Acos);
   auto buffer = writer.Write();
 
   TestEval eval(4, {0, 0.5});
@@ -728,7 +727,7 @@ TEST(EvalTest, Acos) {
 
 TEST(EvalTest, AcosStackUnderflow) {
   WickedPostfixWriter writer;
-  writer.add_i(WickedPostfixOp_Acos);
+  writer.add_p(WickedPostfixOp_Acos);
   auto buffer = writer.Write();
 
   TestEval eval(4, {});
@@ -738,7 +737,7 @@ TEST(EvalTest, AcosStackUnderflow) {
 
 TEST(EvalTest, Atan2) {
   WickedPostfixWriter writer;
-  writer.add_i(WickedPostfixOp_Atan2);
+  writer.add_p(WickedPostfixOp_Atan2);
   auto buffer = writer.Write();
 
   TestEval eval(4, {0, 5, 4});
@@ -749,7 +748,7 @@ TEST(EvalTest, Atan2) {
 
 TEST(EvalTest, Atan2StackUnderflow) {
   WickedPostfixWriter writer;
-  writer.add_i(WickedPostfixOp_Atan2);
+  writer.add_p(WickedPostfixOp_Atan2);
   auto buffer = writer.Write();
 
   TestEval eval(4, {5});
@@ -759,8 +758,8 @@ TEST(EvalTest, Atan2StackUnderflow) {
 
 TEST(EvalTest, PolyVec) {
   WickedPostfixWriter writer;
-  writer.add_i(WickedPostfixOp_PolyVec);
-  writer.add_i(4 << 1);
+  writer.add_p(WickedPostfixOp_PolyVec);
+  writer.add_p(4 << 1);
   auto buffer = writer.Write();
 
   TestEval eval(6, {0, 2, 3, 4, 5, 6});
@@ -771,8 +770,8 @@ TEST(EvalTest, PolyVec) {
 
 TEST(EvalTest, PolyVecStackUnderflow) {
   WickedPostfixWriter writer;
-  writer.add_i(WickedPostfixOp_PolyVec);
-  writer.add_i(3 << 1);
+  writer.add_p(WickedPostfixOp_PolyVec);
+  writer.add_p(3 << 1);
   auto buffer = writer.Write();
 
   TestEval eval(6, {2, 3, 4});
@@ -782,7 +781,7 @@ TEST(EvalTest, PolyVecStackUnderflow) {
 
 TEST(EvalTest, PolyVecIntUnderflow) {
   WickedPostfixWriter writer;
-  writer.add_i(WickedPostfixOp_PolyVec);
+  writer.add_p(WickedPostfixOp_PolyVec);
   auto buffer = writer.Write();
 
   TestEval eval(6, {0, 2, 3, 4, 5});
@@ -792,8 +791,8 @@ TEST(EvalTest, PolyVecIntUnderflow) {
 
 TEST(EvalTest, PushPolyVec) {
   WickedPostfixWriter writer;
-  writer.add_i(WickedPostfixOp_PolyVec);
-  writer.add_i(4 << 1 | 1);
+  writer.add_p(WickedPostfixOp_PolyVec);
+  writer.add_p(4 << 1 | 1);
   writer.add_f(3);
   writer.add_f(4);
   writer.add_f(5);
@@ -808,8 +807,8 @@ TEST(EvalTest, PushPolyVec) {
 
 TEST(EvalTest, PushPolyVecDataUnderflow) {
   WickedPostfixWriter writer;
-  writer.add_i(WickedPostfixOp_PolyVec);
-  writer.add_i(4 << 1 | 1);
+  writer.add_p(WickedPostfixOp_PolyVec);
+  writer.add_p(4 << 1 | 1);
   writer.add_f(3);
   writer.add_f(4);
   writer.add_f(5);
@@ -822,9 +821,9 @@ TEST(EvalTest, PushPolyVecDataUnderflow) {
 
 TEST(EvalTest, PolyMat) {
   WickedPostfixWriter writer;
-  writer.add_i(WickedPostfixOp_PolyMat);
-  writer.add_i(4);
-  writer.add_i(2 << 1);
+  writer.add_p(WickedPostfixOp_PolyMat);
+  writer.add_p(4);
+  writer.add_p(2 << 1);
   auto buffer = writer.Write();
 
   TestEval eval(12, {0, 2, 3, 4, 5, 6, 7, 8, 9, 10});
@@ -835,9 +834,9 @@ TEST(EvalTest, PolyMat) {
 
 TEST(EvalTest, PolyMatStackUnderflow) {
   WickedPostfixWriter writer;
-  writer.add_i(WickedPostfixOp_PolyMat);
-  writer.add_i(4);
-  writer.add_i(2 << 1);
+  writer.add_p(WickedPostfixOp_PolyMat);
+  writer.add_p(4);
+  writer.add_p(2 << 1);
   auto buffer = writer.Write();
 
   TestEval eval(12, {2, 3, 4, 5, 6, 7, 8, 9});
@@ -847,8 +846,8 @@ TEST(EvalTest, PolyMatStackUnderflow) {
 
 TEST(EvalTest, PolyMatIntUnderflow) {
   WickedPostfixWriter writer;
-  writer.add_i(WickedPostfixOp_PolyMat);
-  writer.add_i(4);
+  writer.add_p(WickedPostfixOp_PolyMat);
+  writer.add_p(4);
   auto buffer = writer.Write();
 
   TestEval eval(12, {0, 2, 3, 4, 5, 6, 7, 8, 9, 10});
@@ -858,9 +857,9 @@ TEST(EvalTest, PolyMatIntUnderflow) {
 
 TEST(EvalTest, PushPolyMat) {
   WickedPostfixWriter writer;
-  writer.add_i(WickedPostfixOp_PolyMat);
-  writer.add_i(4);
-  writer.add_i(2 << 1 | 1);
+  writer.add_p(WickedPostfixOp_PolyMat);
+  writer.add_p(4);
+  writer.add_p(2 << 1 | 1);
   writer.add_f(3);
   writer.add_f(4);
   writer.add_f(5);
@@ -879,9 +878,9 @@ TEST(EvalTest, PushPolyMat) {
 
 TEST(EvalTest, PushPolyMatDataUnderflow) {
   WickedPostfixWriter writer;
-  writer.add_i(WickedPostfixOp_PolyMat);
-  writer.add_i(4);
-  writer.add_i(2 << 1 | 1);
+  writer.add_p(WickedPostfixOp_PolyMat);
+  writer.add_p(4);
+  writer.add_p(2 << 1 | 1);
   writer.add_f(3);
   writer.add_f(4);
   writer.add_f(5);
@@ -898,8 +897,8 @@ TEST(EvalTest, PushPolyMatDataUnderflow) {
 
 TEST(EvalTest, AddVec) {
   WickedPostfixWriter writer;
-  writer.add_i(WickedPostfixOp_AddVec);
-  writer.add_i(3 << 1);
+  writer.add_p(WickedPostfixOp_AddVec);
+  writer.add_p(3 << 1);
   auto buffer = writer.Write();
 
   TestEval eval(8, {0, 1, 2, 3, 4, 5, 6});
@@ -910,8 +909,8 @@ TEST(EvalTest, AddVec) {
 
 TEST(EvalTest, AddVecStackUnderflow) {
   WickedPostfixWriter writer;
-  writer.add_i(WickedPostfixOp_AddVec);
-  writer.add_i(3 << 1);
+  writer.add_p(WickedPostfixOp_AddVec);
+  writer.add_p(3 << 1);
   auto buffer = writer.Write();
 
   TestEval eval(8, {1, 2, 3, 4, 5});
@@ -921,7 +920,7 @@ TEST(EvalTest, AddVecStackUnderflow) {
 
 TEST(EvalTest, AddVecIntUnderflow) {
   WickedPostfixWriter writer;
-  writer.add_i(WickedPostfixOp_AddVec);
+  writer.add_p(WickedPostfixOp_AddVec);
   auto buffer = writer.Write();
 
   TestEval eval(8, {0, 1, 2, 3, 4, 5, 6});
@@ -931,8 +930,8 @@ TEST(EvalTest, AddVecIntUnderflow) {
 
 TEST(EvalTest, PushAddVec) {
   WickedPostfixWriter writer;
-  writer.add_i(WickedPostfixOp_AddVec);
-  writer.add_i(3 << 1 | 1);
+  writer.add_p(WickedPostfixOp_AddVec);
+  writer.add_p(3 << 1 | 1);
   writer.add_f(4);
   writer.add_f(5);
   writer.add_f(6);
@@ -946,8 +945,8 @@ TEST(EvalTest, PushAddVec) {
 
 TEST(EvalTest, PushAddVecDataUnderflow) {
   WickedPostfixWriter writer;
-  writer.add_i(WickedPostfixOp_AddVec);
-  writer.add_i(3 << 1 | 1);
+  writer.add_p(WickedPostfixOp_AddVec);
+  writer.add_p(3 << 1 | 1);
   writer.add_f(4);
   writer.add_f(5);
   auto buffer = writer.Write();
@@ -959,8 +958,8 @@ TEST(EvalTest, PushAddVecDataUnderflow) {
 
 TEST(EvalTest, SubVec) {
   WickedPostfixWriter writer;
-  writer.add_i(WickedPostfixOp_SubVec);
-  writer.add_i(3 << 1);
+  writer.add_p(WickedPostfixOp_SubVec);
+  writer.add_p(3 << 1);
   auto buffer = writer.Write();
 
   TestEval eval(8, {0, 1, 2, 3, 4, 2, 1});
@@ -971,8 +970,8 @@ TEST(EvalTest, SubVec) {
 
 TEST(EvalTest, SubVecStackUnderflow) {
   WickedPostfixWriter writer;
-  writer.add_i(WickedPostfixOp_SubVec);
-  writer.add_i(3 << 1);
+  writer.add_p(WickedPostfixOp_SubVec);
+  writer.add_p(3 << 1);
   auto buffer = writer.Write();
 
   TestEval eval(8, {1, 2, 3, 4, 5});
@@ -982,7 +981,7 @@ TEST(EvalTest, SubVecStackUnderflow) {
 
 TEST(EvalTest, SubVecIntUnderflow) {
   WickedPostfixWriter writer;
-  writer.add_i(WickedPostfixOp_SubVec);
+  writer.add_p(WickedPostfixOp_SubVec);
   auto buffer = writer.Write();
 
   TestEval eval(8, {0, 1, 2, 3, 4, 5, 6});
@@ -992,8 +991,8 @@ TEST(EvalTest, SubVecIntUnderflow) {
 
 TEST(EvalTest, PushSubVec) {
   WickedPostfixWriter writer;
-  writer.add_i(WickedPostfixOp_SubVec);
-  writer.add_i(3 << 1 | 1);
+  writer.add_p(WickedPostfixOp_SubVec);
+  writer.add_p(3 << 1 | 1);
   writer.add_f(4);
   writer.add_f(2);
   writer.add_f(1);
@@ -1007,8 +1006,8 @@ TEST(EvalTest, PushSubVec) {
 
 TEST(EvalTest, PushSubVecDataUnderflow) {
   WickedPostfixWriter writer;
-  writer.add_i(WickedPostfixOp_SubVec);
-  writer.add_i(3 << 1 | 1);
+  writer.add_p(WickedPostfixOp_SubVec);
+  writer.add_p(3 << 1 | 1);
   writer.add_f(4);
   writer.add_f(5);
   auto buffer = writer.Write();
@@ -1020,8 +1019,8 @@ TEST(EvalTest, PushSubVecDataUnderflow) {
 
 TEST(EvalTest, MulVec) {
   WickedPostfixWriter writer;
-  writer.add_i(WickedPostfixOp_MulVec);
-  writer.add_i(3 << 1);
+  writer.add_p(WickedPostfixOp_MulVec);
+  writer.add_p(3 << 1);
   auto buffer = writer.Write();
 
   TestEval eval(8, {0, 1, 2, 3, 4, 3, -1});
@@ -1032,8 +1031,8 @@ TEST(EvalTest, MulVec) {
 
 TEST(EvalTest, MulVecStackUnderflow) {
   WickedPostfixWriter writer;
-  writer.add_i(WickedPostfixOp_MulVec);
-  writer.add_i(3 << 1);
+  writer.add_p(WickedPostfixOp_MulVec);
+  writer.add_p(3 << 1);
   auto buffer = writer.Write();
 
   TestEval eval(8, {1, 2, 3, 4, 5});
@@ -1043,7 +1042,7 @@ TEST(EvalTest, MulVecStackUnderflow) {
 
 TEST(EvalTest, MulVecIntUnderflow) {
   WickedPostfixWriter writer;
-  writer.add_i(WickedPostfixOp_MulVec);
+  writer.add_p(WickedPostfixOp_MulVec);
   auto buffer = writer.Write();
 
   TestEval eval(8, {0, 1, 2, 3, 4, 5, 6});
@@ -1053,8 +1052,8 @@ TEST(EvalTest, MulVecIntUnderflow) {
 
 TEST(EvalTest, PushMulVec) {
   WickedPostfixWriter writer;
-  writer.add_i(WickedPostfixOp_MulVec);
-  writer.add_i(3 << 1 | 1);
+  writer.add_p(WickedPostfixOp_MulVec);
+  writer.add_p(3 << 1 | 1);
   writer.add_f(4);
   writer.add_f(3);
   writer.add_f(-1);
@@ -1068,8 +1067,8 @@ TEST(EvalTest, PushMulVec) {
 
 TEST(EvalTest, PushMulVecDataUnderflow) {
   WickedPostfixWriter writer;
-  writer.add_i(WickedPostfixOp_MulVec);
-  writer.add_i(3 << 1 | 1);
+  writer.add_p(WickedPostfixOp_MulVec);
+  writer.add_p(3 << 1 | 1);
   writer.add_f(4);
   writer.add_f(5);
   auto buffer = writer.Write();
@@ -1081,8 +1080,8 @@ TEST(EvalTest, PushMulVecDataUnderflow) {
 
 TEST(EvalTest, MulAddVec) {
   WickedPostfixWriter writer;
-  writer.add_i(WickedPostfixOp_MulAddVec);
-  writer.add_i(3 << 2);
+  writer.add_p(WickedPostfixOp_MulAddVec);
+  writer.add_p(3 << 2);
   auto buffer = writer.Write();
 
   TestEval eval(12, {0, 1, 2, 3, 4, 3, -1, 0, 1, 2});
@@ -1093,8 +1092,8 @@ TEST(EvalTest, MulAddVec) {
 
 TEST(EvalTest, MulAddVecStackUnderflow) {
   WickedPostfixWriter writer;
-  writer.add_i(WickedPostfixOp_MulAddVec);
-  writer.add_i(3 << 2);
+  writer.add_p(WickedPostfixOp_MulAddVec);
+  writer.add_p(3 << 2);
   auto buffer = writer.Write();
 
   TestEval eval(12, {1, 2, 3, 4, 5, 6, 7, 8});
@@ -1104,7 +1103,7 @@ TEST(EvalTest, MulAddVecStackUnderflow) {
 
 TEST(EvalTest, MulAddVecIntUnderflow) {
   WickedPostfixWriter writer;
-  writer.add_i(WickedPostfixOp_MulAddVec);
+  writer.add_p(WickedPostfixOp_MulAddVec);
   auto buffer = writer.Write();
 
   TestEval eval(12, {0, 1, 2, 3, 4, 5, 6, 7, 8});
@@ -1114,8 +1113,8 @@ TEST(EvalTest, MulAddVecIntUnderflow) {
 
 TEST(EvalTest, PushMulAddVec1) {
   WickedPostfixWriter writer;
-  writer.add_i(WickedPostfixOp_MulAddVec);
-  writer.add_i(3 << 2 | 1);
+  writer.add_p(WickedPostfixOp_MulAddVec);
+  writer.add_p(3 << 2 | 1);
   writer.add_f(0);
   writer.add_f(1);
   writer.add_f(2);
@@ -1129,8 +1128,8 @@ TEST(EvalTest, PushMulAddVec1) {
 
 TEST(EvalTest, PushMulAddVec2) {
   WickedPostfixWriter writer;
-  writer.add_i(WickedPostfixOp_MulAddVec);
-  writer.add_i(3 << 2 | 2);
+  writer.add_p(WickedPostfixOp_MulAddVec);
+  writer.add_p(3 << 2 | 2);
   writer.add_f(4);
   writer.add_f(3);
   writer.add_f(-1);
@@ -1147,8 +1146,8 @@ TEST(EvalTest, PushMulAddVec2) {
 
 TEST(EvalTest, PushMulAddVecDataUnderflow) {
   WickedPostfixWriter writer;
-  writer.add_i(WickedPostfixOp_MulAddVec);
-  writer.add_i(3 << 2 | 1);
+  writer.add_p(WickedPostfixOp_MulAddVec);
+  writer.add_p(3 << 2 | 1);
   writer.add_f(0);
   writer.add_f(1);
   auto buffer = writer.Write();
@@ -1160,8 +1159,8 @@ TEST(EvalTest, PushMulAddVecDataUnderflow) {
 
 TEST(EvalTest, ScaleVec) {
   WickedPostfixWriter writer;
-  writer.add_i(WickedPostfixOp_ScaleVec);
-  writer.add_i(3 << 1);
+  writer.add_p(WickedPostfixOp_ScaleVec);
+  writer.add_p(3 << 1);
   auto buffer = writer.Write();
 
   TestEval eval(8, {0, 2, 3, 4, -2});
@@ -1172,8 +1171,8 @@ TEST(EvalTest, ScaleVec) {
 
 TEST(EvalTest, ScaleVecStackUnderflow) {
   WickedPostfixWriter writer;
-  writer.add_i(WickedPostfixOp_ScaleVec);
-  writer.add_i(3 << 1);
+  writer.add_p(WickedPostfixOp_ScaleVec);
+  writer.add_p(3 << 1);
   auto buffer = writer.Write();
 
   TestEval eval(8, {1, 2, 3});
@@ -1183,7 +1182,7 @@ TEST(EvalTest, ScaleVecStackUnderflow) {
 
 TEST(EvalTest, ScaleVecIntUnderflow) {
   WickedPostfixWriter writer;
-  writer.add_i(WickedPostfixOp_ScaleVec);
+  writer.add_p(WickedPostfixOp_ScaleVec);
   auto buffer = writer.Write();
 
   TestEval eval(8, {0, 1, 2, 3, 4});
@@ -1193,8 +1192,8 @@ TEST(EvalTest, ScaleVecIntUnderflow) {
 
 TEST(EvalTest, PushScaleVec) {
   WickedPostfixWriter writer;
-  writer.add_i(WickedPostfixOp_ScaleVec);
-  writer.add_i(3 << 1 | 1);
+  writer.add_p(WickedPostfixOp_ScaleVec);
+  writer.add_p(3 << 1 | 1);
   writer.add_f(3);
   writer.add_f(4);
   writer.add_f(-2);
@@ -1208,8 +1207,8 @@ TEST(EvalTest, PushScaleVec) {
 
 TEST(EvalTest, PushScaleVecDataUnderflow) {
   WickedPostfixWriter writer;
-  writer.add_i(WickedPostfixOp_ScaleVec);
-  writer.add_i(3 << 1 | 1);
+  writer.add_p(WickedPostfixOp_ScaleVec);
+  writer.add_p(3 << 1 | 1);
   writer.add_f(4);
   writer.add_f(5);
   auto buffer = writer.Write();
@@ -1221,8 +1220,8 @@ TEST(EvalTest, PushScaleVecDataUnderflow) {
 
 TEST(EvalTest, NegVec) {
   WickedPostfixWriter writer;
-  writer.add_i(WickedPostfixOp_NegVec);
-  writer.add_i(3 << 1);
+  writer.add_p(WickedPostfixOp_NegVec);
+  writer.add_p(3 << 1);
   auto buffer = writer.Write();
 
   TestEval eval(8, {0, 3, 4, -2});
@@ -1233,8 +1232,8 @@ TEST(EvalTest, NegVec) {
 
 TEST(EvalTest, NegVecStackUnderflow) {
   WickedPostfixWriter writer;
-  writer.add_i(WickedPostfixOp_NegVec);
-  writer.add_i(3 << 1);
+  writer.add_p(WickedPostfixOp_NegVec);
+  writer.add_p(3 << 1);
   auto buffer = writer.Write();
 
   TestEval eval(8, {1, 2});
@@ -1244,7 +1243,7 @@ TEST(EvalTest, NegVecStackUnderflow) {
 
 TEST(EvalTest, NegVecIntUnderflow) {
   WickedPostfixWriter writer;
-  writer.add_i(WickedPostfixOp_NegVec);
+  writer.add_p(WickedPostfixOp_NegVec);
   auto buffer = writer.Write();
 
   TestEval eval(8, {0, 1, 2, 3});
@@ -1254,8 +1253,8 @@ TEST(EvalTest, NegVecIntUnderflow) {
 
 TEST(EvalTest, PushNegVec) {
   WickedPostfixWriter writer;
-  writer.add_i(WickedPostfixOp_NegVec);
-  writer.add_i(3 << 1 | 1);
+  writer.add_p(WickedPostfixOp_NegVec);
+  writer.add_p(3 << 1 | 1);
   writer.add_f(3);
   writer.add_f(4);
   writer.add_f(-2);
@@ -1269,8 +1268,8 @@ TEST(EvalTest, PushNegVec) {
 
 TEST(EvalTest, PushNegVecDataUnderflow) {
   WickedPostfixWriter writer;
-  writer.add_i(WickedPostfixOp_NegVec);
-  writer.add_i(3 << 1 | 1);
+  writer.add_p(WickedPostfixOp_NegVec);
+  writer.add_p(3 << 1 | 1);
   writer.add_f(4);
   writer.add_f(5);
   auto buffer = writer.Write();
@@ -1282,8 +1281,8 @@ TEST(EvalTest, PushNegVecDataUnderflow) {
 
 TEST(EvalTest, NormVec) {
   WickedPostfixWriter writer;
-  writer.add_i(WickedPostfixOp_NormVec);
-  writer.add_i(3 << 1);
+  writer.add_p(WickedPostfixOp_NormVec);
+  writer.add_p(3 << 1);
   auto buffer = writer.Write();
 
   TestEval eval(8, {0, 2, 3, 4});
@@ -1294,8 +1293,8 @@ TEST(EvalTest, NormVec) {
 
 TEST(EvalTest, NormVecStackUnderflow) {
   WickedPostfixWriter writer;
-  writer.add_i(WickedPostfixOp_NormVec);
-  writer.add_i(3 << 1);
+  writer.add_p(WickedPostfixOp_NormVec);
+  writer.add_p(3 << 1);
   auto buffer = writer.Write();
 
   TestEval eval(8, {1, 2});
@@ -1305,7 +1304,7 @@ TEST(EvalTest, NormVecStackUnderflow) {
 
 TEST(EvalTest, NormVecIntUnderflow) {
   WickedPostfixWriter writer;
-  writer.add_i(WickedPostfixOp_NormVec);
+  writer.add_p(WickedPostfixOp_NormVec);
   auto buffer = writer.Write();
 
   TestEval eval(8, {0, 2, 3, 4});
@@ -1315,8 +1314,8 @@ TEST(EvalTest, NormVecIntUnderflow) {
 
 TEST(EvalTest, PushNormVec) {
   WickedPostfixWriter writer;
-  writer.add_i(WickedPostfixOp_NormVec);
-  writer.add_i(3 << 1 | 1);
+  writer.add_p(WickedPostfixOp_NormVec);
+  writer.add_p(3 << 1 | 1);
   writer.add_f(2);
   writer.add_f(3);
   writer.add_f(4);
@@ -1330,8 +1329,8 @@ TEST(EvalTest, PushNormVec) {
 
 TEST(EvalTest, PushNormVecDataUnderflow) {
   WickedPostfixWriter writer;
-  writer.add_i(WickedPostfixOp_NormVec);
-  writer.add_i(3 << 1 | 1);
+  writer.add_p(WickedPostfixOp_NormVec);
+  writer.add_p(3 << 1 | 1);
   writer.add_f(2);
   writer.add_f(3);
   auto buffer = writer.Write();
@@ -1343,10 +1342,10 @@ TEST(EvalTest, PushNormVecDataUnderflow) {
 
 TEST(EvalTest, MulMat) {
   WickedPostfixWriter writer;
-  writer.add_i(WickedPostfixOp_MulMat);
-  writer.add_i(2);
-  writer.add_i(3);
-  writer.add_i(4 << 1);
+  writer.add_p(WickedPostfixOp_MulMat);
+  writer.add_p(2);
+  writer.add_p(3);
+  writer.add_p(4 << 1);
   auto buffer = writer.Write();
 
   TestEval eval(32, 8, {0, 1, 2, 3, 4, 5, 6, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12});
@@ -1360,10 +1359,10 @@ TEST(EvalTest, MulMat) {
 
 TEST(EvalTest, MulMatTempOverflow) {
   WickedPostfixWriter writer;
-  writer.add_i(WickedPostfixOp_MulMat);
-  writer.add_i(2);
-  writer.add_i(3);
-  writer.add_i(4 << 1);
+  writer.add_p(WickedPostfixOp_MulMat);
+  writer.add_p(2);
+  writer.add_p(3);
+  writer.add_p(4 << 1);
   auto buffer = writer.Write();
 
   TestEval eval(32, 7, {0, 1, 2, 3, 4, 5, 6, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12});
@@ -1373,10 +1372,10 @@ TEST(EvalTest, MulMatTempOverflow) {
 
 TEST(EvalTest, MulMatStackUnderflow) {
   WickedPostfixWriter writer;
-  writer.add_i(WickedPostfixOp_MulMat);
-  writer.add_i(2);
-  writer.add_i(3);
-  writer.add_i(4 << 1);
+  writer.add_p(WickedPostfixOp_MulMat);
+  writer.add_p(2);
+  writer.add_p(3);
+  writer.add_p(4 << 1);
   auto buffer = writer.Write();
 
   TestEval eval(32, {1, 2, 3, 4, 5, 6, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11});
@@ -1386,9 +1385,9 @@ TEST(EvalTest, MulMatStackUnderflow) {
 
 TEST(EvalTest, MulMatIntUnderflow) {
   WickedPostfixWriter writer;
-  writer.add_i(WickedPostfixOp_MulMat);
-  writer.add_i(2);
-  writer.add_i(3);
+  writer.add_p(WickedPostfixOp_MulMat);
+  writer.add_p(2);
+  writer.add_p(3);
   auto buffer = writer.Write();
 
   TestEval eval(32, {0, 1, 2, 3, 4, 5, 6, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12});
@@ -1398,10 +1397,10 @@ TEST(EvalTest, MulMatIntUnderflow) {
 
 TEST(EvalTest, PushMulMat) {
   WickedPostfixWriter writer;
-  writer.add_i(WickedPostfixOp_MulMat);
-  writer.add_i(2);
-  writer.add_i(3);
-  writer.add_i(4 << 1 | 1);
+  writer.add_p(WickedPostfixOp_MulMat);
+  writer.add_p(2);
+  writer.add_p(3);
+  writer.add_p(4 << 1 | 1);
   writer.add_f(1);
   writer.add_f(2);
   writer.add_f(3);
@@ -1427,10 +1426,10 @@ TEST(EvalTest, PushMulMat) {
 
 TEST(EvalTest, PushMulMatDataUnderflow) {
   WickedPostfixWriter writer;
-  writer.add_i(WickedPostfixOp_MulMat);
-  writer.add_i(2);
-  writer.add_i(3);
-  writer.add_i(4 << 1 | 1);
+  writer.add_p(WickedPostfixOp_MulMat);
+  writer.add_p(2);
+  writer.add_p(3);
+  writer.add_p(4 << 1 | 1);
   writer.add_f(1);
   writer.add_f(2);
   writer.add_f(3);
@@ -1451,8 +1450,8 @@ TEST(EvalTest, PushMulMatDataUnderflow) {
 
 TEST(EvalTest, Lerp) {
   WickedPostfixWriter writer;
-  writer.add_i(WickedPostfixOp_Lerp);
-  writer.add_i(3<<2);
+  writer.add_p(WickedPostfixOp_Lerp);
+  writer.add_p(3<<2);
   auto buffer = writer.Write();
 
   TestEval eval(8, {0, 0.25, 2, 3, 4, 6, 7, 8});
@@ -1463,8 +1462,8 @@ TEST(EvalTest, Lerp) {
 
 TEST(EvalTest, LerpStackUnderflow) {
   WickedPostfixWriter writer;
-  writer.add_i(WickedPostfixOp_Lerp);
-  writer.add_i(3<<2);
+  writer.add_p(WickedPostfixOp_Lerp);
+  writer.add_p(3<<2);
   auto buffer = writer.Write();
 
   TestEval eval(8, {0.25, 2, 3, 4, 6, 7});
@@ -1474,7 +1473,7 @@ TEST(EvalTest, LerpStackUnderflow) {
 
 TEST(EvalTest, LerpIntUnderflow) {
   WickedPostfixWriter writer;
-  writer.add_i(WickedPostfixOp_Lerp);
+  writer.add_p(WickedPostfixOp_Lerp);
   auto buffer = writer.Write();
 
   TestEval eval(12, {0, 0.25, 2, 3, 4, 5, 6, 7, 8});
@@ -1484,8 +1483,8 @@ TEST(EvalTest, LerpIntUnderflow) {
 
 TEST(EvalTest, PushLerp1) {
   WickedPostfixWriter writer;
-  writer.add_i(WickedPostfixOp_Lerp);
-  writer.add_i(3<<2|1);
+  writer.add_p(WickedPostfixOp_Lerp);
+  writer.add_p(3<<2|1);
   writer.add_f(6);
   writer.add_f(7);
   writer.add_f(8);
@@ -1499,8 +1498,8 @@ TEST(EvalTest, PushLerp1) {
 
 TEST(EvalTest, PushLerp2) {
   WickedPostfixWriter writer;
-  writer.add_i(WickedPostfixOp_Lerp);
-  writer.add_i(3<<2|2);
+  writer.add_p(WickedPostfixOp_Lerp);
+  writer.add_p(3<<2|2);
   writer.add_f(2);
   writer.add_f(3);
   writer.add_f(4);
@@ -1517,8 +1516,8 @@ TEST(EvalTest, PushLerp2) {
 
 TEST(EvalTest, PushLerpDataUnderflow) {
   WickedPostfixWriter writer;
-  writer.add_i(WickedPostfixOp_Lerp);
-  writer.add_i(3<<2|1);
+  writer.add_p(WickedPostfixOp_Lerp);
+  writer.add_p(3<<2|1);
   writer.add_f(6);
   writer.add_f(7);
   auto buffer = writer.Write();
@@ -1530,9 +1529,9 @@ TEST(EvalTest, PushLerpDataUnderflow) {
 
 TEST(EvalTest, LerpTable_n1) {
   WickedPostfixWriter writer;
-  writer.add_i(WickedPostfixOp_LerpTable);
-  writer.add_i(3);
-  writer.add_i(4 << 1);
+  writer.add_p(WickedPostfixOp_LerpTable);
+  writer.add_p(3);
+  writer.add_p(4 << 1);
   auto buffer = writer.Write();
 
   TestEval eval(16, {0, -1, 0, 1, 2, 3, 2, 4, 3, 7, 6, 8, 2, 0});
@@ -1543,9 +1542,9 @@ TEST(EvalTest, LerpTable_n1) {
 
 TEST(EvalTest, LerpTable_0) {
   WickedPostfixWriter writer;
-  writer.add_i(WickedPostfixOp_LerpTable);
-  writer.add_i(3);
-  writer.add_i(4 << 1);
+  writer.add_p(WickedPostfixOp_LerpTable);
+  writer.add_p(3);
+  writer.add_p(4 << 1);
   auto buffer = writer.Write();
 
   TestEval eval(16, {0, 0, 0, 1, 2, 3, 2, 4, 3, 7, 6, 8, 2, 0});
@@ -1556,9 +1555,9 @@ TEST(EvalTest, LerpTable_0) {
 
 TEST(EvalTest, LerpTable_0_5) {
   WickedPostfixWriter writer;
-  writer.add_i(WickedPostfixOp_LerpTable);
-  writer.add_i(3);
-  writer.add_i(4 << 1);
+  writer.add_p(WickedPostfixOp_LerpTable);
+  writer.add_p(3);
+  writer.add_p(4 << 1);
   auto buffer = writer.Write();
 
   TestEval eval(16, {0, 0.5, 0, 1, 2, 3, 2, 4, 3, 7, 6, 8, 2, 0});
@@ -1569,9 +1568,9 @@ TEST(EvalTest, LerpTable_0_5) {
 
 TEST(EvalTest, LerpTable_2) {
   WickedPostfixWriter writer;
-  writer.add_i(WickedPostfixOp_LerpTable);
-  writer.add_i(3);
-  writer.add_i(4 << 1);
+  writer.add_p(WickedPostfixOp_LerpTable);
+  writer.add_p(3);
+  writer.add_p(4 << 1);
   auto buffer = writer.Write();
 
   TestEval eval(16, {0, 2, 0, 1, 2, 3, 2, 4, 3, 7, 6, 8, 2, 0});
@@ -1582,9 +1581,9 @@ TEST(EvalTest, LerpTable_2) {
 
 TEST(EvalTest, LerpTable_4) {
   WickedPostfixWriter writer;
-  writer.add_i(WickedPostfixOp_LerpTable);
-  writer.add_i(3);
-  writer.add_i(4 << 1);
+  writer.add_p(WickedPostfixOp_LerpTable);
+  writer.add_p(3);
+  writer.add_p(4 << 1);
   auto buffer = writer.Write();
 
   TestEval eval(16, {0, 4, 0, 1, 2, 3, 2, 4, 3, 7, 6, 8, 2, 0});
@@ -1595,9 +1594,9 @@ TEST(EvalTest, LerpTable_4) {
 
 TEST(EvalTest, LerpTable_6) {
   WickedPostfixWriter writer;
-  writer.add_i(WickedPostfixOp_LerpTable);
-  writer.add_i(3);
-  writer.add_i(4 << 1);
+  writer.add_p(WickedPostfixOp_LerpTable);
+  writer.add_p(3);
+  writer.add_p(4 << 1);
   auto buffer = writer.Write();
 
   TestEval eval(16, {0, 6, 0, 1, 2, 3, 2, 4, 3, 7, 6, 8, 2, 0});
@@ -1608,9 +1607,9 @@ TEST(EvalTest, LerpTable_6) {
 
 TEST(EvalTest, LerpTable_7) {
   WickedPostfixWriter writer;
-  writer.add_i(WickedPostfixOp_LerpTable);
-  writer.add_i(3);
-  writer.add_i(4 << 1);
+  writer.add_p(WickedPostfixOp_LerpTable);
+  writer.add_p(3);
+  writer.add_p(4 << 1);
   auto buffer = writer.Write();
 
   TestEval eval(16, {0, 7, 0, 1, 2, 3, 2, 4, 3, 7, 6, 8, 2, 0});
@@ -1621,9 +1620,9 @@ TEST(EvalTest, LerpTable_7) {
 
 TEST(EvalTest, LerpTableStackUnderflow) {
   WickedPostfixWriter writer;
-  writer.add_i(WickedPostfixOp_LerpTable);
-  writer.add_i(3);
-  writer.add_i(3 << 1);
+  writer.add_p(WickedPostfixOp_LerpTable);
+  writer.add_p(3);
+  writer.add_p(3 << 1);
   auto buffer = writer.Write();
 
   TestEval eval(16, {0.5, 0, 1, 2, 2, 4, 3, 6, 8});
@@ -1633,8 +1632,8 @@ TEST(EvalTest, LerpTableStackUnderflow) {
 
 TEST(EvalTest, LerpTableIntUnderflow) {
   WickedPostfixWriter writer;
-  writer.add_i(WickedPostfixOp_LerpTable);
-  writer.add_i(3);
+  writer.add_p(WickedPostfixOp_LerpTable);
+  writer.add_p(3);
   auto buffer = writer.Write();
 
   TestEval eval(16, {0, 0.5, 0, 1, 2, 2, 4, 3, 6, 8, 2});
@@ -1644,9 +1643,9 @@ TEST(EvalTest, LerpTableIntUnderflow) {
 
 TEST(EvalTest, LerpTableIllegalOperation) {
   WickedPostfixWriter writer;
-  writer.add_i(WickedPostfixOp_LerpTable);
-  writer.add_i(0);
-  writer.add_i(4 << 1);
+  writer.add_p(WickedPostfixOp_LerpTable);
+  writer.add_p(0);
+  writer.add_p(4 << 1);
   auto buffer = writer.Write();
 
   TestEval eval(16, {0, 4});
@@ -1657,9 +1656,9 @@ TEST(EvalTest, LerpTableIllegalOperation) {
 
 TEST(EvalTest, PushLerpTable) {
   WickedPostfixWriter writer;
-  writer.add_i(WickedPostfixOp_LerpTable);
-  writer.add_i(3);
-  writer.add_i(4 << 1 | 1);
+  writer.add_p(WickedPostfixOp_LerpTable);
+  writer.add_p(3);
+  writer.add_p(4 << 1 | 1);
   writer.add_f(0);
   writer.add_f(1);
   writer.add_f(2);
@@ -1682,9 +1681,9 @@ TEST(EvalTest, PushLerpTable) {
 
 TEST(EvalTest, PushLerpTableDataUnderflow) {
   WickedPostfixWriter writer;
-  writer.add_i(WickedPostfixOp_LerpTable);
-  writer.add_i(3);
-  writer.add_i(4 << 1 | 1);
+  writer.add_p(WickedPostfixOp_LerpTable);
+  writer.add_p(3);
+  writer.add_p(4 << 1 | 1);
   writer.add_f(0);
   writer.add_f(1);
   writer.add_f(2);
