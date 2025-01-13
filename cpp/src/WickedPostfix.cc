@@ -82,19 +82,13 @@ extern "C" bool WickedPostfixRead(const uint8_t* data, size_t size, WickedPostfi
   return true;
 }
 
-extern "C" void WickedPostfixEval_reset(WickedPostfixEval_t* eval) {
-  // memset(eval->stack_data, 0, eval->stack_capacity * sizeof(float));
-  // memset(eval->temp_data, 0, eval->temp_capacity * sizeof(float));
-  eval->stack_size = 0;
-}
-
 extern "C" WickedEvalStatus_t WickedPostfixEval_push(WickedPostfixEval_t* eval, float v) {
   if (eval->stack_capacity - eval->stack_size < 1) return WickedEvalStatus_StackOverflow;
   eval->stack_data[eval->stack_size++] = v;
   return WickedEvalStatus_Ok;
 }
 
-extern "C" WickedEvalStatus_t WickedPostfixEval_pushv(WickedPostfixEval_t* eval, const float* v, size_t size) {
+extern "C" WickedEvalStatus_t WickedPostfixEval_pushv(WickedPostfixEval_t* eval, const float* v, uint16_t size) {
   if (eval->stack_capacity - eval->stack_size < size) return WickedEvalStatus_StackOverflow;
   memcpy(&eval->stack_data[eval->stack_size], v, size * sizeof(float));
   eval->stack_size += size;
