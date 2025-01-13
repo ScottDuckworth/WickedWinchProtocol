@@ -60,9 +60,9 @@ typedef enum WickedPostfixOp {
 const char* WickedPostfixOpToString(WickedPostfixOp_t op);
 
 typedef struct WickedPostfixEval {
-  const uint8_t* op_head;
-  const uint8_t* i_head;
-  const float* f_head;
+  const uint8_t* op_data;
+  const uint8_t* i_data;
+  const float* f_data;
   uint8_t op_size;
   uint8_t i_size;
   uint16_t f_size;
@@ -72,6 +72,8 @@ typedef struct WickedPostfixEval {
   uint8_t stack_size;
   uint8_t stack_capacity;
   uint8_t temp_capacity;
+  uint8_t i_idx;
+  uint16_t f_idx;
 } WickedPostfixEval_t;
 
 void WickedPostfixEval_reset(WickedPostfixEval_t* eval);

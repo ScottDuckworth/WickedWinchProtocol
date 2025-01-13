@@ -76,9 +76,9 @@ extern "C" bool WickedPostfixRead(const uint8_t* data, size_t size, WickedPostfi
   if (size != data_size) return false;
 
   if (eval) {
-    eval->op_head = data + op_offset;
-    eval->i_head = data + i_offset;
-    eval->f_head = reinterpret_cast<const float*>(data + f_offset);
+    eval->op_data = data + op_offset;
+    eval->i_data = data + i_offset;
+    eval->f_data = reinterpret_cast<const float*>(data + f_offset);
     eval->op_size = op_size;
     eval->i_size = i_size;
     eval->f_size = f_size;
@@ -110,10 +110,9 @@ static WickedEvalStatus_t WickedPostfixEval_pushv(WickedPostfixEval_t* eval, std
 }
 
 static WickedEvalStatus_t WickedPostfixEval_pushf(WickedPostfixEval_t* eval, uint16_t n) {
-  if (n > eval->f_size) return WickedEvalStatus_FloatLiteralsUnderflow;
-  CHECK_STATUS(WickedPostfixEval_pushv(eval, std::span<const float>(eval->f_head, n)));
-  eval->f_size -= n;
-  eval->f_head += n;
+  if (eval->f_size - eval->f_idx < n) return WickedEvalStatus_FloatLiteralsUnderflow;
+  CHECK_STATUS(WickedPostfixEval_pushv(eval, std::span<const float>(eval->f_data + eval->f_idx, n)));
+  eval->f_idx += n;
   return WickedEvalStatus_Ok;
 }
 
@@ -167,16 +166,17 @@ static WickedEvalStatus_t WickedPostfixEval_peekv(WickedPostfixEval_t* eval, uin
 }
 
 static WickedEvalStatus_t WickedPostfixEval_geti(WickedPostfixEval_t* eval, uint8_t* n) {
-  if (eval->i_size < 1) return WickedEvalStatus_IntLiteralsUnderflow;
-  *n = eval->i_head[0];
-  --eval->i_size;
-  ++eval->i_head;
+  if (eval->i_size - eval->i_idx < 1) return WickedEvalStatus_IntLiteralsUnderflow;
+  *n = eval->i_data[eval->i_idx];
+  ++eval->i_idx;
   return WickedEvalStatus_Ok;
 }
 
 extern "C" WickedEvalStatus_t WickedPostfixEvaluate(WickedPostfixEval_t* eval) {
-  for (uint8_t opi = 0; opi < eval->op_size; ++opi) {
-    const uint8_t op = eval->op_head[opi];
+  eval->i_idx = 0;
+  eval->f_idx = 0;
+  for (uint8_t op_idx = 0; op_idx < eval->op_size; ++op_idx) {
+    const uint8_t op = eval->op_data[op_idx];
     switch (op) {
     case WickedPostfixOp_Push: {
       uint8_t n;
