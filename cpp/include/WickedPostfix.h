@@ -60,18 +60,19 @@ const char* WickedPostfixOpToString(WickedPostfixOp_t op);
 
 typedef struct WickedPostfixEval {
   const uint8_t* i_data;
-  const float* d_data;
   uint16_t i_size;
-  uint16_t d_size;
-
   uint16_t i_idx;
+
+  const float* d_data;
+  uint16_t d_size;
   uint16_t d_idx;
 
   float* stack_data;
+  uint16_t stack_size;
+  uint16_t stack_capacity;
+
   float* temp_data;
-  uint8_t stack_size;
-  uint8_t stack_capacity;
-  uint8_t temp_capacity;
+  uint16_t temp_capacity;
 } WickedPostfixEval_t;
 
 void WickedPostfixEval_reset(WickedPostfixEval_t* eval);
