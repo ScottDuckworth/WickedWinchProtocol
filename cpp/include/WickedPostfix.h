@@ -23,6 +23,7 @@ typedef enum WickedPostfixOp {
   WickedPostfixOp_RotR      = 5,
   WickedPostfixOp_Rev       = 6,
   WickedPostfixOp_Transpose = 7,
+
   WickedPostfixOp_Add       = 8,
   WickedPostfixOp_Sub       = 9,
   WickedPostfixOp_Mul       = 10,
@@ -42,6 +43,7 @@ typedef enum WickedPostfixOp {
   WickedPostfixOp_Asin      = 24,
   WickedPostfixOp_Acos      = 25,
   WickedPostfixOp_Atan2     = 26,
+
   WickedPostfixOp_AddVec    = 27,
   WickedPostfixOp_SubVec    = 28,
   WickedPostfixOp_MulVec    = 29,
@@ -52,8 +54,28 @@ typedef enum WickedPostfixOp {
   WickedPostfixOp_MulMat    = 34,
   WickedPostfixOp_PolyVec   = 35,
   WickedPostfixOp_PolyMat   = 36,
+
   WickedPostfixOp_Lerp      = 37,
   WickedPostfixOp_LerpTable = 38,
+
+  WickedPostfixOp_AddI       = 101,
+  WickedPostfixOp_SubI       = 102,
+  WickedPostfixOp_MulI       = 103,
+  WickedPostfixOp_MulAddI    = 104,
+  WickedPostfixOp_DivI       = 105,
+  WickedPostfixOp_ModI       = 106,
+  WickedPostfixOp_NegI       = 107,
+  WickedPostfixOp_AbsI       = 108,
+
+  WickedPostfixOp_AddU       = 111,
+  WickedPostfixOp_SubU       = 112,
+  WickedPostfixOp_MulU       = 113,
+  WickedPostfixOp_MulAddU    = 114,
+  WickedPostfixOp_DivU       = 115,
+  WickedPostfixOp_ModU       = 116,
+
+  WickedPostfixOp_ItoF       = 120,
+  WickedPostfixOp_FtoI       = 121,
 } WickedPostfixOp_t;
 
 const char* WickedPostfixOpToString(WickedPostfixOp_t op);

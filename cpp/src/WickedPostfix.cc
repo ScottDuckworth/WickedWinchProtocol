@@ -54,6 +54,22 @@ extern "C" const char* WickedPostfixOpToString(WickedPostfixOp_t op) {
     case WickedPostfixOp_PolyMat:   return "PolyMat";
     case WickedPostfixOp_Lerp:      return "Lerp";
     case WickedPostfixOp_LerpTable: return "LerpTable";
+    case WickedPostfixOp_AddI:      return "AddI";
+    case WickedPostfixOp_SubI:      return "SubI";
+    case WickedPostfixOp_MulI:      return "MulI";
+    case WickedPostfixOp_MulAddI:   return "MulAddI";
+    case WickedPostfixOp_DivI:      return "DivI";
+    case WickedPostfixOp_ModI:      return "ModI";
+    case WickedPostfixOp_NegI:      return "NegI";
+    case WickedPostfixOp_AbsI:      return "AbsI";
+    case WickedPostfixOp_AddU:      return "AddU";
+    case WickedPostfixOp_SubU:      return "SubU";
+    case WickedPostfixOp_MulU:      return "MulU";
+    case WickedPostfixOp_MulAddU:   return "MulAddU";
+    case WickedPostfixOp_DivU:      return "DivU";
+    case WickedPostfixOp_ModU:      return "ModU";
+    case WickedPostfixOp_ItoF:      return "ItoF";
+    case WickedPostfixOp_FtoI:      return "FtoI";
   }
   return "UNKNOWN";
 }
@@ -594,6 +610,102 @@ extern "C" WickedEvalStatus_t WickedPostfixEvaluate(WickedPostfixEval_t* eval) {
           result[i] = (1-t)*v0[i] + t*v1[i];
         }
       }
+      break;
+    }
+    case WickedPostfixOp_AddI: {
+      int32_t* v;
+      CHECK_STATUS(WickedPostfixEval_popiv(eval, 2, &v));
+      CHECK_STATUS(WickedPostfixEval_pushi(eval, v[0] + v[1]));
+      break;
+    }
+    case WickedPostfixOp_SubI: {
+      int32_t* v;
+      CHECK_STATUS(WickedPostfixEval_popiv(eval, 2, &v));
+      CHECK_STATUS(WickedPostfixEval_pushi(eval, v[0] - v[1]));
+      break;
+    }
+    case WickedPostfixOp_MulI: {
+      int32_t* v;
+      CHECK_STATUS(WickedPostfixEval_popiv(eval, 2, &v));
+      CHECK_STATUS(WickedPostfixEval_pushi(eval, v[0] * v[1]));
+      break;
+    }
+    case WickedPostfixOp_MulAddI: {
+      int32_t* v;
+      CHECK_STATUS(WickedPostfixEval_popiv(eval, 3, &v));
+      CHECK_STATUS(WickedPostfixEval_pushi(eval, v[0] * v[1] + v[2]));
+      break;
+    }
+    case WickedPostfixOp_DivI: {
+      int32_t* v;
+      CHECK_STATUS(WickedPostfixEval_popiv(eval, 2, &v));
+      CHECK_STATUS(WickedPostfixEval_pushi(eval, v[0] / v[1]));
+      break;
+    }
+    case WickedPostfixOp_ModI: {
+      int32_t* v;
+      CHECK_STATUS(WickedPostfixEval_popiv(eval, 2, &v));
+      CHECK_STATUS(WickedPostfixEval_pushi(eval, v[0] % v[1]));
+      break;
+    }
+    case WickedPostfixOp_NegI: {
+      int32_t v;
+      CHECK_STATUS(WickedPostfixEval_popi(eval, &v));
+      CHECK_STATUS(WickedPostfixEval_pushi(eval, -v));
+      break;
+    }
+    case WickedPostfixOp_AbsI: {
+      int32_t v;
+      CHECK_STATUS(WickedPostfixEval_popi(eval, &v));
+      CHECK_STATUS(WickedPostfixEval_pushi(eval, v < 0 ? -v : v));
+      break;
+    }
+    case WickedPostfixOp_AddU: {
+      uint32_t* v;
+      CHECK_STATUS(WickedPostfixEval_popuv(eval, 2, &v));
+      CHECK_STATUS(WickedPostfixEval_pushu(eval, v[0] + v[1]));
+      break;
+    }
+    case WickedPostfixOp_SubU: {
+      uint32_t* v;
+      CHECK_STATUS(WickedPostfixEval_popuv(eval, 2, &v));
+      CHECK_STATUS(WickedPostfixEval_pushu(eval, v[0] - v[1]));
+      break;
+    }
+    case WickedPostfixOp_MulU: {
+      uint32_t* v;
+      CHECK_STATUS(WickedPostfixEval_popuv(eval, 2, &v));
+      CHECK_STATUS(WickedPostfixEval_pushu(eval, v[0] * v[1]));
+      break;
+    }
+    case WickedPostfixOp_MulAddU: {
+      uint32_t* v;
+      CHECK_STATUS(WickedPostfixEval_popuv(eval, 3, &v));
+      CHECK_STATUS(WickedPostfixEval_pushu(eval, v[0] * v[1] + v[2]));
+      break;
+    }
+    case WickedPostfixOp_DivU: {
+      uint32_t* v;
+      CHECK_STATUS(WickedPostfixEval_popuv(eval, 2, &v));
+      CHECK_STATUS(WickedPostfixEval_pushu(eval, v[0] / v[1]));
+      break;
+    }
+    case WickedPostfixOp_ModU: {
+      uint32_t* v;
+      CHECK_STATUS(WickedPostfixEval_popuv(eval, 2, &v));
+      CHECK_STATUS(WickedPostfixEval_pushu(eval, v[0] % v[1]));
+      break;
+    }
+    case WickedPostfixOp_ItoF: {
+      int32_t v;
+      CHECK_STATUS(WickedPostfixEval_popi(eval, &v));
+      CHECK_STATUS(WickedPostfixEval_pushf(eval, v));
+      break;
+    }
+    case WickedPostfixOp_FtoI: {
+      float v;
+      CHECK_STATUS(WickedPostfixEval_popf(eval, &v));
+      CHECK_STATUS(WickedPostfixEval_pushi(eval, v));
       break;
     }
     default:
