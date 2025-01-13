@@ -63,25 +63,21 @@ extern "C" bool WickedPostfixRead(const uint8_t* data, size_t size, WickedPostfi
   if (size < sizeof(WickedPostfixHeader)) return false;
 
 	const WickedPostfixHeader* header = reinterpret_cast<const WickedPostfixHeader*>(data);
-	uint8_t op_size = header->op_size;
 	uint8_t i_size = header->i_size;
-	uint16_t f_size = header->f_size;
+	uint16_t d_size = header->d_size;
 
-	constexpr size_t op_offset = sizeof(WickedPostfixHeader);
-	size_t i_offset = op_offset + op_size;
-  size_t f_offset = op_offset + op_size + i_size;
-  f_offset = (f_offset + size_t(3)) & ~size_t(3);
+	constexpr size_t i_offset = sizeof(WickedPostfixHeader);
+  size_t d_offset = i_offset + i_size;
+  d_offset = (d_offset + size_t(3)) & ~size_t(3);
 
-	size_t data_size = f_offset + f_size * 4;
+	size_t data_size = d_offset + d_size * 4;
   if (size != data_size) return false;
 
   if (eval) {
-    eval->op_data = data + op_offset;
     eval->i_data = data + i_offset;
-    eval->f_data = reinterpret_cast<const float*>(data + f_offset);
-    eval->op_size = op_size;
+    eval->d_data = reinterpret_cast<const float*>(data + d_offset);
     eval->i_size = i_size;
-    eval->f_size = f_size;
+    eval->d_size = d_size;
   }
   return true;
 }
@@ -110,9 +106,9 @@ static WickedEvalStatus_t WickedPostfixEval_pushv(WickedPostfixEval_t* eval, std
 }
 
 static WickedEvalStatus_t WickedPostfixEval_pushf(WickedPostfixEval_t* eval, uint16_t n) {
-  if (eval->f_size - eval->f_idx < n) return WickedEvalStatus_FloatLiteralsUnderflow;
-  CHECK_STATUS(WickedPostfixEval_pushv(eval, std::span<const float>(eval->f_data + eval->f_idx, n)));
-  eval->f_idx += n;
+  if (eval->d_size - eval->d_idx < n) return WickedEvalStatus_DataUnderflow;
+  CHECK_STATUS(WickedPostfixEval_pushv(eval, std::span<const float>(eval->d_data + eval->d_idx, n)));
+  eval->d_idx += n;
   return WickedEvalStatus_Ok;
 }
 
@@ -166,7 +162,7 @@ static WickedEvalStatus_t WickedPostfixEval_peekv(WickedPostfixEval_t* eval, uin
 }
 
 static WickedEvalStatus_t WickedPostfixEval_geti(WickedPostfixEval_t* eval, uint8_t* n) {
-  if (eval->i_size - eval->i_idx < 1) return WickedEvalStatus_IntLiteralsUnderflow;
+  if (eval->i_size - eval->i_idx < 1) return WickedEvalStatus_IllegalOperation;
   *n = eval->i_data[eval->i_idx];
   ++eval->i_idx;
   return WickedEvalStatus_Ok;
@@ -174,9 +170,9 @@ static WickedEvalStatus_t WickedPostfixEval_geti(WickedPostfixEval_t* eval, uint
 
 extern "C" WickedEvalStatus_t WickedPostfixEvaluate(WickedPostfixEval_t* eval) {
   eval->i_idx = 0;
-  eval->f_idx = 0;
-  for (uint8_t op_idx = 0; op_idx < eval->op_size; ++op_idx) {
-    const uint8_t op = eval->op_data[op_idx];
+  eval->d_idx = 0;
+  while (eval->i_idx < eval->i_size) {
+    const uint8_t op = eval->i_data[eval->i_idx++];
     switch (op) {
     case WickedPostfixOp_Push: {
       uint8_t n;
@@ -589,18 +585,14 @@ bool WickedPostfixWriter::Write(uint8_t* data, size_t size) const {
   if (size < data_size()) return false;
 
   auto* header = reinterpret_cast<WickedPostfixHeader*>(data);
-  header->op_size = op_size();
   header->i_size = i_size();
-  header->f_size = f_size();
-
-  uint8_t* op = data + op_offset();
-  memcpy(op, op_data(), op_size());
+  header->d_size = d_size();
 
   uint8_t* i = data + i_offset();
   memcpy(i, i_data(), i_size());
 
-  float* f = reinterpret_cast<float*>(data + f_offset());
-  memcpy(f, f_data(), f_size() * sizeof(float));
+  float* f = reinterpret_cast<float*>(data + d_offset());
+  memcpy(f, d_data(), d_size() * sizeof(float));
 
   return true;
 }

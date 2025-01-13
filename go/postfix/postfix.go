@@ -14,8 +14,8 @@ import (
 
 var (
 	ErrUndefinedOperation     = errors.New("undefined operation")
+	ErrIllegalOperation       = errors.New("illegal operation")
 	ErrStackUnderflow         = errors.New("stack underflow")
-	ErrIntLiteralsUnderflow   = errors.New("ints underflow")
 	ErrFloatLiteralsUnderflow = errors.New("floats underflow")
 )
 
@@ -64,15 +64,13 @@ const (
 )
 
 type Expression struct {
-	Op []Operation
-	I  []uint8
-	F  []float32
+	I []uint8
+	D []float32
 }
 
 type PostfixHeader struct {
-	OpSize uint8
-	ISize  uint8
-	FSize  uint16
+	ISize uint16
+	DSize uint16
 }
 
 func (op Operation) String() string {
@@ -164,14 +162,6 @@ func (expr Expression) String() string {
 	var sb strings.Builder
 	sb.WriteString("{")
 	space := false
-	for _, op := range expr.Op {
-		if space {
-			sb.WriteString(" ")
-		}
-		sb.WriteString("op:")
-		sb.WriteString(op.String())
-		space = true
-	}
 	for _, v := range expr.I {
 		if space {
 			sb.WriteString(" ")
@@ -180,11 +170,11 @@ func (expr Expression) String() string {
 		sb.WriteString(fmt.Sprint(v))
 		space = true
 	}
-	for _, v := range expr.F {
+	for _, v := range expr.D {
 		if space {
 			sb.WriteString(" ")
 		}
-		sb.WriteString("f:")
+		sb.WriteString("d:")
 		sb.WriteString(fmt.Sprint(v))
 		space = true
 	}
@@ -194,18 +184,16 @@ func (expr Expression) String() string {
 
 func (expr *Expression) Write(w io.Writer) error {
 	header := PostfixHeader{
-		OpSize: uint8(len(expr.Op)),
-		ISize:  uint8(len(expr.I)),
-		FSize:  uint16(len(expr.F)),
+		ISize: uint16(len(expr.I)),
+		DSize: uint16(len(expr.D)),
 	}
-	padlen := 4 - (header.OpSize+header.ISize)%4
+	padlen := 4 - header.ISize%4
 	padding := make([]uint8, padlen)
 	return cmp.Or(
 		binary.Write(w, binary.LittleEndian, &header),
-		binary.Write(w, binary.LittleEndian, &expr.Op),
 		binary.Write(w, binary.LittleEndian, &expr.I),
 		binary.Write(w, binary.LittleEndian, &padding),
-		binary.Write(w, binary.LittleEndian, &expr.F),
+		binary.Write(w, binary.LittleEndian, &expr.D),
 	)
 }
 
@@ -215,29 +203,26 @@ func (expr *Expression) Read(r io.Reader) error {
 	if err != nil {
 		return err
 	}
-	expr.Op = make([]Operation, header.OpSize)
 	expr.I = make([]uint8, header.ISize)
-	expr.F = make([]float32, header.FSize)
-	padlen := 4 - (header.OpSize+header.ISize)%4
+	expr.D = make([]float32, header.DSize)
+	padlen := 4 - header.ISize%4
 	padding := make([]uint8, padlen)
 	return cmp.Or(
-		binary.Read(r, binary.LittleEndian, &expr.Op),
 		binary.Read(r, binary.LittleEndian, &expr.I),
 		binary.Read(r, binary.LittleEndian, &padding),
-		binary.Read(r, binary.LittleEndian, &expr.F),
+		binary.Read(r, binary.LittleEndian, &expr.D),
 	)
 }
 
 func Equal(a, b *Expression) bool {
-	return slices.Equal(a.Op, b.Op) && slices.Equal(a.I, b.I) && slices.Equal(a.F, b.F)
+	return slices.Equal(a.I, b.I) && slices.Equal(a.D, b.D)
 }
 
 func Join(exprs ...*Expression) *Expression {
 	result := &Expression{}
 	for _, expr := range exprs {
-		result.Op = append(result.Op, expr.Op...)
 		result.I = append(result.I, expr.I...)
-		result.F = append(result.F, expr.F...)
+		result.D = append(result.D, expr.D...)
 	}
 	return result
 }
@@ -256,145 +241,138 @@ func (b *Builder) Build() *Expression {
 
 func (b *Builder) push(literals []float64) {
 	for _, v := range literals {
-		b.expr.F = append(b.expr.F, float32(v))
+		b.expr.D = append(b.expr.D, float32(v))
 	}
 }
 
 func (b *Builder) Push(literals ...float64) *Builder {
-	b.expr.Op = append(b.expr.Op, Operation_Push)
-	b.expr.I = append(b.expr.I, uint8(len(literals)))
+	b.expr.I = append(b.expr.I, uint8(Operation_Push), uint8(len(literals)))
 	b.push(literals)
 	return b
 }
 
 func (b *Builder) Pop(n int) *Builder {
-	b.expr.Op = append(b.expr.Op, Operation_Pop)
-	b.expr.I = append(b.expr.I, uint8(n))
+	b.expr.I = append(b.expr.I, uint8(Operation_Pop), uint8(n))
 	return b
 }
 
 func (b *Builder) Dup(n int) *Builder {
-	b.expr.Op = append(b.expr.Op, Operation_Dup)
-	b.expr.I = append(b.expr.I, uint8(n))
+	b.expr.I = append(b.expr.I, uint8(Operation_Dup), uint8(n))
 	return b
 }
 
 func (b *Builder) RotL(n int) *Builder {
-	b.expr.Op = append(b.expr.Op, Operation_RotL)
-	b.expr.I = append(b.expr.I, uint8(n))
+	b.expr.I = append(b.expr.I, uint8(Operation_RotL), uint8(n))
 	return b
 }
 
 func (b *Builder) RotR(n int) *Builder {
-	b.expr.Op = append(b.expr.Op, Operation_RotR)
-	b.expr.I = append(b.expr.I, uint8(n))
+	b.expr.I = append(b.expr.I, uint8(Operation_RotR), uint8(n))
 	return b
 }
 
 func (b *Builder) Rev(n int) *Builder {
-	b.expr.Op = append(b.expr.Op, Operation_Rev)
-	b.expr.I = append(b.expr.I, uint8(n))
+	b.expr.I = append(b.expr.I, uint8(Operation_Rev), uint8(n))
 	return b
 }
 
 func (b *Builder) Add() *Builder {
-	b.expr.Op = append(b.expr.Op, Operation_Add)
+	b.expr.I = append(b.expr.I, uint8(Operation_Add))
 	return b
 }
 
 func (b *Builder) Sub() *Builder {
-	b.expr.Op = append(b.expr.Op, Operation_Sub)
+	b.expr.I = append(b.expr.I, uint8(Operation_Sub))
 	return b
 }
 
 func (b *Builder) Mul() *Builder {
-	b.expr.Op = append(b.expr.Op, Operation_Mul)
+	b.expr.I = append(b.expr.I, uint8(Operation_Mul))
 	return b
 }
 
 func (b *Builder) MulAdd() *Builder {
-	b.expr.Op = append(b.expr.Op, Operation_MulAdd)
+	b.expr.I = append(b.expr.I, uint8(Operation_MulAdd))
 	return b
 }
 
 func (b *Builder) Div() *Builder {
-	b.expr.Op = append(b.expr.Op, Operation_Div)
+	b.expr.I = append(b.expr.I, uint8(Operation_Div))
 	return b
 }
 
 func (b *Builder) Mod() *Builder {
-	b.expr.Op = append(b.expr.Op, Operation_Mod)
+	b.expr.I = append(b.expr.I, uint8(Operation_Mod))
 	return b
 }
 
 func (b *Builder) Neg() *Builder {
-	b.expr.Op = append(b.expr.Op, Operation_Neg)
+	b.expr.I = append(b.expr.I, uint8(Operation_Neg))
 	return b
 }
 
 func (b *Builder) Abs() *Builder {
-	b.expr.Op = append(b.expr.Op, Operation_Abs)
+	b.expr.I = append(b.expr.I, uint8(Operation_Abs))
 	return b
 }
 
 func (b *Builder) Inv() *Builder {
-	b.expr.Op = append(b.expr.Op, Operation_Inv)
+	b.expr.I = append(b.expr.I, uint8(Operation_Inv))
 	return b
 }
 
 func (b *Builder) Pow() *Builder {
-	b.expr.Op = append(b.expr.Op, Operation_Pow)
+	b.expr.I = append(b.expr.I, uint8(Operation_Pow))
 	return b
 }
 
 func (b *Builder) Sqrt() *Builder {
-	b.expr.Op = append(b.expr.Op, Operation_Sqrt)
+	b.expr.I = append(b.expr.I, uint8(Operation_Sqrt))
 	return b
 }
 
 func (b *Builder) Exp() *Builder {
-	b.expr.Op = append(b.expr.Op, Operation_Exp)
+	b.expr.I = append(b.expr.I, uint8(Operation_Exp))
 	return b
 }
 
 func (b *Builder) Ln() *Builder {
-	b.expr.Op = append(b.expr.Op, Operation_Ln)
+	b.expr.I = append(b.expr.I, uint8(Operation_Ln))
 	return b
 }
 
 func (b *Builder) Sin() *Builder {
-	b.expr.Op = append(b.expr.Op, Operation_Sin)
+	b.expr.I = append(b.expr.I, uint8(Operation_Sin))
 	return b
 }
 
 func (b *Builder) Cos() *Builder {
-	b.expr.Op = append(b.expr.Op, Operation_Cos)
+	b.expr.I = append(b.expr.I, uint8(Operation_Cos))
 	return b
 }
 
 func (b *Builder) Tan() *Builder {
-	b.expr.Op = append(b.expr.Op, Operation_Tan)
+	b.expr.I = append(b.expr.I, uint8(Operation_Tan))
 	return b
 }
 
 func (b *Builder) Asin() *Builder {
-	b.expr.Op = append(b.expr.Op, Operation_Asin)
+	b.expr.I = append(b.expr.I, uint8(Operation_Asin))
 	return b
 }
 
 func (b *Builder) Acos() *Builder {
-	b.expr.Op = append(b.expr.Op, Operation_Acos)
+	b.expr.I = append(b.expr.I, uint8(Operation_Acos))
 	return b
 }
 
 func (b *Builder) Atan2() *Builder {
-	b.expr.Op = append(b.expr.Op, Operation_Atan2)
+	b.expr.I = append(b.expr.I, uint8(Operation_Atan2))
 	return b
 }
 
 func (b *Builder) PolyVec(coeffs int) *Builder {
-	b.expr.Op = append(b.expr.Op, Operation_PolyVec)
-	b.expr.I = append(b.expr.I, uint8(coeffs)<<1)
+	b.expr.I = append(b.expr.I, uint8(Operation_PolyVec), uint8(coeffs)<<1)
 	return b
 }
 
@@ -402,15 +380,13 @@ func (b *Builder) PushPolyVec(size int, literals []float64) *Builder {
 	if size != len(literals) {
 		panic("dimension mismatch")
 	}
-	b.expr.Op = append(b.expr.Op, Operation_PolyVec)
-	b.expr.I = append(b.expr.I, uint8(size)<<1|1)
+	b.expr.I = append(b.expr.I, uint8(Operation_PolyVec), uint8(size)<<1|1)
 	b.push(literals)
 	return b
 }
 
 func (b *Builder) PolyMat(rows, cols int) *Builder {
-	b.expr.Op = append(b.expr.Op, Operation_PolyMat)
-	b.expr.I = append(b.expr.I, uint8(rows), uint8(cols)<<1)
+	b.expr.I = append(b.expr.I, uint8(Operation_PolyMat), uint8(rows), uint8(cols)<<1)
 	return b
 }
 
@@ -418,15 +394,13 @@ func (b *Builder) PushPolyMat(rows, cols int, literals []float64) *Builder {
 	if rows*cols != len(literals) {
 		panic("dimension mismatch")
 	}
-	b.expr.Op = append(b.expr.Op, Operation_PolyMat)
-	b.expr.I = append(b.expr.I, uint8(rows), uint8(cols)<<1|1)
+	b.expr.I = append(b.expr.I, uint8(Operation_PolyMat), uint8(rows), uint8(cols)<<1|1)
 	b.push(literals)
 	return b
 }
 
 func (b *Builder) AddVec(size int) *Builder {
-	b.expr.Op = append(b.expr.Op, Operation_AddVec)
-	b.expr.I = append(b.expr.I, uint8(size)<<1)
+	b.expr.I = append(b.expr.I, uint8(Operation_AddVec), uint8(size)<<1)
 	return b
 }
 
@@ -434,15 +408,13 @@ func (b *Builder) PushAddVec(size int, literals []float64) *Builder {
 	if size != len(literals) {
 		panic("dimension mismatch")
 	}
-	b.expr.Op = append(b.expr.Op, Operation_AddVec)
-	b.expr.I = append(b.expr.I, uint8(size)<<1|1)
+	b.expr.I = append(b.expr.I, uint8(Operation_AddVec), uint8(size)<<1|1)
 	b.push(literals)
 	return b
 }
 
 func (b *Builder) SubVec(size int) *Builder {
-	b.expr.Op = append(b.expr.Op, Operation_SubVec)
-	b.expr.I = append(b.expr.I, uint8(size)<<1)
+	b.expr.I = append(b.expr.I, uint8(Operation_SubVec), uint8(size)<<1)
 	return b
 }
 
@@ -450,15 +422,13 @@ func (b *Builder) PushSubVec(size int, literals []float64) *Builder {
 	if size != len(literals) {
 		panic("dimension mismatch")
 	}
-	b.expr.Op = append(b.expr.Op, Operation_SubVec)
-	b.expr.I = append(b.expr.I, uint8(size)<<1|1)
+	b.expr.I = append(b.expr.I, uint8(Operation_SubVec), uint8(size)<<1|1)
 	b.push(literals)
 	return b
 }
 
 func (b *Builder) MulVec(size int) *Builder {
-	b.expr.Op = append(b.expr.Op, Operation_MulVec)
-	b.expr.I = append(b.expr.I, uint8(size)<<1)
+	b.expr.I = append(b.expr.I, uint8(Operation_MulVec), uint8(size)<<1)
 	return b
 }
 
@@ -466,15 +436,13 @@ func (b *Builder) PushMulVec(size int, literals []float64) *Builder {
 	if size != len(literals) {
 		panic("dimension mismatch")
 	}
-	b.expr.Op = append(b.expr.Op, Operation_MulVec)
-	b.expr.I = append(b.expr.I, uint8(size)<<1|1)
+	b.expr.I = append(b.expr.I, uint8(Operation_MulVec), uint8(size)<<1|1)
 	b.push(literals)
 	return b
 }
 
 func (b *Builder) MulAddVec(size int) *Builder {
-	b.expr.Op = append(b.expr.Op, Operation_MulAddVec)
-	b.expr.I = append(b.expr.I, uint8(size)<<2)
+	b.expr.I = append(b.expr.I, uint8(Operation_MulAddVec), uint8(size)<<2)
 	return b
 }
 
@@ -485,14 +453,12 @@ func (b *Builder) PushMulAddVec(size int, literals ...[]float64) *Builder {
 		}
 		b.push(l)
 	}
-	b.expr.Op = append(b.expr.Op, Operation_MulAddVec)
-	b.expr.I = append(b.expr.I, uint8(size)<<2|uint8(len(literals)))
+	b.expr.I = append(b.expr.I, uint8(Operation_MulAddVec), uint8(size)<<2|uint8(len(literals)))
 	return b
 }
 
 func (b *Builder) ScaleVec(size int) *Builder {
-	b.expr.Op = append(b.expr.Op, Operation_ScaleVec)
-	b.expr.I = append(b.expr.I, uint8(size)<<1)
+	b.expr.I = append(b.expr.I, uint8(Operation_ScaleVec), uint8(size)<<1)
 	return b
 }
 
@@ -500,15 +466,13 @@ func (b *Builder) PushScaleVec(size int, literals []float64) *Builder {
 	if size != len(literals) {
 		panic("dimension mismatch")
 	}
-	b.expr.Op = append(b.expr.Op, Operation_ScaleVec)
-	b.expr.I = append(b.expr.I, uint8(size)<<1|1)
+	b.expr.I = append(b.expr.I, uint8(Operation_ScaleVec), uint8(size)<<1|1)
 	b.push(literals)
 	return b
 }
 
 func (b *Builder) NegVec(size int) *Builder {
-	b.expr.Op = append(b.expr.Op, Operation_NegVec)
-	b.expr.I = append(b.expr.I, uint8(size)<<1)
+	b.expr.I = append(b.expr.I, uint8(Operation_NegVec), uint8(size)<<1)
 	return b
 }
 
@@ -516,15 +480,13 @@ func (b *Builder) PushNegVec(size int, literals []float64) *Builder {
 	if size != len(literals) {
 		panic("dimension mismatch")
 	}
-	b.expr.Op = append(b.expr.Op, Operation_NegVec)
-	b.expr.I = append(b.expr.I, uint8(size)<<1|1)
+	b.expr.I = append(b.expr.I, uint8(Operation_NegVec), uint8(size)<<1|1)
 	b.push(literals)
 	return b
 }
 
 func (b *Builder) NormVec(size int) *Builder {
-	b.expr.Op = append(b.expr.Op, Operation_NormVec)
-	b.expr.I = append(b.expr.I, uint8(size)<<1)
+	b.expr.I = append(b.expr.I, uint8(Operation_NormVec), uint8(size)<<1)
 	return b
 }
 
@@ -532,15 +494,13 @@ func (b *Builder) PushNormVec(size int, literals []float64) *Builder {
 	if size != len(literals) {
 		panic("dimension mismatch")
 	}
-	b.expr.Op = append(b.expr.Op, Operation_NormVec)
-	b.expr.I = append(b.expr.I, uint8(size)<<1|1)
+	b.expr.I = append(b.expr.I, uint8(Operation_NormVec), uint8(size)<<1|1)
 	b.push(literals)
 	return b
 }
 
 func (b *Builder) MulMat(arows, brows, bcols int) *Builder {
-	b.expr.Op = append(b.expr.Op, Operation_MulMat)
-	b.expr.I = append(b.expr.I, uint8(arows), uint8(brows), uint8(bcols)<<1)
+	b.expr.I = append(b.expr.I, uint8(Operation_MulMat), uint8(arows), uint8(brows), uint8(bcols)<<1)
 	return b
 }
 
@@ -549,20 +509,17 @@ func (b *Builder) PushMulMat(arows, brows, bcols int, literals []float64) *Build
 		panic("dimension mismatch")
 	}
 	b.push(literals)
-	b.expr.Op = append(b.expr.Op, Operation_MulMat)
-	b.expr.I = append(b.expr.I, uint8(arows), uint8(brows), uint8(bcols)<<1|1)
+	b.expr.I = append(b.expr.I, uint8(Operation_MulMat), uint8(arows), uint8(brows), uint8(bcols)<<1|1)
 	return b
 }
 
 func (b *Builder) Transpose(rows, cols int) *Builder {
-	b.expr.Op = append(b.expr.Op, Operation_Transpose)
-	b.expr.I = append(b.expr.I, uint8(rows), uint8(cols))
+	b.expr.I = append(b.expr.I, uint8(Operation_Transpose), uint8(rows), uint8(cols))
 	return b
 }
 
 func (b *Builder) Lerp(size int) *Builder {
-	b.expr.Op = append(b.expr.Op, Operation_Lerp)
-	b.expr.I = append(b.expr.I, uint8(size)<<2)
+	b.expr.I = append(b.expr.I, uint8(Operation_Lerp), uint8(size)<<2)
 	return b
 }
 
@@ -573,14 +530,12 @@ func (b *Builder) PushLerp(size int, literals ...[]float64) *Builder {
 		}
 		b.push(l)
 	}
-	b.expr.Op = append(b.expr.Op, Operation_Lerp)
-	b.expr.I = append(b.expr.I, uint8(size)<<2|uint8(len(literals)))
+	b.expr.I = append(b.expr.I, uint8(Operation_Lerp), uint8(size)<<2|uint8(len(literals)))
 	return b
 }
 
 func (b *Builder) LerpTable(rows, cols int) *Builder {
-	b.expr.Op = append(b.expr.Op, Operation_LerpTable)
-	b.expr.I = append(b.expr.I, uint8(rows), uint8(cols)<<1)
+	b.expr.I = append(b.expr.I, uint8(Operation_LerpTable), uint8(rows), uint8(cols)<<1)
 	return b
 }
 
@@ -588,22 +543,21 @@ func (b *Builder) PushLerpTable(rows, cols int, literals []float64) *Builder {
 	if rows*cols != len(literals) {
 		panic("dimension mismatch")
 	}
-	b.expr.Op = append(b.expr.Op, Operation_LerpTable)
-	b.expr.I = append(b.expr.I, uint8(rows), uint8(cols)<<1|1)
+	b.expr.I = append(b.expr.I, uint8(Operation_LerpTable), uint8(rows), uint8(cols)<<1|1)
 	b.push(literals)
 	return b
 }
 
 func Eval(expr *Expression, stack []float64) ([]float64, error) {
-	ints := expr.I
-	floats := expr.F
+	i_idx := 0
+	f_idx := 0
 
 	push := func(n int) error {
-		if len(floats) < n {
+		if len(expr.D)-f_idx < n {
 			return ErrFloatLiteralsUnderflow
 		}
-		values := floats[:n]
-		floats = floats[n:]
+		values := expr.D[f_idx : f_idx+n]
+		f_idx += n
 		for _, value := range values {
 			stack = append(stack, float64(value))
 		}
@@ -622,8 +576,8 @@ func Eval(expr *Expression, stack []float64) ([]float64, error) {
 		return v
 	}
 	popi := func() int {
-		v := ints[0]
-		ints = ints[1:]
+		v := expr.I[i_idx]
+		i_idx++
 		return int(v)
 	}
 	popiPush := func(bits, multiple int) (int, error) {
@@ -637,14 +591,18 @@ func Eval(expr *Expression, stack []float64) ([]float64, error) {
 		}
 		return i, err
 	}
+	availi := func() int {
+		return len(expr.I) - i_idx
+	}
 
-	for _, op := range expr.Op {
+	for availi() > 0 {
+		op := Operation(popi())
 		switch op {
 		case Operation_Undefined:
 			return nil, ErrUndefinedOperation
 		case Operation_Push:
-			if len(ints) < 1 {
-				return nil, ErrIntLiteralsUnderflow
+			if availi() < 1 {
+				return nil, ErrIllegalOperation
 			}
 			n := popi()
 
@@ -652,8 +610,8 @@ func Eval(expr *Expression, stack []float64) ([]float64, error) {
 				return nil, err
 			}
 		case Operation_Pop:
-			if len(ints) < 1 {
-				return nil, ErrIntLiteralsUnderflow
+			if availi() < 1 {
+				return nil, ErrIllegalOperation
 			}
 			n := popi()
 
@@ -662,8 +620,8 @@ func Eval(expr *Expression, stack []float64) ([]float64, error) {
 			}
 			stack = stack[:len(stack)-n]
 		case Operation_Dup:
-			if len(ints) < 1 {
-				return nil, ErrIntLiteralsUnderflow
+			if availi() < 1 {
+				return nil, ErrIllegalOperation
 			}
 			n := popi()
 
@@ -672,8 +630,8 @@ func Eval(expr *Expression, stack []float64) ([]float64, error) {
 			}
 			stack = append(stack, stack[len(stack)-n-1])
 		case Operation_RotL:
-			if len(ints) < 1 {
-				return nil, ErrIntLiteralsUnderflow
+			if availi() < 1 {
+				return nil, ErrIllegalOperation
 			}
 			n := popi()
 
@@ -686,8 +644,8 @@ func Eval(expr *Expression, stack []float64) ([]float64, error) {
 				stack = append(stack, result...)
 			}
 		case Operation_RotR:
-			if len(ints) < 1 {
-				return nil, ErrIntLiteralsUnderflow
+			if availi() < 1 {
+				return nil, ErrIllegalOperation
 			}
 			n := popi()
 
@@ -700,8 +658,8 @@ func Eval(expr *Expression, stack []float64) ([]float64, error) {
 				stack = append(stack, result...)
 			}
 		case Operation_Rev:
-			if len(ints) < 1 {
-				return nil, ErrIntLiteralsUnderflow
+			if availi() < 1 {
+				return nil, ErrIllegalOperation
 			}
 			n := popi()
 
@@ -713,8 +671,8 @@ func Eval(expr *Expression, stack []float64) ([]float64, error) {
 				values[i], values[j] = values[j], values[i]
 			}
 		case Operation_Transpose:
-			if len(ints) < 2 {
-				return nil, ErrIntLiteralsUnderflow
+			if availi() < 2 {
+				return nil, ErrIllegalOperation
 			}
 			rows := popi()
 			cols := popi()
@@ -874,8 +832,8 @@ func Eval(expr *Expression, stack []float64) ([]float64, error) {
 			result := math.Atan2(y, x)
 			stack = append(stack, result)
 		case Operation_PolyVec:
-			if len(ints) < 1 {
-				return nil, ErrIntLiteralsUnderflow
+			if availi() < 1 {
+				return nil, ErrIllegalOperation
 			}
 			size, err := popiPush(1, 1)
 			if err != nil {
@@ -895,8 +853,8 @@ func Eval(expr *Expression, stack []float64) ([]float64, error) {
 			}
 			stack = append(stack, result)
 		case Operation_PolyMat:
-			if len(ints) < 2 {
-				return nil, ErrIntLiteralsUnderflow
+			if availi() < 2 {
+				return nil, ErrIllegalOperation
 			}
 			rows := popi()
 			cols, err := popiPush(1, rows)
@@ -920,8 +878,8 @@ func Eval(expr *Expression, stack []float64) ([]float64, error) {
 			}
 			stack = append(stack, result...)
 		case Operation_AddVec:
-			if len(ints) < 1 {
-				return nil, ErrIntLiteralsUnderflow
+			if availi() < 1 {
+				return nil, ErrIllegalOperation
 			}
 			size, err := popiPush(1, 1)
 			if err != nil {
@@ -937,8 +895,8 @@ func Eval(expr *Expression, stack []float64) ([]float64, error) {
 				stack = append(stack, lhs[i]+rhs[i])
 			}
 		case Operation_SubVec:
-			if len(ints) < 1 {
-				return nil, ErrIntLiteralsUnderflow
+			if availi() < 1 {
+				return nil, ErrIllegalOperation
 			}
 			size, err := popiPush(1, 1)
 			if err != nil {
@@ -954,8 +912,8 @@ func Eval(expr *Expression, stack []float64) ([]float64, error) {
 				stack = append(stack, lhs[i]-rhs[i])
 			}
 		case Operation_MulVec:
-			if len(ints) < 1 {
-				return nil, ErrIntLiteralsUnderflow
+			if availi() < 1 {
+				return nil, ErrIllegalOperation
 			}
 			size, err := popiPush(1, 1)
 			if err != nil {
@@ -971,8 +929,8 @@ func Eval(expr *Expression, stack []float64) ([]float64, error) {
 				stack = append(stack, lhs[i]*rhs[i])
 			}
 		case Operation_MulAddVec:
-			if len(ints) < 1 {
-				return nil, ErrIntLiteralsUnderflow
+			if availi() < 1 {
+				return nil, ErrIllegalOperation
 			}
 			size, err := popiPush(2, 1)
 			if err != nil {
@@ -989,8 +947,8 @@ func Eval(expr *Expression, stack []float64) ([]float64, error) {
 				stack = append(stack, a[i]*b[i]+c[i])
 			}
 		case Operation_ScaleVec:
-			if len(ints) < 1 {
-				return nil, ErrIntLiteralsUnderflow
+			if availi() < 1 {
+				return nil, ErrIllegalOperation
 			}
 			size, err := popiPush(1, 1)
 			if err != nil {
@@ -1006,8 +964,8 @@ func Eval(expr *Expression, stack []float64) ([]float64, error) {
 				stack = append(stack, scalar*vec[i])
 			}
 		case Operation_NegVec:
-			if len(ints) < 1 {
-				return nil, ErrIntLiteralsUnderflow
+			if availi() < 1 {
+				return nil, ErrIllegalOperation
 			}
 			size, err := popiPush(1, 1)
 			if err != nil {
@@ -1022,8 +980,8 @@ func Eval(expr *Expression, stack []float64) ([]float64, error) {
 				stack = append(stack, -vec[i])
 			}
 		case Operation_NormVec:
-			if len(ints) < 1 {
-				return nil, ErrIntLiteralsUnderflow
+			if availi() < 1 {
+				return nil, ErrIllegalOperation
 			}
 			size, err := popiPush(1, 1)
 			if err != nil {
@@ -1040,8 +998,8 @@ func Eval(expr *Expression, stack []float64) ([]float64, error) {
 			}
 			stack = append(stack, math.Sqrt(result))
 		case Operation_MulMat:
-			if len(ints) < 3 {
-				return nil, ErrIntLiteralsUnderflow
+			if availi() < 3 {
+				return nil, ErrIllegalOperation
 			}
 			arows := popi()
 			brows := popi()
@@ -1069,8 +1027,8 @@ func Eval(expr *Expression, stack []float64) ([]float64, error) {
 			}
 			stack = append(stack, c...)
 		case Operation_Lerp:
-			if len(ints) < 1 {
-				return nil, ErrIntLiteralsUnderflow
+			if availi() < 1 {
+				return nil, ErrIllegalOperation
 			}
 			size, err := popiPush(2, 1)
 			if err != nil {
@@ -1089,8 +1047,8 @@ func Eval(expr *Expression, stack []float64) ([]float64, error) {
 			}
 			stack = append(stack, result...)
 		case Operation_LerpTable:
-			if len(ints) < 2 {
-				return nil, ErrIntLiteralsUnderflow
+			if availi() < 2 {
+				return nil, ErrIllegalOperation
 			}
 			rows := popi()
 			cols, err := popiPush(1, rows)

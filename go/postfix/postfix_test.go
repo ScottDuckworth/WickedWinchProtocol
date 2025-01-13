@@ -35,35 +35,30 @@ func TestJoin(t *testing.T) {
 			name: "one",
 			exprs: []*postfix.Expression{
 				{
-					Op: []postfix.Operation{postfix.Operation_Push},
-					I:  []uint8{1},
-					F:  []float32{10},
+					I: []uint8{uint8(postfix.Operation_Push), 1},
+					D: []float32{10},
 				},
 			},
 			want: &postfix.Expression{
-				Op: []postfix.Operation{postfix.Operation_Push},
-				I:  []uint8{1},
-				F:  []float32{10},
+				I: []uint8{uint8(postfix.Operation_Push), 1},
+				D: []float32{10},
 			},
 		},
 		{
 			name: "two",
 			exprs: []*postfix.Expression{
 				{
-					Op: []postfix.Operation{postfix.Operation_Push},
-					I:  []uint8{1},
-					F:  []float32{10},
+					I: []uint8{uint8(postfix.Operation_Push), 1},
+					D: []float32{10},
 				},
 				{
-					Op: []postfix.Operation{postfix.Operation_Pop},
-					I:  []uint8{2},
-					F:  []float32{20},
+					I: []uint8{uint8(postfix.Operation_Pop), 2},
+					D: []float32{20},
 				},
 			},
 			want: &postfix.Expression{
-				Op: []postfix.Operation{postfix.Operation_Push, postfix.Operation_Pop},
-				I:  []uint8{1, 2},
-				F:  []float32{10, 20},
+				I: []uint8{uint8(postfix.Operation_Push), 1, uint8(postfix.Operation_Pop), 2},
+				D: []float32{10, 20},
 			},
 		},
 	} {
@@ -87,7 +82,7 @@ func TestEvalPostfixExpression(t *testing.T) {
 		{
 			name: "undefined",
 			expr: &postfix.Expression{
-				Op: []postfix.Operation{postfix.Operation_Undefined},
+				I: []uint8{uint8(postfix.Operation_Undefined)},
 			},
 			wantErr: postfix.ErrUndefinedOperation,
 		},
@@ -112,16 +107,15 @@ func TestEvalPostfixExpression(t *testing.T) {
 		{
 			name: "push int literals underflow",
 			expr: &postfix.Expression{
-				Op: []postfix.Operation{postfix.Operation_Push},
-				F:  []float32{1},
+				I: []uint8{uint8(postfix.Operation_Push)},
+				D: []float32{1},
 			},
-			wantErr: postfix.ErrIntLiteralsUnderflow,
+			wantErr: postfix.ErrIllegalOperation,
 		},
 		{
 			name: "push float literals underflow",
 			expr: &postfix.Expression{
-				Op: []postfix.Operation{postfix.Operation_Push},
-				I:  []uint8{1},
+				I: []uint8{uint8(postfix.Operation_Push), 1},
 			},
 			wantErr: postfix.ErrFloatLiteralsUnderflow,
 		},
@@ -146,15 +140,14 @@ func TestEvalPostfixExpression(t *testing.T) {
 		{
 			name: "pop int literals underflow",
 			expr: &postfix.Expression{
-				Op: []postfix.Operation{postfix.Operation_Pop},
+				I: []uint8{uint8(postfix.Operation_Pop)},
 			},
-			wantErr: postfix.ErrIntLiteralsUnderflow,
+			wantErr: postfix.ErrIllegalOperation,
 		},
 		{
 			name: "pop stack underflow",
 			expr: &postfix.Expression{
-				Op: []postfix.Operation{postfix.Operation_Pop},
-				I:  []uint8{1},
+				I: []uint8{uint8(postfix.Operation_Pop), 1},
 			},
 			wantErr: postfix.ErrStackUnderflow,
 		},
@@ -179,15 +172,14 @@ func TestEvalPostfixExpression(t *testing.T) {
 		{
 			name: "dup int literals underflow",
 			expr: &postfix.Expression{
-				Op: []postfix.Operation{postfix.Operation_Dup},
+				I: []uint8{uint8(postfix.Operation_Dup)},
 			},
-			wantErr: postfix.ErrIntLiteralsUnderflow,
+			wantErr: postfix.ErrIllegalOperation,
 		},
 		{
 			name: "dup stack underflow",
 			expr: &postfix.Expression{
-				Op: []postfix.Operation{postfix.Operation_Dup},
-				I:  []uint8{0},
+				I: []uint8{uint8(postfix.Operation_Dup), 0},
 			},
 			wantErr: postfix.ErrStackUnderflow,
 		},
@@ -218,15 +210,14 @@ func TestEvalPostfixExpression(t *testing.T) {
 		{
 			name: "rotl int literals underflow",
 			expr: &postfix.Expression{
-				Op: []postfix.Operation{postfix.Operation_RotL},
+				I: []uint8{uint8(postfix.Operation_RotL)},
 			},
-			wantErr: postfix.ErrIntLiteralsUnderflow,
+			wantErr: postfix.ErrIllegalOperation,
 		},
 		{
 			name: "rotl stack underflow",
 			expr: &postfix.Expression{
-				Op: []postfix.Operation{postfix.Operation_RotL},
-				I:  []uint8{2},
+				I: []uint8{uint8(postfix.Operation_RotL), 2},
 			},
 			wantErr: postfix.ErrStackUnderflow,
 		},
@@ -257,15 +248,14 @@ func TestEvalPostfixExpression(t *testing.T) {
 		{
 			name: "rotr int literals underflow",
 			expr: &postfix.Expression{
-				Op: []postfix.Operation{postfix.Operation_RotR},
+				I: []uint8{uint8(postfix.Operation_RotR)},
 			},
-			wantErr: postfix.ErrIntLiteralsUnderflow,
+			wantErr: postfix.ErrIllegalOperation,
 		},
 		{
 			name: "rotr stack underflow",
 			expr: &postfix.Expression{
-				Op: []postfix.Operation{postfix.Operation_RotR},
-				I:  []uint8{2},
+				I: []uint8{uint8(postfix.Operation_RotR), 2},
 			},
 			wantErr: postfix.ErrStackUnderflow,
 		},

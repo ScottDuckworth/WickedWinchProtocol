@@ -10,9 +10,8 @@ extern "C" {
 #endif
 
 typedef struct WickedPostfixHeader {
-	uint8_t op_size;
-	uint8_t i_size;
-	uint16_t f_size;
+	uint16_t i_size;
+	uint16_t d_size;
 } WickedPostfixHeader_t;
 
 typedef enum WickedPostfixOp {
@@ -62,18 +61,18 @@ const char* WickedPostfixOpToString(WickedPostfixOp_t op);
 typedef struct WickedPostfixEval {
   const uint8_t* op_data;
   const uint8_t* i_data;
-  const float* f_data;
-  uint8_t op_size;
-  uint8_t i_size;
-  uint16_t f_size;
+  const float* d_data;
+  uint16_t i_size;
+  uint16_t d_size;
+
+  uint16_t i_idx;
+  uint16_t d_idx;
 
   float* stack_data;
   float* temp_data;
   uint8_t stack_size;
   uint8_t stack_capacity;
   uint8_t temp_capacity;
-  uint8_t i_idx;
-  uint16_t f_idx;
 } WickedPostfixEval_t;
 
 void WickedPostfixEval_reset(WickedPostfixEval_t* eval);
@@ -98,7 +97,7 @@ inline std::ostream& operator<<(std::ostream& out, WickedPostfixOp_t op) {
 
 class WickedPostfixWriter {
 public:
-	uint16_t data_size() const { return f_offset() + f_size() * 4; }
+	uint16_t data_size() const { return d_offset() + d_size() * 4; }
 	bool Write(uint8_t* data, size_t size) const;
   std::vector<uint8_t> Write() const {
     std::vector<uint8_t> buffer(data_size());
@@ -107,17 +106,9 @@ public:
   }
 
 	void clear() {
-		op_.clear();
 		i_.clear();
-		f_.clear();
+		d_.clear();
 	}
-
-	void add_op(uint8_t op) { op_.push_back(op); }
-	uint8_t* op_data() { return op_.data(); }
-	const uint8_t* op_data() const { return op_.data(); }
-	uint8_t op_size() const { return op_.size(); }
-	uint8_t op(uint8_t index) const { return op_data()[index]; }
-	uint8_t& op(uint8_t index) { return op_data()[index]; }
 
 	void add_i(uint8_t i) { i_.push_back(i); }
 	uint8_t* i_data() { return i_.data(); }
@@ -126,37 +117,34 @@ public:
 	uint8_t i(uint8_t index) const { return i_data()[index]; }
 	uint8_t& i(uint8_t index) { return i_data()[index]; }
 
-	void add_f(float f) { f_.push_back(f); }
-	float* f_data() { return f_.data(); }
-	const float* f_data() const { return f_.data(); }
-	uint16_t f_size() const { return f_.size(); }
-	float f(uint16_t index) const { return f_data()[index]; }
-	float& f(uint16_t index) { return f_data()[index]; }
+	void add_f(float f) { d_.push_back(f); }
+	float* d_data() { return d_.data(); }
+	const float* d_data() const { return d_.data(); }
+	uint16_t d_size() const { return d_.size(); }
+	float f(uint16_t index) const { return d_data()[index]; }
+	float& f(uint16_t index) { return d_data()[index]; }
 
   void Push(std::span<const float> values) {
-    add_op(WickedPostfixOp_Push);
+    add_i(WickedPostfixOp_Push);
     add_i(values.size());
     for (float value : values) add_f(value);
   }
 
   void Pop(uint8_t n) {
-    add_op(WickedPostfixOp_Pop);
+    add_i(WickedPostfixOp_Pop);
     add_i(n);
   }
 
 private:
-	constexpr uint16_t op_offset() const { return sizeof(WickedPostfixHeader); }
+	constexpr uint16_t i_offset() const { return sizeof(WickedPostfixHeader); }
 
-	uint16_t i_offset() const { return op_offset() + op_size(); }
-
-	uint16_t f_offset() const {
-		uint16_t offset = op_offset() + op_size() + i_size();
+	uint16_t d_offset() const {
+		uint16_t offset = i_offset() + i_size();
 		return (offset + uint16_t(3)) & ~uint16_t(3);
 	}
 
-	std::vector<uint8_t> op_;
 	std::vector<uint8_t> i_;
-	std::vector<float> f_;
+	std::vector<float> d_;
 };
 
 #endif

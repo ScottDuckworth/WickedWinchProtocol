@@ -8,10 +8,9 @@ typedef enum WickedEvalStatus {
   WickedEvalStatus_Ok,
   WickedEvalStatus_UndefinedOperation,
   WickedEvalStatus_IllegalOperation,
+  WickedEvalStatus_DataUnderflow,
   WickedEvalStatus_StackOverflow,
   WickedEvalStatus_StackUnderflow,
-  WickedEvalStatus_IntLiteralsUnderflow,
-  WickedEvalStatus_FloatLiteralsUnderflow,
   WickedEvalStatus_TempOverflow,
 } WickedEvalStatus_t;
 
