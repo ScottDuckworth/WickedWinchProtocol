@@ -225,7 +225,7 @@ extern "C" WickedEvalStatus_t WickedPostfixEvaluate(WickedPostfixEval_t* eval) {
       if (n <= 1) break;
       uint32_t* values;
       CHECK_STATUS(WickedPostfixEval_peekuv(eval, n, &values));
-      float l = values[0];
+      uint32_t l = values[0];
       std::copy(&values[1], &values[n], &values[0]);
       values[n-1] = l;
       break;
