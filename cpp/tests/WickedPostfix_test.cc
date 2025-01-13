@@ -1530,9 +1530,9 @@ TEST(EvalTest, PushLerpFloatUnderflow) {
   EXPECT_EQ(WickedPostfixEvaluate(&eval.eval), WickedEvalStatus_FloatLiteralsUnderflow);
 }
 
-TEST(EvalTest, Lut_n1) {
+TEST(EvalTest, LerpTable_n1) {
   WickedPostfixWriter writer;
-  writer.add_op(WickedPostfixOp_Lut);
+  writer.add_op(WickedPostfixOp_LerpTable);
   writer.add_i(3);
   writer.add_i(4 << 1);
   auto buffer = writer.Write();
@@ -1543,9 +1543,9 @@ TEST(EvalTest, Lut_n1) {
   EXPECT_THAT(eval.stack(), ElementsAre(0, 1, 2, 3));
 }
 
-TEST(EvalTest, Lut_0) {
+TEST(EvalTest, LerpTable_0) {
   WickedPostfixWriter writer;
-  writer.add_op(WickedPostfixOp_Lut);
+  writer.add_op(WickedPostfixOp_LerpTable);
   writer.add_i(3);
   writer.add_i(4 << 1);
   auto buffer = writer.Write();
@@ -1556,9 +1556,9 @@ TEST(EvalTest, Lut_0) {
   EXPECT_THAT(eval.stack(), ElementsAre(0, 1, 2, 3));
 }
 
-TEST(EvalTest, Lut_0_5) {
+TEST(EvalTest, LerpTable_0_5) {
   WickedPostfixWriter writer;
-  writer.add_op(WickedPostfixOp_Lut);
+  writer.add_op(WickedPostfixOp_LerpTable);
   writer.add_i(3);
   writer.add_i(4 << 1);
   auto buffer = writer.Write();
@@ -1569,9 +1569,9 @@ TEST(EvalTest, Lut_0_5) {
   EXPECT_THAT(eval.stack(), ElementsAre(0, 1.75, 2.25, 4));
 }
 
-TEST(EvalTest, Lut_2) {
+TEST(EvalTest, LerpTable_2) {
   WickedPostfixWriter writer;
-  writer.add_op(WickedPostfixOp_Lut);
+  writer.add_op(WickedPostfixOp_LerpTable);
   writer.add_i(3);
   writer.add_i(4 << 1);
   auto buffer = writer.Write();
@@ -1582,9 +1582,9 @@ TEST(EvalTest, Lut_2) {
   EXPECT_THAT(eval.stack(), ElementsAre(0, 4, 3, 7));
 }
 
-TEST(EvalTest, Lut_4) {
+TEST(EvalTest, LerpTable_4) {
   WickedPostfixWriter writer;
-  writer.add_op(WickedPostfixOp_Lut);
+  writer.add_op(WickedPostfixOp_LerpTable);
   writer.add_i(3);
   writer.add_i(4 << 1);
   auto buffer = writer.Write();
@@ -1595,9 +1595,9 @@ TEST(EvalTest, Lut_4) {
   EXPECT_THAT(eval.stack(), ElementsAre(0, 6, 2.5, 3.5));
 }
 
-TEST(EvalTest, Lut_6) {
+TEST(EvalTest, LerpTable_6) {
   WickedPostfixWriter writer;
-  writer.add_op(WickedPostfixOp_Lut);
+  writer.add_op(WickedPostfixOp_LerpTable);
   writer.add_i(3);
   writer.add_i(4 << 1);
   auto buffer = writer.Write();
@@ -1608,9 +1608,9 @@ TEST(EvalTest, Lut_6) {
   EXPECT_THAT(eval.stack(), ElementsAre(0, 8, 2, 0));
 }
 
-TEST(EvalTest, Lut_7) {
+TEST(EvalTest, LerpTable_7) {
   WickedPostfixWriter writer;
-  writer.add_op(WickedPostfixOp_Lut);
+  writer.add_op(WickedPostfixOp_LerpTable);
   writer.add_i(3);
   writer.add_i(4 << 1);
   auto buffer = writer.Write();
@@ -1621,9 +1621,9 @@ TEST(EvalTest, Lut_7) {
   EXPECT_THAT(eval.stack(), ElementsAre(0, 8, 2, 0));
 }
 
-TEST(EvalTest, LutStackUnderflow) {
+TEST(EvalTest, LerpTableStackUnderflow) {
   WickedPostfixWriter writer;
-  writer.add_op(WickedPostfixOp_Lut);
+  writer.add_op(WickedPostfixOp_LerpTable);
   writer.add_i(3);
   writer.add_i(3 << 1);
   auto buffer = writer.Write();
@@ -1633,9 +1633,9 @@ TEST(EvalTest, LutStackUnderflow) {
   EXPECT_EQ(WickedPostfixEvaluate(&eval.eval), WickedEvalStatus_StackUnderflow);
 }
 
-TEST(EvalTest, LutIntUnderflow) {
+TEST(EvalTest, LerpTableIntUnderflow) {
   WickedPostfixWriter writer;
-  writer.add_op(WickedPostfixOp_Lut);
+  writer.add_op(WickedPostfixOp_LerpTable);
   writer.add_i(3);
   auto buffer = writer.Write();
 
@@ -1644,9 +1644,9 @@ TEST(EvalTest, LutIntUnderflow) {
   EXPECT_EQ(WickedPostfixEvaluate(&eval.eval), WickedEvalStatus_IntLiteralsUnderflow);
 }
 
-TEST(EvalTest, LutIllegalOperation) {
+TEST(EvalTest, LerpTableIllegalOperation) {
   WickedPostfixWriter writer;
-  writer.add_op(WickedPostfixOp_Lut);
+  writer.add_op(WickedPostfixOp_LerpTable);
   writer.add_i(0);
   writer.add_i(4 << 1);
   auto buffer = writer.Write();
@@ -1657,9 +1657,9 @@ TEST(EvalTest, LutIllegalOperation) {
   EXPECT_THAT(eval.stack(), ElementsAre(0, 4));
 }
 
-TEST(EvalTest, PushLut) {
+TEST(EvalTest, PushLerpTable) {
   WickedPostfixWriter writer;
-  writer.add_op(WickedPostfixOp_Lut);
+  writer.add_op(WickedPostfixOp_LerpTable);
   writer.add_i(3);
   writer.add_i(4 << 1 | 1);
   writer.add_f(0);
@@ -1682,9 +1682,9 @@ TEST(EvalTest, PushLut) {
   EXPECT_THAT(eval.stack(), ElementsAre(0, 6, 2.5, 3.5));
 }
 
-TEST(EvalTest, PushLutFloatUnderflow) {
+TEST(EvalTest, PushLerpTableFloatUnderflow) {
   WickedPostfixWriter writer;
-  writer.add_op(WickedPostfixOp_Lut);
+  writer.add_op(WickedPostfixOp_LerpTable);
   writer.add_i(3);
   writer.add_i(4 << 1 | 1);
   writer.add_f(0);

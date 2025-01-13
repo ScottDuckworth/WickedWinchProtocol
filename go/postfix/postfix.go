@@ -60,7 +60,7 @@ const (
 	Operation_PolyVec   Operation = 35
 	Operation_PolyMat   Operation = 36
 	Operation_Lerp      Operation = 37
-	Operation_Lut       Operation = 38
+	Operation_LerpTable Operation = 38
 )
 
 type Expression struct {
@@ -153,8 +153,8 @@ func (op Operation) String() string {
 		return "PolyMat"
 	case Operation_Lerp:
 		return "Lerp"
-	case Operation_Lut:
-		return "Lut"
+	case Operation_LerpTable:
+		return "LerpTable"
 	default:
 		return fmt.Sprintf("unknown[%d]", op)
 	}
@@ -578,17 +578,17 @@ func (b *Builder) PushLerp(size int, literals ...[]float64) *Builder {
 	return b
 }
 
-func (b *Builder) Lut(rows, cols int) *Builder {
-	b.expr.Op = append(b.expr.Op, Operation_Lut)
+func (b *Builder) LerpTable(rows, cols int) *Builder {
+	b.expr.Op = append(b.expr.Op, Operation_LerpTable)
 	b.expr.I = append(b.expr.I, uint8(rows), uint8(cols)<<1)
 	return b
 }
 
-func (b *Builder) PushLut(rows, cols int, literals []float64) *Builder {
+func (b *Builder) PushLerpTable(rows, cols int, literals []float64) *Builder {
 	if rows*cols != len(literals) {
 		panic("dimension mismatch")
 	}
-	b.expr.Op = append(b.expr.Op, Operation_Lut)
+	b.expr.Op = append(b.expr.Op, Operation_LerpTable)
 	b.expr.I = append(b.expr.I, uint8(rows), uint8(cols)<<1|1)
 	b.push(literals)
 	return b
@@ -1088,7 +1088,7 @@ func Eval(expr *Expression, stack []float64) ([]float64, error) {
 				result[i] = (1-t)*v0[i] + t*v1[i]
 			}
 			stack = append(stack, result...)
-		case Operation_Lut:
+		case Operation_LerpTable:
 			if len(ints) < 2 {
 				return nil, ErrIntLiteralsUnderflow
 			}

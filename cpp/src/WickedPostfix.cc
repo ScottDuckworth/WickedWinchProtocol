@@ -54,7 +54,7 @@ extern "C" const char* WickedPostfixOpToString(WickedPostfixOp_t op) {
     case WickedPostfixOp_PolyVec:   return "PolyVec";
     case WickedPostfixOp_PolyMat:   return "PolyMat";
     case WickedPostfixOp_Lerp:      return "Lerp";
-    case WickedPostfixOp_Lut:       return "Lut";
+    case WickedPostfixOp_LerpTable: return "LerpTable";
   }
   return "UNKNOWN";
 }
@@ -540,7 +540,7 @@ extern "C" WickedEvalStatus_t WickedPostfixEvaluate(WickedPostfixEval_t* eval) {
       }
       break;
     }
-    case WickedPostfixOp_Lut: {
+    case WickedPostfixOp_LerpTable: {
       uint8_t rows, cols;
       CHECK_STATUS(WickedPostfixEval_geti(eval, &rows));
       CHECK_STATUS(WickedPostfixEval_geti(eval, &cols));
