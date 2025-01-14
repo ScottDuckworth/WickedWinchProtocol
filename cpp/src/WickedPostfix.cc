@@ -108,18 +108,11 @@ static WickedEvalStatus_t WickedPostfixEval_nextpc(WickedPostfixEval_t* eval, ui
   return WickedEvalStatus_Ok;
 }
 
-static WickedEvalStatus_t WickedPostfixEval_nextdc(WickedPostfixEval_t* eval, uint32_t* v) {
-  if (eval->d_size - eval->dc < 1) return WickedEvalStatus_DataUnderflow;
-  *v = eval->d_data[eval->dc];
-  ++eval->dc;
-  return WickedEvalStatus_Ok;
-}
-
-static WickedEvalStatus_t WickedPostfixEval_nextdcv(WickedPostfixEval_t* eval, uint16_t n, const uint32_t** v) {
+static WickedEvalStatus_t WickedPostfixEval_pushdcv(WickedPostfixEval_t* eval, uint16_t n) {
   if (eval->d_size - eval->dc < n) return WickedEvalStatus_DataUnderflow;
-  *v = eval->d_data + eval->dc;
+  const uint32_t* v = eval->d_data + eval->dc;
   eval->dc += n;
-  return WickedEvalStatus_Ok;
+  return WickedPostfixEval_pushuv(eval, n, v);
 }
 
 extern "C" WickedEvalStatus_t WickedPostfixEval_pushu(WickedPostfixEval_t* eval, uint32_t v) {
@@ -149,12 +142,6 @@ extern "C" WickedEvalStatus_t WickedPostfixEval_pushiv(WickedPostfixEval_t* eval
 
 extern "C" WickedEvalStatus_t WickedPostfixEval_pushfv(WickedPostfixEval_t* eval, uint16_t n, const float* v) {
   return WickedPostfixEval_pushuv(eval, n, reinterpret_cast<const uint32_t*>(v));
-}
-
-static WickedEvalStatus_t WickedPostfixEval_pushdcv(WickedPostfixEval_t* eval, uint16_t n) {
-  const uint32_t* v;
-  CHECK_STATUS(WickedPostfixEval_nextdcv(eval, n, &v));
-  return WickedPostfixEval_pushuv(eval, n, v);
 }
 
 static WickedEvalStatus_t WickedPostfixEval_implicitPushdArg(WickedPostfixEval_t* eval, uint8_t* arg, uint8_t multiple, uint8_t instances) {
@@ -225,13 +212,15 @@ static WickedEvalStatus_t WickedPostfixEval_peekfv(WickedPostfixEval_t* eval, ui
 }
 
 static WickedEvalStatus_t WickedPostfixEval_jump(WickedPostfixEval_t* eval, bool cond) {
-  WickedPostfixJumpTarget_t target;
-  CHECK_STATUS(WickedPostfixEval_nextdc(eval, reinterpret_cast<uint32_t*>(&target)));
-  if (target.pc > eval->p_size) return WickedEvalStatus_IllegalOperation;
-  if (target.dc > eval->d_size) return WickedEvalStatus_IllegalOperation;
+  uint32_t target;
+  CHECK_STATUS(WickedPostfixEval_popu(eval, reinterpret_cast<uint32_t*>(&target)));
+  uint16_t pc = target & 0xFFFF;
+  uint16_t dc = (target >> 16) & 0xFFFF;
+  if (pc > eval->p_size) return WickedEvalStatus_IllegalOperation;
+  if (dc > eval->d_size) return WickedEvalStatus_IllegalOperation;
   if (cond) {
-    eval->pc = target.pc;
-    eval->dc = target.dc;
+    eval->pc = pc;
+    eval->dc = dc;
   } else {
     ++eval->dc;
   }

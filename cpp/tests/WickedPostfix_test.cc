@@ -67,16 +67,16 @@ TEST(EvalTest, Return) {
 
 TEST(EvalTest, Jump) {
   WickedPostfixWriter writer;
+  writer.add_p(WickedPostfixOp_Push);
+  writer.add_p(1);
+  writer.add_u(WICKED_JUMP_TARGET(5, 2));
   writer.add_p(WickedPostfixOp_Jmp);
-  writer.add_target({.pc = 3, .dc = 2});
   writer.add_p(WickedPostfixOp_Push);
   writer.add_p(1);
   writer.add_f(5);
   writer.add_p(WickedPostfixOp_Push);
   writer.add_p(1);
   writer.add_f(6);
-  EXPECT_EQ(writer.p_size(), 5);
-  EXPECT_EQ(writer.d_size(), 3);
   auto buffer = writer.Write();
 
   TestEval eval(4, {42});
@@ -87,8 +87,10 @@ TEST(EvalTest, Jump) {
 
 TEST(EvalTest, JumpIllegalP) {
   WickedPostfixWriter writer;
+  writer.add_p(WickedPostfixOp_Push);
+  writer.add_p(1);
+  writer.add_u(WICKED_JUMP_TARGET(6, 2));
   writer.add_p(WickedPostfixOp_Jmp);
-  writer.add_target({.pc = 6, .dc = 2});
   writer.add_p(WickedPostfixOp_Push);
   writer.add_p(1);
   writer.add_f(5);
@@ -104,8 +106,10 @@ TEST(EvalTest, JumpIllegalP) {
 
 TEST(EvalTest, JumpIllegalD) {
   WickedPostfixWriter writer;
+  writer.add_p(WickedPostfixOp_Push);
+  writer.add_p(1);
+  writer.add_u(WICKED_JUMP_TARGET(3, 4));
   writer.add_p(WickedPostfixOp_Jmp);
-  writer.add_target({.pc = 3, .dc = 4});
   writer.add_p(WickedPostfixOp_Push);
   writer.add_p(1);
   writer.add_f(5);

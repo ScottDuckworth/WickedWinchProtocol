@@ -9,15 +9,12 @@
 extern "C" {
 #endif
 
+#define WICKED_JUMP_TARGET(pc, dc) (((uint32_t) pc) | (((uint32_t) dc) << 16))
+
 typedef struct WickedPostfixHeader {
 	uint16_t p_size;
 	uint16_t d_size;
 } WickedPostfixHeader_t;
-
-typedef struct WickedPostfixJumpTarget {
-	uint16_t pc;
-	uint16_t dc;
-} WickedPostfixJumpTarget_t;
 
 typedef enum WickedPostfixOp {
   WickedPostfixOp_Undefined = 0,
@@ -164,9 +161,6 @@ public:
 	void add_u(uint32_t v) { d_.push_back(v); }
 	void add_i(int32_t v) { add_u(*reinterpret_cast<const uint32_t*>(&v)); }
 	void add_f(float v) { add_u(*reinterpret_cast<const uint32_t*>(&v)); }
-  void add_target(WickedPostfixJumpTarget_t target) {
-    add_u(*reinterpret_cast<const uint32_t*>(&target));
-  }
 
   void Push(std::span<const float> values) {
     add_p(WickedPostfixOp_Push);
