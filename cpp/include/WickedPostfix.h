@@ -14,8 +14,18 @@ typedef struct WickedPostfixHeader {
 	uint16_t d_size;
 } WickedPostfixHeader_t;
 
+typedef struct WickedPostfixJumpTarget {
+	uint16_t pc;
+	uint16_t dc;
+} WickedPostfixJumpTarget_t;
+
 typedef enum WickedPostfixOp {
   WickedPostfixOp_Undefined = 0,
+  WickedPostfixOp_Ret       = 201,
+  WickedPostfixOp_Jmp       = 202,
+  WickedPostfixOp_Jz        = 203,
+  WickedPostfixOp_Jn        = 204,
+
   WickedPostfixOp_Push      = 1,
   WickedPostfixOp_Pop       = 2,
   WickedPostfixOp_Dup       = 3,
@@ -82,12 +92,12 @@ const char* WickedPostfixOpToString(WickedPostfixOp_t op);
 
 typedef struct WickedPostfixEval {
   const uint8_t* p_data;
-  uint16_t p_size;
-  uint16_t p_idx;
-
   const uint32_t* d_data;
+  uint16_t p_size;
   uint16_t d_size;
-  uint16_t d_idx;
+
+  uint16_t pc;
+  uint16_t dc;
 
   uint32_t* stack_data;
   uint16_t stack_size;
@@ -151,20 +161,12 @@ public:
 	uint16_t d_size() const { return d_.size(); }
 
 	void add_p(uint8_t v) { i_.push_back(v); }
-	uint8_t p(uint8_t index) const { return p_data()[index]; }
-	uint8_t& p(uint8_t index) { return p_data()[index]; }
-
 	void add_u(uint32_t v) { d_.push_back(v); }
-  uint32_t u(uint16_t index) const { return d_data()[index]; }
-  uint32_t& u(uint16_t index) { return d_data()[index]; }
-
-	void add_i(int32_t v) { d_.push_back(*reinterpret_cast<const uint32_t*>(&v)); }
-	int32_t i(uint16_t index) const { return *reinterpret_cast<const int32_t*>(&d_data()[index]); }
-	int32_t& i(uint16_t index) { return *reinterpret_cast<int32_t*>(&d_data()[index]); }
-
-	void add_f(float v) { d_.push_back(*reinterpret_cast<const uint32_t*>(&v)); }
-	float f(uint16_t index) const { return *reinterpret_cast<const float*>(&d_data()[index]); }
-	float& f(uint16_t index) { return *reinterpret_cast<float*>(&d_data()[index]); }
+	void add_i(int32_t v) { add_u(*reinterpret_cast<const uint32_t*>(&v)); }
+	void add_f(float v) { add_u(*reinterpret_cast<const uint32_t*>(&v)); }
+  void add_target(WickedPostfixJumpTarget_t target) {
+    add_u(*reinterpret_cast<const uint32_t*>(&target));
+  }
 
   void Push(std::span<const float> values) {
     add_p(WickedPostfixOp_Push);
@@ -178,7 +180,7 @@ public:
   }
 
 private:
-	constexpr uint16_t i_offset() const { return sizeof(WickedPostfixHeader); }
+	constexpr uint16_t i_offset() const { return sizeof(WickedPostfixHeader_t); }
 
 	uint16_t d_offset() const {
 		uint16_t offset = i_offset() + p_size();

@@ -49,6 +49,76 @@ TEST(EvalTest, Empty) {
   EXPECT_THAT(eval.stack(), ElementsAre(42));
 }
 
+TEST(EvalTest, Return) {
+  WickedPostfixWriter writer;
+  writer.add_p(WickedPostfixOp_Ret);
+  writer.add_p(WickedPostfixOp_Push);
+  writer.add_p(1);
+  writer.add_f(5);
+  EXPECT_EQ(writer.p_size(), 3);
+  EXPECT_EQ(writer.d_size(), 1);
+  auto buffer = writer.Write();
+
+  TestEval eval(4, {42});
+  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval.eval));
+  EXPECT_EQ(WickedPostfixEvaluate(&eval.eval), WickedEvalStatus_Ok);
+  EXPECT_THAT(eval.stack(), ElementsAre(42));
+}
+
+TEST(EvalTest, Jump) {
+  WickedPostfixWriter writer;
+  writer.add_p(WickedPostfixOp_Jmp);
+  writer.add_target({.pc = 3, .dc = 2});
+  writer.add_p(WickedPostfixOp_Push);
+  writer.add_p(1);
+  writer.add_f(5);
+  writer.add_p(WickedPostfixOp_Push);
+  writer.add_p(1);
+  writer.add_f(6);
+  EXPECT_EQ(writer.p_size(), 5);
+  EXPECT_EQ(writer.d_size(), 3);
+  auto buffer = writer.Write();
+
+  TestEval eval(4, {42});
+  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval.eval));
+  EXPECT_EQ(WickedPostfixEvaluate(&eval.eval), WickedEvalStatus_Ok);
+  EXPECT_THAT(eval.stack(), ElementsAre(42, 6));
+}
+
+TEST(EvalTest, JumpIllegalP) {
+  WickedPostfixWriter writer;
+  writer.add_p(WickedPostfixOp_Jmp);
+  writer.add_target({.pc = 6, .dc = 2});
+  writer.add_p(WickedPostfixOp_Push);
+  writer.add_p(1);
+  writer.add_f(5);
+  writer.add_p(WickedPostfixOp_Push);
+  writer.add_p(1);
+  writer.add_f(6);
+  auto buffer = writer.Write();
+
+  TestEval eval(4, {42});
+  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval.eval));
+  EXPECT_EQ(WickedPostfixEvaluate(&eval.eval), WickedEvalStatus_IllegalOperation);
+}
+
+TEST(EvalTest, JumpIllegalD) {
+  WickedPostfixWriter writer;
+  writer.add_p(WickedPostfixOp_Jmp);
+  writer.add_target({.pc = 3, .dc = 4});
+  writer.add_p(WickedPostfixOp_Push);
+  writer.add_p(1);
+  writer.add_f(5);
+  writer.add_p(WickedPostfixOp_Push);
+  writer.add_p(1);
+  writer.add_f(6);
+  auto buffer = writer.Write();
+
+  TestEval eval(4, {42});
+  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval.eval));
+  EXPECT_EQ(WickedPostfixEvaluate(&eval.eval), WickedEvalStatus_IllegalOperation);
+}
+
 TEST(EvalTest, Push) {
   WickedPostfixWriter writer;
   writer.add_p(WickedPostfixOp_Push);
