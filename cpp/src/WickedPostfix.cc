@@ -735,13 +735,13 @@ extern "C" WickedEvalStatus_t WickedPostfixEvaluate(WickedPostfixEval_t* eval) {
     case WickedPostfixOp_ItoF: {
       int32_t v;
       WICKED_RETURN_IF_ERROR(WickedPostfixEval_popi(eval, &v));
-      WICKED_RETURN_IF_ERROR(WickedPostfixEval_pushf(eval, v));
+      WICKED_RETURN_IF_ERROR(WickedPostfixEval_pushf(eval, static_cast<float>(v)));
       break;
     }
     case WickedPostfixOp_FtoI: {
       float v;
       WICKED_RETURN_IF_ERROR(WickedPostfixEval_popf(eval, &v));
-      WICKED_RETURN_IF_ERROR(WickedPostfixEval_pushi(eval, v));
+      WICKED_RETURN_IF_ERROR(WickedPostfixEval_pushi(eval, static_cast<int32_t>(v)));
       break;
     }
     default:
