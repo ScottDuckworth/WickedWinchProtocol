@@ -122,11 +122,11 @@ extern "C" WickedEvalStatus_t WickedPostfixEval_pushu(WickedPostfixEval_t* eval,
 }
 
 extern "C" WickedEvalStatus_t WickedPostfixEval_pushi(WickedPostfixEval_t* eval, int32_t v) {
-  return WickedPostfixEval_pushu(eval, *reinterpret_cast<const uint32_t*>(&v));
+  return WickedPostfixEval_pushu(eval, std::bit_cast<uint32_t>(v));
 }
 
 extern "C" WickedEvalStatus_t WickedPostfixEval_pushf(WickedPostfixEval_t* eval, float v) {
-  return WickedPostfixEval_pushu(eval, *reinterpret_cast<const uint32_t*>(&v));
+  return WickedPostfixEval_pushu(eval, std::bit_cast<uint32_t>(v));
 }
 
 extern "C" WickedEvalStatus_t WickedPostfixEval_pushuv(WickedPostfixEval_t* eval, uint16_t n, const uint32_t* v) {
@@ -755,16 +755,10 @@ extern "C" WickedEvalStatus_t WickedPostfixEvaluate(WickedPostfixEval_t* eval) {
 
 bool WickedPostfixWriter::Write(uint8_t* data, size_t size) const {
   if (size < data_size()) return false;
-
   auto* header = reinterpret_cast<WickedPostfixHeader*>(data);
   header->p_size = p_size();
   header->d_size = d_size();
-
-  uint8_t* i = data + i_offset();
-  memcpy(i, p_data(), p_size());
-
-  float* f = reinterpret_cast<float*>(data + d_offset());
-  memcpy(f, d_data(), d_size() * 4);
-
+  memcpy(data + i_offset(), p_data(), p_size());
+  memcpy(data + d_offset(), d_data(), d_size() * 4);
   return true;
 }

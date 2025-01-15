@@ -126,6 +126,7 @@ WickedEvalStatus_t WickedPostfixEvaluate(WickedPostfixEval_t* eval);
 #ifdef __cplusplus
 }
 
+#include <bit>
 #include <ostream>
 #include <span>
 #include <vector>
@@ -159,8 +160,8 @@ public:
 
 	void add_p(uint8_t v) { i_.push_back(v); }
 	void add_u(uint32_t v) { d_.push_back(v); }
-	void add_i(int32_t v) { add_u(*reinterpret_cast<const uint32_t*>(&v)); }
-	void add_f(float v) { add_u(*reinterpret_cast<const uint32_t*>(&v)); }
+	void add_i(int32_t v) { add_u(std::bit_cast<uint32_t>(v)); }
+	void add_f(float v) { add_u(std::bit_cast<uint32_t>(v)); }
 
   void Push(std::span<const float> values) {
     add_p(WickedPostfixOp_Push);
