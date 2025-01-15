@@ -9,6 +9,7 @@
 extern "C" {
 #endif
 
+#define WICKED_RETURN_IF_ERROR(expr) do { WickedEvalStatus_t status = expr; if (status != WickedEvalStatus_Ok) return status; } while (0)
 #define WICKED_JUMP_TARGET(pc, dc) (((uint32_t) pc) | (((uint32_t) dc) << 16))
 
 typedef struct WickedPostfixHeader {
