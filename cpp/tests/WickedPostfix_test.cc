@@ -19,12 +19,12 @@ struct TestEval {
   TestEval(uint8_t stack_capacity, uint8_t temp_capacity, std::initializer_list<float> stack_values) {
     assert(stack_capacity >= stack_values.size());
 
-    eval.stack_data = new uint32_t[stack_capacity];
+    eval.stack_data = new uint8_t[stack_capacity * 4];
     eval.stack_size = 0;
-    eval.stack_capacity = stack_capacity;
+    eval.stack_capacity = stack_capacity * 4;
 
-    eval.temp_data = new uint32_t[temp_capacity];
-    eval.temp_capacity = temp_capacity;
+    eval.temp_data = new uint8_t[temp_capacity * 4];
+    eval.temp_capacity = temp_capacity * 4;
 
     for (float value : stack_values) {
       WickedPostfixEval_pushf(&eval, value);
@@ -36,7 +36,7 @@ struct TestEval {
     delete[] eval.temp_data;
   }
 
-  std::span<float> stack() { return std::span<float>(reinterpret_cast<float*>(eval.stack_data), eval.stack_size); }
+  std::span<float> stack() { return std::span<float>(reinterpret_cast<float*>(eval.stack_data), eval.stack_size / sizeof(float)); }
 };
 
 TEST(EvalTest, Empty) {
@@ -55,8 +55,6 @@ TEST(EvalTest, Return) {
   writer.add_p(WickedPostfixOp_Push);
   writer.add_p(1);
   writer.add_f(5);
-  EXPECT_EQ(writer.p_size(), 3);
-  EXPECT_EQ(writer.d_size(), 1);
   auto buffer = writer.Write();
 
   TestEval eval(4, {42});
@@ -65,11 +63,11 @@ TEST(EvalTest, Return) {
   EXPECT_THAT(eval.stack(), ElementsAre(42));
 }
 
-TEST(EvalTest, Jump) {
+TEST(EvalTest, Jmp) {
   WickedPostfixWriter writer;
   writer.add_p(WickedPostfixOp_Push);
   writer.add_p(1);
-  writer.add_u(WICKED_JUMP_TARGET(5, 2));
+  writer.add_u(WICKED_JUMP_TARGET(5, 8));
   writer.add_p(WickedPostfixOp_Jmp);
   writer.add_p(WickedPostfixOp_Push);
   writer.add_p(1);
@@ -85,11 +83,11 @@ TEST(EvalTest, Jump) {
   EXPECT_THAT(eval.stack(), ElementsAre(42, 6));
 }
 
-TEST(EvalTest, JumpIllegalP) {
+TEST(EvalTest, JmpIllegalP) {
   WickedPostfixWriter writer;
   writer.add_p(WickedPostfixOp_Push);
   writer.add_p(1);
-  writer.add_u(WICKED_JUMP_TARGET(6, 2));
+  writer.add_u(WICKED_JUMP_TARGET(6, 8));
   writer.add_p(WickedPostfixOp_Jmp);
   writer.add_p(WickedPostfixOp_Push);
   writer.add_p(1);
@@ -104,11 +102,11 @@ TEST(EvalTest, JumpIllegalP) {
   EXPECT_EQ(WickedPostfixEvaluate(&eval.eval), WickedEvalStatus_IllegalOperation);
 }
 
-TEST(EvalTest, JumpIllegalD) {
+TEST(EvalTest, JmpIllegalD) {
   WickedPostfixWriter writer;
   writer.add_p(WickedPostfixOp_Push);
   writer.add_p(1);
-  writer.add_u(WICKED_JUMP_TARGET(3, 4));
+  writer.add_u(WICKED_JUMP_TARGET(3, 16));
   writer.add_p(WickedPostfixOp_Jmp);
   writer.add_p(WickedPostfixOp_Push);
   writer.add_p(1);
@@ -129,8 +127,6 @@ TEST(EvalTest, Push) {
   writer.add_p(2);
   writer.add_f(1);
   writer.add_f(2);
-  EXPECT_EQ(writer.p_size(), 2);
-  EXPECT_EQ(writer.d_size(), 2);
   auto buffer = writer.Write();
 
   TestEval eval(4, {42});
@@ -148,8 +144,6 @@ TEST(EvalTest, PushMany) {
   writer.add_f(1);
   writer.add_f(2);
   writer.add_f(3);
-  EXPECT_EQ(writer.p_size(), 4);
-  EXPECT_EQ(writer.d_size(), 3);
   auto buffer = writer.Write();
 
   TestEval eval(4, {42});

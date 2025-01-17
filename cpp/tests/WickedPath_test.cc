@@ -14,19 +14,19 @@ namespace {
 
 struct TestEval {
   WickedPostfixEval_t eval;
-  uint32_t stack_buffer[8];
-  uint32_t temp_buffer[4];
+  uint8_t stack_buffer[8 * 4];
+  uint8_t temp_buffer[4 * 4];
 
   TestEval() {
     eval.stack_data = stack_buffer;
     eval.stack_size = 0;
-    eval.stack_capacity = sizeof(stack_buffer) / sizeof(float);
+    eval.stack_capacity = sizeof(stack_buffer);
 
     eval.temp_data = temp_buffer;
-    eval.temp_capacity = sizeof(temp_buffer) / sizeof(float);
+    eval.temp_capacity = sizeof(temp_buffer);
   }
 
-  std::span<float> stack() { return std::span<float>(reinterpret_cast<float*>(eval.stack_data), eval.stack_size); }
+  std::span<float> stack() { return std::span<float>(reinterpret_cast<float*>(eval.stack_data), eval.stack_size / sizeof(float)); }
 };
 
 TEST(PathEvalTest, Empty) {
