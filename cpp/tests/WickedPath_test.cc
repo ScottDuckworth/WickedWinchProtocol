@@ -1,7 +1,6 @@
 #include "WickedPath.h"
 #include "WickedPostfix.h"
 
-#include <array>
 #include <span>
 
 #include <gmock/gmock.h>
@@ -60,7 +59,7 @@ TEST(PathEvalTest, Eval) {
   segment = writer.add_segments();
   segment->start_time = 2000;
   segment->expr.Pop(1);
-  segment->expr.Push(std::array<float, 1>{99});
+  segment->expr.PushF({99});
   auto buffer = writer.Write();
   EXPECT_TRUE(WickedPathValidate(buffer.data(), buffer.size()));
 
