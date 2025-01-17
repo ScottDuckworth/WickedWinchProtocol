@@ -24,14 +24,30 @@ extern "C" const char* WickedPostfixOpToString(WickedPostfixOp_t op) {
     case WickedPostfixOp_RotR:      return "RotR";
     case WickedPostfixOp_Rev:       return "Rev";
     case WickedPostfixOp_Transpose: return "Transpose";
-    case WickedPostfixOp_Add:       return "Add";
-    case WickedPostfixOp_Sub:       return "Sub";
-    case WickedPostfixOp_Mul:       return "Mul";
-    case WickedPostfixOp_MulAdd:    return "MulAdd";
-    case WickedPostfixOp_Div:       return "Div";
-    case WickedPostfixOp_Mod:       return "Mod";
-    case WickedPostfixOp_Neg:       return "Neg";
-    case WickedPostfixOp_Abs:       return "Abs";
+    case WickedPostfixOp_AddU:      return "AddU";
+    case WickedPostfixOp_SubU:      return "SubU";
+    case WickedPostfixOp_MulU:      return "MulU";
+    case WickedPostfixOp_MulAddU:   return "MulAddU";
+    case WickedPostfixOp_DivU:      return "DivU";
+    case WickedPostfixOp_ModU:      return "ModU";
+    case WickedPostfixOp_AddI:      return "AddI";
+    case WickedPostfixOp_SubI:      return "SubI";
+    case WickedPostfixOp_MulI:      return "MulI";
+    case WickedPostfixOp_MulAddI:   return "MulAddI";
+    case WickedPostfixOp_DivI:      return "DivI";
+    case WickedPostfixOp_ModI:      return "ModI";
+    case WickedPostfixOp_NegI:      return "NegI";
+    case WickedPostfixOp_AbsI:      return "AbsI";
+    case WickedPostfixOp_ItoF:      return "ItoF";
+    case WickedPostfixOp_FtoI:      return "FtoI";
+    case WickedPostfixOp_AddF:      return "AddF";
+    case WickedPostfixOp_SubF:      return "SubF";
+    case WickedPostfixOp_MulF:      return "MulF";
+    case WickedPostfixOp_MulAddF:   return "MulAddF";
+    case WickedPostfixOp_DivF:      return "DivF";
+    case WickedPostfixOp_ModF:      return "ModF";
+    case WickedPostfixOp_NegF:      return "NegF";
+    case WickedPostfixOp_AbsF:      return "AbsF";
     case WickedPostfixOp_Inv:       return "Inv";
     case WickedPostfixOp_Pow:       return "Pow";
     case WickedPostfixOp_Sqrt:      return "Sqrt";
@@ -51,28 +67,19 @@ extern "C" const char* WickedPostfixOpToString(WickedPostfixOp_t op) {
     case WickedPostfixOp_NegVec:    return "NegVec";
     case WickedPostfixOp_NormVec:   return "NormVec";
     case WickedPostfixOp_MulMat:    return "MulMat";
+    case WickedPostfixOp_LerpVec:   return "LerpVec";
     case WickedPostfixOp_PolyVec:   return "PolyVec";
     case WickedPostfixOp_PolyMat:   return "PolyMat";
-    case WickedPostfixOp_Lerp:      return "Lerp";
-    case WickedPostfixOp_LerpTable: return "LerpTable";
-    case WickedPostfixOp_AddI:      return "AddI";
-    case WickedPostfixOp_SubI:      return "SubI";
-    case WickedPostfixOp_MulI:      return "MulI";
-    case WickedPostfixOp_MulAddI:   return "MulAddI";
-    case WickedPostfixOp_DivI:      return "DivI";
-    case WickedPostfixOp_ModI:      return "ModI";
-    case WickedPostfixOp_NegI:      return "NegI";
-    case WickedPostfixOp_AbsI:      return "AbsI";
-    case WickedPostfixOp_AddU:      return "AddU";
-    case WickedPostfixOp_SubU:      return "SubU";
-    case WickedPostfixOp_MulU:      return "MulU";
-    case WickedPostfixOp_MulAddU:   return "MulAddU";
-    case WickedPostfixOp_DivU:      return "DivU";
-    case WickedPostfixOp_ModU:      return "ModU";
-    case WickedPostfixOp_ItoF:      return "ItoF";
-    case WickedPostfixOp_FtoI:      return "FtoI";
   }
   return "UNKNOWN";
+}
+
+bool WickedPostfixWriter::Write(uint8_t* data, size_t size) const {
+  if (size < data_size()) return false;
+  auto* header = reinterpret_cast<WickedPostfixHeader*>(data);
+  header->prog_size = prog_size();
+  memcpy(data + prog_offset(), prog_data(), prog_size());
+  return true;
 }
 
 extern "C" bool WickedPostfixRead(const uint8_t* data, size_t size, WickedPostfixEval_t* eval) {
@@ -317,49 +324,145 @@ extern "C" WickedEvalStatus_t WickedPostfixEvaluate(WickedPostfixEval_t* eval) {
       WICKED_RETURN_IF_ERROR(WickedPostfixEval_pushuv(eval, size, temp_data));
       break;
     }
-    case WickedPostfixOp_Add: {
+    case WickedPostfixOp_AddU: {
+      uint32_t* v;
+      WICKED_RETURN_IF_ERROR(WickedPostfixEval_popuv(eval, 2, &v));
+      WICKED_RETURN_IF_ERROR(WickedPostfixEval_pushu(eval, v[0] + v[1]));
+      break;
+    }
+    case WickedPostfixOp_SubU: {
+      uint32_t* v;
+      WICKED_RETURN_IF_ERROR(WickedPostfixEval_popuv(eval, 2, &v));
+      WICKED_RETURN_IF_ERROR(WickedPostfixEval_pushu(eval, v[0] - v[1]));
+      break;
+    }
+    case WickedPostfixOp_MulU: {
+      uint32_t* v;
+      WICKED_RETURN_IF_ERROR(WickedPostfixEval_popuv(eval, 2, &v));
+      WICKED_RETURN_IF_ERROR(WickedPostfixEval_pushu(eval, v[0] * v[1]));
+      break;
+    }
+    case WickedPostfixOp_MulAddU: {
+      uint32_t* v;
+      WICKED_RETURN_IF_ERROR(WickedPostfixEval_popuv(eval, 3, &v));
+      WICKED_RETURN_IF_ERROR(WickedPostfixEval_pushu(eval, v[0] * v[1] + v[2]));
+      break;
+    }
+    case WickedPostfixOp_DivU: {
+      uint32_t* v;
+      WICKED_RETURN_IF_ERROR(WickedPostfixEval_popuv(eval, 2, &v));
+      WICKED_RETURN_IF_ERROR(WickedPostfixEval_pushu(eval, v[0] / v[1]));
+      break;
+    }
+    case WickedPostfixOp_ModU: {
+      uint32_t* v;
+      WICKED_RETURN_IF_ERROR(WickedPostfixEval_popuv(eval, 2, &v));
+      WICKED_RETURN_IF_ERROR(WickedPostfixEval_pushu(eval, v[0] % v[1]));
+      break;
+    }
+    case WickedPostfixOp_AddI: {
+      int32_t* v;
+      WICKED_RETURN_IF_ERROR(WickedPostfixEval_popiv(eval, 2, &v));
+      WICKED_RETURN_IF_ERROR(WickedPostfixEval_pushi(eval, v[0] + v[1]));
+      break;
+    }
+    case WickedPostfixOp_SubI: {
+      int32_t* v;
+      WICKED_RETURN_IF_ERROR(WickedPostfixEval_popiv(eval, 2, &v));
+      WICKED_RETURN_IF_ERROR(WickedPostfixEval_pushi(eval, v[0] - v[1]));
+      break;
+    }
+    case WickedPostfixOp_MulI: {
+      int32_t* v;
+      WICKED_RETURN_IF_ERROR(WickedPostfixEval_popiv(eval, 2, &v));
+      WICKED_RETURN_IF_ERROR(WickedPostfixEval_pushi(eval, v[0] * v[1]));
+      break;
+    }
+    case WickedPostfixOp_MulAddI: {
+      int32_t* v;
+      WICKED_RETURN_IF_ERROR(WickedPostfixEval_popiv(eval, 3, &v));
+      WICKED_RETURN_IF_ERROR(WickedPostfixEval_pushi(eval, v[0] * v[1] + v[2]));
+      break;
+    }
+    case WickedPostfixOp_DivI: {
+      int32_t* v;
+      WICKED_RETURN_IF_ERROR(WickedPostfixEval_popiv(eval, 2, &v));
+      WICKED_RETURN_IF_ERROR(WickedPostfixEval_pushi(eval, v[0] / v[1]));
+      break;
+    }
+    case WickedPostfixOp_ModI: {
+      int32_t* v;
+      WICKED_RETURN_IF_ERROR(WickedPostfixEval_popiv(eval, 2, &v));
+      WICKED_RETURN_IF_ERROR(WickedPostfixEval_pushi(eval, v[0] % v[1]));
+      break;
+    }
+    case WickedPostfixOp_NegI: {
+      int32_t v;
+      WICKED_RETURN_IF_ERROR(WickedPostfixEval_popi(eval, &v));
+      WICKED_RETURN_IF_ERROR(WickedPostfixEval_pushi(eval, -v));
+      break;
+    }
+    case WickedPostfixOp_AbsI: {
+      int32_t v;
+      WICKED_RETURN_IF_ERROR(WickedPostfixEval_popi(eval, &v));
+      WICKED_RETURN_IF_ERROR(WickedPostfixEval_pushi(eval, v < 0 ? -v : v));
+      break;
+    }
+    case WickedPostfixOp_ItoF: {
+      int32_t v;
+      WICKED_RETURN_IF_ERROR(WickedPostfixEval_popi(eval, &v));
+      WICKED_RETURN_IF_ERROR(WickedPostfixEval_pushf(eval, static_cast<float>(v)));
+      break;
+    }
+    case WickedPostfixOp_FtoI: {
+      float v;
+      WICKED_RETURN_IF_ERROR(WickedPostfixEval_popf(eval, &v));
+      WICKED_RETURN_IF_ERROR(WickedPostfixEval_pushi(eval, static_cast<int32_t>(v)));
+      break;
+    }
+    case WickedPostfixOp_AddF: {
       float* v;
       WICKED_RETURN_IF_ERROR(WickedPostfixEval_popfv(eval, 2, &v));
       WICKED_RETURN_IF_ERROR(WickedPostfixEval_pushf(eval, v[0] + v[1]));
       break;
     }
-    case WickedPostfixOp_Sub: {
+    case WickedPostfixOp_SubF: {
       float* v;
       WICKED_RETURN_IF_ERROR(WickedPostfixEval_popfv(eval, 2, &v));
       WICKED_RETURN_IF_ERROR(WickedPostfixEval_pushf(eval, v[0] - v[1]));
       break;
     }
-    case WickedPostfixOp_Mul: {
+    case WickedPostfixOp_MulF: {
       float* v;
       WICKED_RETURN_IF_ERROR(WickedPostfixEval_popfv(eval, 2, &v));
       WICKED_RETURN_IF_ERROR(WickedPostfixEval_pushf(eval, v[0] * v[1]));
       break;
     }
-    case WickedPostfixOp_MulAdd: {
+    case WickedPostfixOp_MulAddF: {
       float* v;
       WICKED_RETURN_IF_ERROR(WickedPostfixEval_popfv(eval, 3, &v));
       WICKED_RETURN_IF_ERROR(WickedPostfixEval_pushf(eval, v[0] * v[1] + v[2]));
       break;
     }
-    case WickedPostfixOp_Div: {
+    case WickedPostfixOp_DivF: {
       float* v;
       WICKED_RETURN_IF_ERROR(WickedPostfixEval_popfv(eval, 2, &v));
       WICKED_RETURN_IF_ERROR(WickedPostfixEval_pushf(eval, v[0] / v[1]));
       break;
     }
-    case WickedPostfixOp_Mod: {
+    case WickedPostfixOp_ModF: {
       float* v;
       WICKED_RETURN_IF_ERROR(WickedPostfixEval_popfv(eval, 2, &v));
       WICKED_RETURN_IF_ERROR(WickedPostfixEval_pushf(eval, std::fmod(v[0], v[1])));
       break;
     }
-    case WickedPostfixOp_Neg: {
+    case WickedPostfixOp_NegF: {
       float v;
       WICKED_RETURN_IF_ERROR(WickedPostfixEval_popf(eval, &v));
       WICKED_RETURN_IF_ERROR(WickedPostfixEval_pushf(eval, -v));
       break;
     }
-    case WickedPostfixOp_Abs: {
+    case WickedPostfixOp_AbsF: {
       float v;
       WICKED_RETURN_IF_ERROR(WickedPostfixEval_popf(eval, &v));
       WICKED_RETURN_IF_ERROR(WickedPostfixEval_pushf(eval, std::abs(v)));
@@ -429,44 +532,6 @@ extern "C" WickedEvalStatus_t WickedPostfixEvaluate(WickedPostfixEval_t* eval) {
       float* v;
       WICKED_RETURN_IF_ERROR(WickedPostfixEval_popfv(eval, 2, &v));
       WICKED_RETURN_IF_ERROR(WickedPostfixEval_pushf(eval, std::atan2(v[0], v[1])));
-      break;
-    }
-    case WickedPostfixOp_PolyVec: {
-      uint8_t size;
-      WICKED_RETURN_IF_ERROR(WickedPostfixEval_loadp(eval, &size));
-
-      float result = 0;
-      float p = 1;
-      float t;
-      float* coeff;
-      WICKED_RETURN_IF_ERROR(WickedPostfixEval_popfv(eval, size, &coeff));
-      WICKED_RETURN_IF_ERROR(WickedPostfixEval_popf(eval, &t));
-      for (uint8_t n = 0; n < size; ++n) {
-        result += coeff[n] * p;
-        p *= t;
-      }
-      WICKED_RETURN_IF_ERROR(WickedPostfixEval_pushf(eval, result));
-      break;
-    }
-    case WickedPostfixOp_PolyMat: {
-      uint8_t rows, cols;
-      WICKED_RETURN_IF_ERROR(WickedPostfixEval_loadp(eval, &rows));
-      WICKED_RETURN_IF_ERROR(WickedPostfixEval_loadp(eval, &cols));
-
-      float t, *coeff, *result;
-      WICKED_RETURN_IF_ERROR(WickedPostfixEval_popfv(eval, rows * cols, &coeff));
-      WICKED_RETURN_IF_ERROR(WickedPostfixEval_popf(eval, &t));
-      WICKED_RETURN_IF_ERROR(WickedPostfixEval_allocfv(eval, cols, &result));
-      for (uint8_t j = 0; j < cols; ++j) {
-        float r = 0;
-        float p = 1;
-        for (uint8_t i = 0; i < rows; ++i) {
-          size_t cidx = cols * i + j;
-          r += coeff[cidx] * p;
-          p *= t;
-        }
-        result[j] = r;
-      }
       break;
     }
     case WickedPostfixOp_AddVec: {
@@ -582,7 +647,7 @@ extern "C" WickedEvalStatus_t WickedPostfixEvaluate(WickedPostfixEval_t* eval) {
       WICKED_RETURN_IF_ERROR(WickedPostfixEval_pushfv(eval, temp_size, temp_data));
       break;
     }
-    case WickedPostfixOp_Lerp: {
+    case WickedPostfixOp_LerpVec: {
       uint8_t size;
       WICKED_RETURN_IF_ERROR(WickedPostfixEval_loadp(eval, &size));
 
@@ -596,136 +661,42 @@ extern "C" WickedEvalStatus_t WickedPostfixEvaluate(WickedPostfixEval_t* eval) {
       }
       break;
     }
-    case WickedPostfixOp_LerpTable: {
+    case WickedPostfixOp_PolyVec: {
+      uint8_t size;
+      WICKED_RETURN_IF_ERROR(WickedPostfixEval_loadp(eval, &size));
+
+      float result = 0;
+      float p = 1;
+      float t;
+      float* coeff;
+      WICKED_RETURN_IF_ERROR(WickedPostfixEval_popfv(eval, size, &coeff));
+      WICKED_RETURN_IF_ERROR(WickedPostfixEval_popf(eval, &t));
+      for (uint8_t n = 0; n < size; ++n) {
+        result += coeff[n] * p;
+        p *= t;
+      }
+      WICKED_RETURN_IF_ERROR(WickedPostfixEval_pushf(eval, result));
+      break;
+    }
+    case WickedPostfixOp_PolyMat: {
       uint8_t rows, cols;
       WICKED_RETURN_IF_ERROR(WickedPostfixEval_loadp(eval, &rows));
       WICKED_RETURN_IF_ERROR(WickedPostfixEval_loadp(eval, &cols));
-      if (rows < 1) return WickedEvalStatus_IllegalOperation;
-      if (cols < 1) return WickedEvalStatus_IllegalOperation;
 
-      float t, *lut, *result;
-      uint8_t size = rows * cols;
-      uint8_t n = cols - 1;
-      WICKED_RETURN_IF_ERROR(WickedPostfixEval_popfv(eval, size, &lut));
+      float t, *coeff, *result;
+      WICKED_RETURN_IF_ERROR(WickedPostfixEval_popfv(eval, rows * cols, &coeff));
       WICKED_RETURN_IF_ERROR(WickedPostfixEval_popf(eval, &t));
-      WICKED_RETURN_IF_ERROR(WickedPostfixEval_allocfv(eval, n, &result));
-      uint8_t ubrow = wicked_upper_bound(uint8_t(0), rows, [t, cols, lut](uint8_t i) -> bool {
-        return t < lut[cols*i];
-      });
-      if (ubrow == 0) {
-        auto bound = lut;
-        std::copy(bound + 1, bound + cols, result);
-      } else if (ubrow == rows) {
-        auto bound = lut + (size - cols);
-        std::copy(bound + 1, bound + cols, result);
-      } else {
-        auto ub = lut + ubrow*cols;
-        auto lb = ub - cols;
-        float t0 = *lb;
-        float t1 = *ub;
-        t = (t - t0) / (t1 - t0);
-        const float* v0 = lb + 1;
-        const float* v1 = ub + 1;
-        for (size_t i = 0; i < n; ++i) {
-          result[i] = (1-t)*v0[i] + t*v1[i];
+      WICKED_RETURN_IF_ERROR(WickedPostfixEval_allocfv(eval, cols, &result));
+      for (uint8_t j = 0; j < cols; ++j) {
+        float r = 0;
+        float p = 1;
+        for (uint8_t i = 0; i < rows; ++i) {
+          size_t cidx = cols * i + j;
+          r += coeff[cidx] * p;
+          p *= t;
         }
+        result[j] = r;
       }
-      break;
-    }
-    case WickedPostfixOp_AddI: {
-      int32_t* v;
-      WICKED_RETURN_IF_ERROR(WickedPostfixEval_popiv(eval, 2, &v));
-      WICKED_RETURN_IF_ERROR(WickedPostfixEval_pushi(eval, v[0] + v[1]));
-      break;
-    }
-    case WickedPostfixOp_SubI: {
-      int32_t* v;
-      WICKED_RETURN_IF_ERROR(WickedPostfixEval_popiv(eval, 2, &v));
-      WICKED_RETURN_IF_ERROR(WickedPostfixEval_pushi(eval, v[0] - v[1]));
-      break;
-    }
-    case WickedPostfixOp_MulI: {
-      int32_t* v;
-      WICKED_RETURN_IF_ERROR(WickedPostfixEval_popiv(eval, 2, &v));
-      WICKED_RETURN_IF_ERROR(WickedPostfixEval_pushi(eval, v[0] * v[1]));
-      break;
-    }
-    case WickedPostfixOp_MulAddI: {
-      int32_t* v;
-      WICKED_RETURN_IF_ERROR(WickedPostfixEval_popiv(eval, 3, &v));
-      WICKED_RETURN_IF_ERROR(WickedPostfixEval_pushi(eval, v[0] * v[1] + v[2]));
-      break;
-    }
-    case WickedPostfixOp_DivI: {
-      int32_t* v;
-      WICKED_RETURN_IF_ERROR(WickedPostfixEval_popiv(eval, 2, &v));
-      WICKED_RETURN_IF_ERROR(WickedPostfixEval_pushi(eval, v[0] / v[1]));
-      break;
-    }
-    case WickedPostfixOp_ModI: {
-      int32_t* v;
-      WICKED_RETURN_IF_ERROR(WickedPostfixEval_popiv(eval, 2, &v));
-      WICKED_RETURN_IF_ERROR(WickedPostfixEval_pushi(eval, v[0] % v[1]));
-      break;
-    }
-    case WickedPostfixOp_NegI: {
-      int32_t v;
-      WICKED_RETURN_IF_ERROR(WickedPostfixEval_popi(eval, &v));
-      WICKED_RETURN_IF_ERROR(WickedPostfixEval_pushi(eval, -v));
-      break;
-    }
-    case WickedPostfixOp_AbsI: {
-      int32_t v;
-      WICKED_RETURN_IF_ERROR(WickedPostfixEval_popi(eval, &v));
-      WICKED_RETURN_IF_ERROR(WickedPostfixEval_pushi(eval, v < 0 ? -v : v));
-      break;
-    }
-    case WickedPostfixOp_AddU: {
-      uint32_t* v;
-      WICKED_RETURN_IF_ERROR(WickedPostfixEval_popuv(eval, 2, &v));
-      WICKED_RETURN_IF_ERROR(WickedPostfixEval_pushu(eval, v[0] + v[1]));
-      break;
-    }
-    case WickedPostfixOp_SubU: {
-      uint32_t* v;
-      WICKED_RETURN_IF_ERROR(WickedPostfixEval_popuv(eval, 2, &v));
-      WICKED_RETURN_IF_ERROR(WickedPostfixEval_pushu(eval, v[0] - v[1]));
-      break;
-    }
-    case WickedPostfixOp_MulU: {
-      uint32_t* v;
-      WICKED_RETURN_IF_ERROR(WickedPostfixEval_popuv(eval, 2, &v));
-      WICKED_RETURN_IF_ERROR(WickedPostfixEval_pushu(eval, v[0] * v[1]));
-      break;
-    }
-    case WickedPostfixOp_MulAddU: {
-      uint32_t* v;
-      WICKED_RETURN_IF_ERROR(WickedPostfixEval_popuv(eval, 3, &v));
-      WICKED_RETURN_IF_ERROR(WickedPostfixEval_pushu(eval, v[0] * v[1] + v[2]));
-      break;
-    }
-    case WickedPostfixOp_DivU: {
-      uint32_t* v;
-      WICKED_RETURN_IF_ERROR(WickedPostfixEval_popuv(eval, 2, &v));
-      WICKED_RETURN_IF_ERROR(WickedPostfixEval_pushu(eval, v[0] / v[1]));
-      break;
-    }
-    case WickedPostfixOp_ModU: {
-      uint32_t* v;
-      WICKED_RETURN_IF_ERROR(WickedPostfixEval_popuv(eval, 2, &v));
-      WICKED_RETURN_IF_ERROR(WickedPostfixEval_pushu(eval, v[0] % v[1]));
-      break;
-    }
-    case WickedPostfixOp_ItoF: {
-      int32_t v;
-      WICKED_RETURN_IF_ERROR(WickedPostfixEval_popi(eval, &v));
-      WICKED_RETURN_IF_ERROR(WickedPostfixEval_pushf(eval, static_cast<float>(v)));
-      break;
-    }
-    case WickedPostfixOp_FtoI: {
-      float v;
-      WICKED_RETURN_IF_ERROR(WickedPostfixEval_popf(eval, &v));
-      WICKED_RETURN_IF_ERROR(WickedPostfixEval_pushi(eval, static_cast<int32_t>(v)));
       break;
     }
     default:
@@ -733,12 +704,4 @@ extern "C" WickedEvalStatus_t WickedPostfixEvaluate(WickedPostfixEval_t* eval) {
     }
   }
   return WickedEvalStatus_Ok;
-}
-
-bool WickedPostfixWriter::Write(uint8_t* data, size_t size) const {
-  if (size < data_size()) return false;
-  auto* header = reinterpret_cast<WickedPostfixHeader*>(data);
-  header->prog_size = prog_size();
-  memcpy(data + prog_offset(), prog_data(), prog_size());
-  return true;
 }
