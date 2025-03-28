@@ -100,21 +100,33 @@ typedef struct WickedPostfixEval {
   uint16_t pc;
 } WickedPostfixEval_t;
 
-WickedEvalStatus_t WickedPostfixEval_pushu(WickedPostfixEval_t* eval, uint32_t v);
-WickedEvalStatus_t WickedPostfixEval_pushi(WickedPostfixEval_t* eval, int32_t v);
-WickedEvalStatus_t WickedPostfixEval_pushf(WickedPostfixEval_t* eval, float v);
+// Push uint32 on the stack.
+WickedEvalStatus_t WickedPostfix_pushu(WickedPostfixEval_t* eval, uint32_t v);
+// Push int32 on the stack.
+WickedEvalStatus_t WickedPostfix_pushi(WickedPostfixEval_t* eval, int32_t v);
+// Push float on the stack.
+WickedEvalStatus_t WickedPostfix_pushf(WickedPostfixEval_t* eval, float v);
 
-WickedEvalStatus_t WickedPostfixEval_pushuv(WickedPostfixEval_t* eval, uint16_t n, const uint32_t* v);
-WickedEvalStatus_t WickedPostfixEval_pushiv(WickedPostfixEval_t* eval, uint16_t n, const int32_t* v);
-WickedEvalStatus_t WickedPostfixEval_pushfv(WickedPostfixEval_t* eval, uint16_t n, const float* v);
+// Push uint32 array on the stack.
+WickedEvalStatus_t WickedPostfix_pushuv(WickedPostfixEval_t* eval, uint16_t n, const uint32_t* v);
+// Push int32 array on the stack.
+WickedEvalStatus_t WickedPostfix_pushiv(WickedPostfixEval_t* eval, uint16_t n, const int32_t* v);
+// Push float array on the stack.
+WickedEvalStatus_t WickedPostfix_pushfv(WickedPostfixEval_t* eval, uint16_t n, const float* v);
 
-WickedEvalStatus_t WickedPostfixEval_popu(WickedPostfixEval_t* eval, uint32_t* v);
-WickedEvalStatus_t WickedPostfixEval_popi(WickedPostfixEval_t* eval, int32_t* v);
-WickedEvalStatus_t WickedPostfixEval_popf(WickedPostfixEval_t* eval, float* v);
+// Pop uint32 from the stack.
+WickedEvalStatus_t WickedPostfix_popu(WickedPostfixEval_t* eval, uint32_t* v);
+// Pop int32 from the stack.
+WickedEvalStatus_t WickedPostfix_popi(WickedPostfixEval_t* eval, int32_t* v);
+// Pop float from the stack.
+WickedEvalStatus_t WickedPostfix_popf(WickedPostfixEval_t* eval, float* v);
 
-WickedEvalStatus_t WickedPostfixEval_popuv(WickedPostfixEval_t* eval, uint16_t n, uint32_t** v);
-WickedEvalStatus_t WickedPostfixEval_popiv(WickedPostfixEval_t* eval, uint16_t n, int32_t** v);
-WickedEvalStatus_t WickedPostfixEval_popfv(WickedPostfixEval_t* eval, uint16_t n, float** v);
+// Pop uint32 array from the stack.
+WickedEvalStatus_t WickedPostfix_popuv(WickedPostfixEval_t* eval, uint16_t n, uint32_t** v);
+// Pop int32 array from the stack.
+WickedEvalStatus_t WickedPostfix_popiv(WickedPostfixEval_t* eval, uint16_t n, int32_t** v);
+// Pop float array from the stack.
+WickedEvalStatus_t WickedPostfix_popfv(WickedPostfixEval_t* eval, uint16_t n, float** v);
 
 bool WickedPostfixRead(const uint8_t* data, size_t size, WickedPostfixEval_t* eval);
 WickedEvalStatus_t WickedPostfixEvaluate(WickedPostfixEval_t* eval);

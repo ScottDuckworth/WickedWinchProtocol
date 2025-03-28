@@ -40,7 +40,7 @@ extern "C" WickedEvalStatus_t WickedPathEvaluate(const uint8_t* path_data, uint3
   if (!WickedPathSegmentAt(path_data, t, &descriptor)) return WickedEvalStatus_UndefinedOperation;
   if (!WickedPostfixRead(descriptor.postfix_data, descriptor.postfix_size, eval)) return WickedEvalStatus_IllegalOperation;
   eval->stack_size = 0;
-  WICKED_RETURN_IF_ERROR(WickedPostfixEval_pushf(eval, t - descriptor.start_time));
+  WICKED_RETURN_IF_ERROR(WickedPostfix_pushf(eval, t - descriptor.start_time));
   return WickedPostfixEvaluate(eval);
 }
 

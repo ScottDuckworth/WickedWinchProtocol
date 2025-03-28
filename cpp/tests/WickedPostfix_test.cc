@@ -27,7 +27,7 @@ struct TestEval {
     eval.temp_capacity = temp_capacity * 4;
 
     for (float value : stack_values) {
-      WickedPostfixEval_pushf(&eval, value);
+      WickedPostfix_pushf(&eval, value);
     }
   }
 
