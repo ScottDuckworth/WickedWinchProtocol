@@ -12,7 +12,8 @@ extern "C" {
 #define WICKED_RETURN_IF_ERROR(expr) do { WickedEvalStatus_t status = expr; if (status != WickedEvalStatus_Ok) return status; } while (0)
 
 typedef struct WickedPostfixHeader {
-	uint16_t prog_size;
+	uint16_t text_size;
+	uint16_t data_size;
 } WickedPostfixHeader_t;
 
 typedef enum WickedPostfixOp {
@@ -86,8 +87,8 @@ const char* WickedPostfixOpToString(WickedPostfixOp_t op);
 
 typedef struct WickedPostfixEval {
   const uint8_t* prog_data;
-  uint16_t prog_size;
-  uint16_t pc;
+  uint16_t text_size;
+  uint16_t data_size;
 
   uint8_t* stack_data;
   uint16_t stack_size;
@@ -95,6 +96,8 @@ typedef struct WickedPostfixEval {
 
   uint8_t* temp_data;
   uint16_t temp_capacity;
+
+  uint16_t pc;
 } WickedPostfixEval_t;
 
 WickedEvalStatus_t WickedPostfixEval_pushu(WickedPostfixEval_t* eval, uint32_t v);
@@ -131,28 +134,34 @@ inline std::ostream& operator<<(std::ostream& out, WickedPostfixOp_t op) {
 
 class WickedPostfixWriter {
 public:
-	uint16_t data_size() const { return prog_offset() + prog_size(); }
+	uint16_t size() const { return data_offset() + data_size(); }
+
 	bool Write(uint8_t* data, size_t size) const;
   std::vector<uint8_t> Write() const {
-    std::vector<uint8_t> buffer(data_size());
+    std::vector<uint8_t> buffer(size());
     Write(buffer.data(), buffer.size());
     return buffer;
   }
 
 	void clear() {
-		prog_.clear();
+		text_.clear();
+    data_.clear();
 	}
 
-	uint8_t* prog_data() { return prog_.data(); }
-	const uint8_t* prog_data() const { return prog_.data(); }
-	uint8_t prog_size() const { return prog_.size(); }
+	uint8_t* text_data() { return text_.data(); }
+	const uint8_t* text_data() const { return text_.data(); }
+	uint8_t text_size() const { return text_.size(); }
 
-	void add_b(uint8_t v) { prog_.push_back(v); }
+	uint8_t* data_data() { return data_.data(); }
+	const uint8_t* data_data() const { return data_.data(); }
+	uint8_t data_size() const { return data_.size(); }
+
+	void add_b(uint8_t v) { text_.push_back(v); }
 
 	void add_u(uint32_t v) {
     uint8_t bytes[sizeof(uint32_t)];
     memcpy(bytes, &v, sizeof(uint32_t));
-    for (uint8_t b : bytes) prog_.push_back(b);
+    for (uint8_t b : bytes) text_.push_back(b);
   }
 
 	void add_i(int32_t v) { add_u(std::bit_cast<uint32_t>(v)); }
@@ -194,9 +203,11 @@ public:
   }
 
 private:
-	constexpr uint16_t prog_offset() const { return sizeof(WickedPostfixHeader_t); }
+	constexpr uint16_t text_offset() const { return sizeof(WickedPostfixHeader_t); }
+	uint16_t data_offset() const { return text_offset() + text_size(); }
 
-	std::vector<uint8_t> prog_;
+	std::vector<uint8_t> text_;
+	std::vector<uint8_t> data_;
 };
 
 #endif

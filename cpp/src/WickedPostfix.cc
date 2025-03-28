@@ -75,10 +75,12 @@ extern "C" const char* WickedPostfixOpToString(WickedPostfixOp_t op) {
 }
 
 bool WickedPostfixWriter::Write(uint8_t* data, size_t size) const {
-  if (size < data_size()) return false;
+  if (size < this->size()) return false;
   auto* header = reinterpret_cast<WickedPostfixHeader*>(data);
-  header->prog_size = prog_size();
-  memcpy(data + prog_offset(), prog_data(), prog_size());
+  header->text_size = text_size();
+  header->data_size = data_size();
+  memcpy(data + text_offset(), text_data(), text_size());
+  memcpy(data + data_offset(), data_data(), data_size());
   return true;
 }
 
@@ -86,27 +88,28 @@ extern "C" bool WickedPostfixRead(const uint8_t* data, size_t size, WickedPostfi
   if (size < sizeof(WickedPostfixHeader)) return false;
 
 	const WickedPostfixHeader* header = reinterpret_cast<const WickedPostfixHeader*>(data);
-	uint16_t prog_size = header->prog_size;
-	constexpr size_t prog_offset = sizeof(WickedPostfixHeader);
-	size_t data_size = prog_offset + prog_size;
-  if (size != data_size) return false;
+	constexpr size_t text_offset = sizeof(WickedPostfixHeader);
+  size_t data_offset = text_offset + header->text_size;
+	size_t full_size = data_offset + header->data_size;
+  if (size != full_size) return false;
 
   if (eval) {
-    eval->prog_data = data + prog_offset;
-    eval->prog_size = prog_size;
+    eval->prog_data = data + text_offset;
+    eval->text_size = header->text_size;
+    eval->data_size = header->data_size;
   }
   return true;
 }
 
 static WickedEvalStatus_t WickedPostfixEval_loadp(WickedPostfixEval_t* eval, uint8_t* v) {
-  if (eval->prog_size - eval->pc < 1) return WickedEvalStatus_IllegalOperation;
+  if (eval->text_size - eval->pc < 1) return WickedEvalStatus_IllegalOperation;
   *v = eval->prog_data[eval->pc];
   ++eval->pc;
   return WickedEvalStatus_Ok;
 }
 
 static WickedEvalStatus_t WickedPostfixEval_loadpv(WickedPostfixEval_t* eval, uint16_t n, const uint8_t** v) {
-  if (eval->prog_size - eval->pc < n) return WickedEvalStatus_IllegalOperation;
+  if (eval->text_size - eval->pc < n) return WickedEvalStatus_IllegalOperation;
   *v = &eval->prog_data[eval->pc];
   eval->pc += n;
   return WickedEvalStatus_Ok;
@@ -221,14 +224,14 @@ static WickedEvalStatus_t WickedPostfixEval_peekfv(WickedPostfixEval_t* eval, ui
 static WickedEvalStatus_t WickedPostfixEval_jmp(WickedPostfixEval_t* eval, bool cond) {
   uint32_t target;
   WICKED_RETURN_IF_ERROR(WickedPostfixEval_popu(eval, &target));
-  if (target > eval->prog_size) return WickedEvalStatus_IllegalAddress;
+  if (target > eval->text_size) return WickedEvalStatus_IllegalAddress;
   if (cond) eval->pc = target;
   return WickedEvalStatus_Ok;
 }
 
 extern "C" WickedEvalStatus_t WickedPostfixEvaluate(WickedPostfixEval_t* eval) {
   eval->pc = 0;
-  while (eval->pc < eval->prog_size) {
+  while (eval->pc < eval->text_size) {
     const uint8_t op = eval->prog_data[eval->pc++];
     switch (op) {
     case WickedPostfixOp_Ret: {
@@ -252,9 +255,9 @@ extern "C" WickedEvalStatus_t WickedPostfixEvaluate(WickedPostfixEval_t* eval) {
     }
     case WickedPostfixOp_Push: {
       uint8_t n;
-      const uint8_t* v;
       WICKED_RETURN_IF_ERROR(WickedPostfixEval_loadp(eval, &n));
       uint16_t size = n * 4;
+      const uint8_t* v;
       WICKED_RETURN_IF_ERROR(WickedPostfixEval_loadpv(eval, size, &v));
       WICKED_RETURN_IF_ERROR(WickedPostfixEval_pushbv(eval, size, v));
       break;
