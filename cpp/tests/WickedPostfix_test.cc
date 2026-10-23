@@ -1405,4 +1405,28 @@ TEST(EvalTest, ReadUnsafe) {
   EXPECT_GT(unsafe_prog_size, 0);
 }
 
+TEST(EvalTest, ReadUnaligned) {
+  WickedPostfixWriter writer;
+  writer.Push({1.0f, 2.0f});
+  auto buffer = writer.Write();
+
+  std::vector<uint8_t> unaligned_buffer(buffer.size() + 1);
+  unaligned_buffer[0] = 0xAA;
+  memcpy(unaligned_buffer.data() + 1, buffer.data(), buffer.size());
+
+  const uint8_t* unaligned_data = unaligned_buffer.data() + 1;
+  const uint8_t* prog_data = nullptr;
+  uint16_t prog_size = 0;
+
+  EXPECT_TRUE(::WickedPostfixRead(unaligned_data, buffer.size(), &prog_data, &prog_size));
+  EXPECT_EQ(prog_data, unaligned_data + sizeof(WickedPostfixHeader_t));
+  EXPECT_GT(prog_size, 0);
+
+  const uint8_t* unsafe_prog_data = nullptr;
+  uint16_t unsafe_prog_size = 0;
+  WickedPostfixReadUnsafe(unaligned_data, &unsafe_prog_data, &unsafe_prog_size);
+  EXPECT_EQ(unsafe_prog_data, prog_data);
+  EXPECT_EQ(unsafe_prog_size, prog_size);
+}
+
 }

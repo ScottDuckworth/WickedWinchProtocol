@@ -4,6 +4,7 @@
 
 #include <stdbool.h>
 #include <stdint.h>
+#include <string.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -61,9 +62,12 @@ WickedEvalStatus_t WickedPostfixValidate(const uint8_t* prog_data, uint16_t prog
 void WickedPostfixEvaluate(const uint8_t* prog_data, uint16_t prog_size, uint16_t initial_stack_size, float* stack_data);
 
 static inline void WickedPostfixReadUnsafe(const uint8_t* data, const uint8_t** prog_data, uint16_t* prog_size) {
-  const WickedPostfixHeader_t* header = (const WickedPostfixHeader_t*)data;
   if (prog_data) *prog_data = data + sizeof(WickedPostfixHeader_t);
-  if (prog_size) *prog_size = header->prog_size;
+  if (prog_size) {
+    uint16_t size;
+    memcpy(&size, data, sizeof(uint16_t));
+    *prog_size = size;
+  }
 }
 
 #ifdef __cplusplus

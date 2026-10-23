@@ -67,19 +67,15 @@ extern "C" const char* WickedPostfixOpToString(WickedPostfixOp_t op) {
 
 extern "C" bool WickedPostfixRead(const uint8_t* data, size_t size, const uint8_t** prog_data, uint16_t* prog_size) {
   if (size < sizeof(WickedPostfixHeader)) return false;
-
-  const auto* header = reinterpret_cast<const WickedPostfixHeader*>(data);
-  uint16_t p_size = header->prog_size;
+  uint16_t p_size;
+  memcpy(&p_size, data, sizeof(uint16_t));
   constexpr size_t prog_offset = sizeof(WickedPostfixHeader);
   size_t total_size = prog_offset + p_size;
   if (size != total_size) return false;
-
   if (prog_data) *prog_data = data + prog_offset;
   if (prog_size) *prog_size = p_size;
   return true;
 }
-
-
 
 namespace {
 
