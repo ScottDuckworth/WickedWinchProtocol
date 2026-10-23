@@ -14,7 +14,7 @@ extern "C" bool WickedPathValidate(const uint8_t* path_data, size_t path_size) {
     if (path_size < segment.offset + segment.size) return false;
     WickedPostfixEval_t eval;
     if (!WickedPostfixRead(path_data + segment.offset, segment.size, &eval)) return false;
-    if (WickedPostfixValidateProgram(eval.prog_data, eval.prog_size, 1, 255) != WickedEvalStatus_Ok) return false;
+    if (WickedPostfixValidateProgram(eval.prog_data, eval.prog_size, 1, 255, 1) != WickedEvalStatus_Ok) return false;
   }
   return true;
 }

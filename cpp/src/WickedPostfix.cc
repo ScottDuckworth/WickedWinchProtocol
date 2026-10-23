@@ -106,7 +106,7 @@ extern "C" WickedEvalStatus_t WickedPostfixEval_popv(WickedPostfixEval_t* eval, 
   return WickedEvalStatus_Ok;
 }
 
-extern "C" WickedEvalStatus_t WickedPostfixValidateProgram(const uint8_t* prog_data, uint16_t prog_size, uint8_t initial_stack_size, uint8_t stack_capacity) {
+extern "C" WickedEvalStatus_t WickedPostfixValidateProgram(const uint8_t* prog_data, uint16_t prog_size, uint8_t initial_stack_size, uint8_t stack_capacity, uint8_t expected_final_stack_size) {
   if (initial_stack_size > stack_capacity) {
     return WickedEvalStatus_StackOverflow;
   }
@@ -284,12 +284,15 @@ extern "C" WickedEvalStatus_t WickedPostfixValidateProgram(const uint8_t* prog_d
         return WickedEvalStatus_UndefinedOperation;
     }
   }
+  if (stack_depth != expected_final_stack_size) {
+    return WickedEvalStatus_UnexpectedStackSize;
+  }
   return WickedEvalStatus_Ok;
 }
 
-extern "C" WickedEvalStatus_t WickedPostfixValidate(const WickedPostfixEval_t* eval) {
+extern "C" WickedEvalStatus_t WickedPostfixValidate(const WickedPostfixEval_t* eval, uint8_t expected_final_stack_size) {
   if (!eval) return WickedEvalStatus_IllegalOperation;
-  return WickedPostfixValidateProgram(eval->prog_data, eval->prog_size, eval->stack_size, eval->stack_capacity);
+  return WickedPostfixValidateProgram(eval->prog_data, eval->prog_size, eval->stack_size, eval->stack_capacity, expected_final_stack_size);
 }
 
 static inline uint8_t loadp(WickedPostfixEval_t* eval) {

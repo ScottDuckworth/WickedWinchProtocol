@@ -2,12 +2,13 @@
 
 extern "C" const char* WickedEvalStatus_ToString(WickedEvalStatus_t status) {
   switch (status) {
-    case WickedEvalStatus_Ok:                 return "Ok";
-    case WickedEvalStatus_UndefinedOperation: return "Undefined Operation";
-    case WickedEvalStatus_IllegalOperation:   return "Illegal Operation";
-    case WickedEvalStatus_DataUnderflow:      return "Float Literals Underflow";
-    case WickedEvalStatus_StackOverflow:      return "Stack Overflow";
-    case WickedEvalStatus_StackUnderflow:     return "Stack Underflow";
+    case WickedEvalStatus_Ok:                  return "Ok";
+    case WickedEvalStatus_UndefinedOperation:  return "Undefined Operation";
+    case WickedEvalStatus_IllegalOperation:    return "Illegal Operation";
+    case WickedEvalStatus_DataUnderflow:       return "Float Literals Underflow";
+    case WickedEvalStatus_StackOverflow:       return "Stack Overflow";
+    case WickedEvalStatus_StackUnderflow:      return "Stack Underflow";
+    case WickedEvalStatus_UnexpectedStackSize: return "Unexpected Stack Size";
   }
   return "UNKNOWN";
 }
