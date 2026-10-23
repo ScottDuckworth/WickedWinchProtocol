@@ -414,14 +414,14 @@ func (expr *Expression) Validate(initialStackLen, expectedFinalStackLen int) err
 	avail := func() int {
 		return len(expr.Prog) - pc
 	}
-	popi := func() int {
+	fetchByte := func() int {
 		v := expr.Prog[pc]
 		pc++
 		return int(v)
 	}
 
 	for avail() > 0 {
-		op := Operation(popi())
+		op := Operation(fetchByte())
 		switch op {
 		case Operation_Undefined:
 			return ErrUndefinedOperation
@@ -429,7 +429,7 @@ func (expr *Expression) Validate(initialStackLen, expectedFinalStackLen int) err
 			if avail() < 1 {
 				return ErrIllegalOperation
 			}
-			n := popi()
+			n := fetchByte()
 			if avail() < n*4 {
 				return ErrIllegalOperation
 			}
@@ -439,7 +439,7 @@ func (expr *Expression) Validate(initialStackLen, expectedFinalStackLen int) err
 			if avail() < 1 {
 				return ErrIllegalOperation
 			}
-			n := popi()
+			n := fetchByte()
 			if stackLen < n {
 				return ErrStackUnderflow
 			}
@@ -448,7 +448,7 @@ func (expr *Expression) Validate(initialStackLen, expectedFinalStackLen int) err
 			if avail() < 1 {
 				return ErrIllegalOperation
 			}
-			n := popi()
+			n := fetchByte()
 			if stackLen < n+1 {
 				return ErrStackUnderflow
 			}
@@ -457,7 +457,7 @@ func (expr *Expression) Validate(initialStackLen, expectedFinalStackLen int) err
 			if avail() < 1 {
 				return ErrIllegalOperation
 			}
-			n := popi()
+			n := fetchByte()
 			if stackLen < n {
 				return ErrStackUnderflow
 			}
@@ -465,8 +465,8 @@ func (expr *Expression) Validate(initialStackLen, expectedFinalStackLen int) err
 			if avail() < 2 {
 				return ErrIllegalOperation
 			}
-			rows := popi()
-			cols := popi()
+			rows := fetchByte()
+			cols := fetchByte()
 			size := rows * cols
 			if stackLen < size {
 				return ErrStackUnderflow
@@ -489,7 +489,7 @@ func (expr *Expression) Validate(initialStackLen, expectedFinalStackLen int) err
 			if avail() < 1 {
 				return ErrIllegalOperation
 			}
-			size := popi()
+			size := fetchByte()
 			if stackLen < size*2 {
 				return ErrStackUnderflow
 			}
@@ -498,7 +498,7 @@ func (expr *Expression) Validate(initialStackLen, expectedFinalStackLen int) err
 			if avail() < 1 {
 				return ErrIllegalOperation
 			}
-			size := popi()
+			size := fetchByte()
 			if stackLen < size*3 {
 				return ErrStackUnderflow
 			}
@@ -507,7 +507,7 @@ func (expr *Expression) Validate(initialStackLen, expectedFinalStackLen int) err
 			if avail() < 1 {
 				return ErrIllegalOperation
 			}
-			size := popi()
+			size := fetchByte()
 			if stackLen < size+1 {
 				return ErrStackUnderflow
 			}
@@ -516,7 +516,7 @@ func (expr *Expression) Validate(initialStackLen, expectedFinalStackLen int) err
 			if avail() < 1 {
 				return ErrIllegalOperation
 			}
-			size := popi()
+			size := fetchByte()
 			if stackLen < size {
 				return ErrStackUnderflow
 			}
@@ -524,7 +524,7 @@ func (expr *Expression) Validate(initialStackLen, expectedFinalStackLen int) err
 			if avail() < 1 {
 				return ErrIllegalOperation
 			}
-			size := popi()
+			size := fetchByte()
 			if stackLen < size {
 				return ErrStackUnderflow
 			}
@@ -533,9 +533,9 @@ func (expr *Expression) Validate(initialStackLen, expectedFinalStackLen int) err
 			if avail() < 3 {
 				return ErrIllegalOperation
 			}
-			arows := popi()
-			brows := popi()
-			bcols := popi()
+			arows := fetchByte()
+			brows := fetchByte()
+			bcols := fetchByte()
 			asize := arows * brows
 			bsize := brows * bcols
 			csize := arows * bcols
@@ -547,7 +547,7 @@ func (expr *Expression) Validate(initialStackLen, expectedFinalStackLen int) err
 			if avail() < 1 {
 				return ErrIllegalOperation
 			}
-			size := popi()
+			size := fetchByte()
 			if stackLen < size+1 {
 				return ErrStackUnderflow
 			}
@@ -556,8 +556,8 @@ func (expr *Expression) Validate(initialStackLen, expectedFinalStackLen int) err
 			if avail() < 2 {
 				return ErrIllegalOperation
 			}
-			rows := popi()
-			cols := popi()
+			rows := fetchByte()
+			cols := fetchByte()
 			coeffSize := rows * cols
 			if stackLen < coeffSize+1 {
 				return ErrStackUnderflow
@@ -567,7 +567,7 @@ func (expr *Expression) Validate(initialStackLen, expectedFinalStackLen int) err
 			if avail() < 1 {
 				return ErrIllegalOperation
 			}
-			size := popi()
+			size := fetchByte()
 			if stackLen < size*2+1 {
 				return ErrStackUnderflow
 			}
@@ -576,8 +576,8 @@ func (expr *Expression) Validate(initialStackLen, expectedFinalStackLen int) err
 			if avail() < 2 {
 				return ErrIllegalOperation
 			}
-			rows := popi()
-			cols := popi()
+			rows := fetchByte()
+			cols := fetchByte()
 			if rows < 1 || cols < 1 {
 				return ErrIllegalOperation
 			}
@@ -617,44 +617,44 @@ func (expr *Expression) Evaluate(stack []float64) []float64 {
 		stack = stack[:i]
 		return v
 	}
-	popi := func() int {
+	fetchByte := func() int {
 		v := expr.Prog[pc]
 		pc++
 		return int(v)
 	}
 
 	for pc < len(expr.Prog) {
-		op := Operation(popi())
+		op := Operation(fetchByte())
 		switch op {
 		case Operation_Push:
-			n := popi()
+			n := fetchByte()
 			for range n {
 				bits := binary.LittleEndian.Uint32(expr.Prog[pc : pc+4])
 				pc += 4
 				stack = append(stack, float64(math.Float32frombits(bits)))
 			}
 		case Operation_Pop:
-			n := popi()
+			n := fetchByte()
 			stack = stack[:len(stack)-n]
 		case Operation_Dup:
-			n := popi()
+			n := fetchByte()
 			stack = append(stack, stack[len(stack)-n-1])
 		case Operation_RotL:
-			n := popi()
+			n := fetchByte()
 			if n > 1 {
 				values := popv(n)
 				result := append(values[1:], values[0])
 				stack = append(stack, result...)
 			}
 		case Operation_RotR:
-			n := popi()
+			n := fetchByte()
 			if n > 1 {
 				values := popv(n)
 				result := append([]float64{values[len(values)-1]}, values[0:len(values)-1]...)
 				stack = append(stack, result...)
 			}
 		case Operation_Rev:
-			n := popi()
+			n := fetchByte()
 			if n > 1 {
 				values := stack[len(stack)-n:]
 				for i, j := 0, n-1; i < j; i, j = i+1, j-1 {
@@ -662,8 +662,8 @@ func (expr *Expression) Evaluate(stack []float64) []float64 {
 				}
 			}
 		case Operation_Transpose:
-			rows := popi()
-			cols := popi()
+			rows := fetchByte()
+			cols := fetchByte()
 			size := rows * cols
 			m := popv(size)
 			t := make([]float64, size)
@@ -740,28 +740,28 @@ func (expr *Expression) Evaluate(stack []float64) []float64 {
 			y := pop()
 			stack = append(stack, math.Atan2(y, x))
 		case Operation_AddVec:
-			size := popi()
+			size := fetchByte()
 			rhs := popv(size)
 			lhs := popv(size)
 			for i := range size {
 				stack = append(stack, lhs[i]+rhs[i])
 			}
 		case Operation_SubVec:
-			size := popi()
+			size := fetchByte()
 			rhs := popv(size)
 			lhs := popv(size)
 			for i := range size {
 				stack = append(stack, lhs[i]-rhs[i])
 			}
 		case Operation_MulVec:
-			size := popi()
+			size := fetchByte()
 			rhs := popv(size)
 			lhs := popv(size)
 			for i := range size {
 				stack = append(stack, lhs[i]*rhs[i])
 			}
 		case Operation_MulAddVec:
-			size := popi()
+			size := fetchByte()
 			c := popv(size)
 			b := popv(size)
 			a := popv(size)
@@ -769,20 +769,20 @@ func (expr *Expression) Evaluate(stack []float64) []float64 {
 				stack = append(stack, a[i]*b[i]+c[i])
 			}
 		case Operation_ScaleVec:
-			size := popi()
+			size := fetchByte()
 			vec := popv(size)
 			scalar := pop()
 			for i := range size {
 				stack = append(stack, scalar*vec[i])
 			}
 		case Operation_NegVec:
-			size := popi()
+			size := fetchByte()
 			vec := popv(size)
 			for i := range size {
 				stack = append(stack, -vec[i])
 			}
 		case Operation_NormVec:
-			size := popi()
+			size := fetchByte()
 			vec := popv(size)
 			var result float64
 			for i := range size {
@@ -790,9 +790,9 @@ func (expr *Expression) Evaluate(stack []float64) []float64 {
 			}
 			stack = append(stack, math.Sqrt(result))
 		case Operation_MulMat:
-			arows := popi()
-			brows := popi()
-			bcols := popi()
+			arows := fetchByte()
+			brows := fetchByte()
+			bcols := fetchByte()
 			asize := arows * brows
 			bsize := brows * bcols
 			csize := arows * bcols
@@ -810,7 +810,7 @@ func (expr *Expression) Evaluate(stack []float64) []float64 {
 			}
 			stack = append(stack, c...)
 		case Operation_PolyVec:
-			size := popi()
+			size := fetchByte()
 			coeff := popv(size)
 			t := pop()
 			var result float64
@@ -821,8 +821,8 @@ func (expr *Expression) Evaluate(stack []float64) []float64 {
 			}
 			stack = append(stack, result)
 		case Operation_PolyMat:
-			rows := popi()
-			cols := popi()
+			rows := fetchByte()
+			cols := fetchByte()
 			coeff := popv(rows * cols)
 			t := pop()
 			for j := range cols {
@@ -836,7 +836,7 @@ func (expr *Expression) Evaluate(stack []float64) []float64 {
 				stack = append(stack, r)
 			}
 		case Operation_LerpVec:
-			size := popi()
+			size := fetchByte()
 			v1 := popv(size)
 			v0 := popv(size)
 			t := pop()
@@ -844,8 +844,8 @@ func (expr *Expression) Evaluate(stack []float64) []float64 {
 				stack = append(stack, (1-t)*v0[i]+t*v1[i])
 			}
 		case Operation_LerpTable:
-			rows := popi()
-			cols := popi()
+			rows := fetchByte()
+			cols := fetchByte()
 			size := rows * cols
 			lut := popv(size)
 			t := pop()

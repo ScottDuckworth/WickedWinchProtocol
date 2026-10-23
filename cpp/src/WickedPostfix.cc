@@ -126,7 +126,7 @@ struct ValidationContext {
     return static_cast<size_t>(pc_end - pc) >= n;
   }
 
-  WICKED_ALWAYS_INLINE uint8_t loadp() {
+  WICKED_ALWAYS_INLINE uint8_t fetch_byte() {
     return *pc++;
   }
 
@@ -139,7 +139,7 @@ namespace validate {
 
 WICKED_ALWAYS_INLINE WickedEvalStatus_t Push(ValidationContext& ctx) {
   if (!ctx.has_bytes(1)) return WickedEvalStatus_IllegalOperation;
-  uint8_t n = ctx.loadp();
+  uint8_t n = ctx.fetch_byte();
   uint16_t byte_count = uint16_t(n) * sizeof(float);
   if (!ctx.has_bytes(byte_count)) return WickedEvalStatus_IllegalOperation;
   ctx.skip(byte_count);
@@ -150,7 +150,7 @@ WICKED_ALWAYS_INLINE WickedEvalStatus_t Push(ValidationContext& ctx) {
 
 WICKED_ALWAYS_INLINE WickedEvalStatus_t Pop(ValidationContext& ctx) {
   if (!ctx.has_bytes(1)) return WickedEvalStatus_IllegalOperation;
-  uint8_t n = ctx.loadp();
+  uint8_t n = ctx.fetch_byte();
   if (ctx.stack_depth < n) return WickedEvalStatus_StackUnderflow;
   ctx.stack_depth -= n;
   return WickedEvalStatus_Ok;
@@ -158,7 +158,7 @@ WICKED_ALWAYS_INLINE WickedEvalStatus_t Pop(ValidationContext& ctx) {
 
 WICKED_ALWAYS_INLINE WickedEvalStatus_t Dup(ValidationContext& ctx) {
   if (!ctx.has_bytes(1)) return WickedEvalStatus_IllegalOperation;
-  uint8_t n = ctx.loadp();
+  uint8_t n = ctx.fetch_byte();
   if (ctx.stack_depth < int32_t(n) + 1) return WickedEvalStatus_StackUnderflow;
   if (ctx.stack_depth + 1 > ctx.stack_capacity) return WickedEvalStatus_StackOverflow;
   ctx.stack_depth += 1;
@@ -167,15 +167,15 @@ WICKED_ALWAYS_INLINE WickedEvalStatus_t Dup(ValidationContext& ctx) {
 
 WICKED_ALWAYS_INLINE WickedEvalStatus_t RotOrRev(ValidationContext& ctx) {
   if (!ctx.has_bytes(1)) return WickedEvalStatus_IllegalOperation;
-  uint8_t n = ctx.loadp();
+  uint8_t n = ctx.fetch_byte();
   if (ctx.stack_depth < n) return WickedEvalStatus_StackUnderflow;
   return WickedEvalStatus_Ok;
 }
 
 WICKED_ALWAYS_INLINE WickedEvalStatus_t Transpose(ValidationContext& ctx) {
   if (!ctx.has_bytes(2)) return WickedEvalStatus_IllegalOperation;
-  uint8_t rows = ctx.loadp();
-  uint8_t cols = ctx.loadp();
+  uint8_t rows = ctx.fetch_byte();
+  uint8_t cols = ctx.fetch_byte();
   uint16_t size = uint16_t(rows) * cols;
   if (ctx.stack_depth < size) return WickedEvalStatus_StackUnderflow;
   if (rows > 1 && cols > 1 && rows != cols) {
@@ -203,7 +203,7 @@ WICKED_ALWAYS_INLINE WickedEvalStatus_t UnaryOp(ValidationContext& ctx) {
 
 WICKED_ALWAYS_INLINE WickedEvalStatus_t BinaryVec(ValidationContext& ctx) {
   if (!ctx.has_bytes(1)) return WickedEvalStatus_IllegalOperation;
-  uint8_t size = ctx.loadp();
+  uint8_t size = ctx.fetch_byte();
   if (ctx.stack_depth < int32_t(size) * 2) return WickedEvalStatus_StackUnderflow;
   ctx.stack_depth -= size;
   return WickedEvalStatus_Ok;
@@ -211,7 +211,7 @@ WICKED_ALWAYS_INLINE WickedEvalStatus_t BinaryVec(ValidationContext& ctx) {
 
 WICKED_ALWAYS_INLINE WickedEvalStatus_t MulAddVec(ValidationContext& ctx) {
   if (!ctx.has_bytes(1)) return WickedEvalStatus_IllegalOperation;
-  uint8_t size = ctx.loadp();
+  uint8_t size = ctx.fetch_byte();
   if (ctx.stack_depth < int32_t(size) * 3) return WickedEvalStatus_StackUnderflow;
   ctx.stack_depth -= int32_t(size) * 2;
   return WickedEvalStatus_Ok;
@@ -219,7 +219,7 @@ WICKED_ALWAYS_INLINE WickedEvalStatus_t MulAddVec(ValidationContext& ctx) {
 
 WICKED_ALWAYS_INLINE WickedEvalStatus_t ScaleVec(ValidationContext& ctx) {
   if (!ctx.has_bytes(1)) return WickedEvalStatus_IllegalOperation;
-  uint8_t size = ctx.loadp();
+  uint8_t size = ctx.fetch_byte();
   if (ctx.stack_depth < int32_t(size) + 1) return WickedEvalStatus_StackUnderflow;
   ctx.stack_depth -= 1;
   return WickedEvalStatus_Ok;
@@ -227,14 +227,14 @@ WICKED_ALWAYS_INLINE WickedEvalStatus_t ScaleVec(ValidationContext& ctx) {
 
 WICKED_ALWAYS_INLINE WickedEvalStatus_t NegVec(ValidationContext& ctx) {
   if (!ctx.has_bytes(1)) return WickedEvalStatus_IllegalOperation;
-  uint8_t size = ctx.loadp();
+  uint8_t size = ctx.fetch_byte();
   if (ctx.stack_depth < size) return WickedEvalStatus_StackUnderflow;
   return WickedEvalStatus_Ok;
 }
 
 WICKED_ALWAYS_INLINE WickedEvalStatus_t NormVec(ValidationContext& ctx) {
   if (!ctx.has_bytes(1)) return WickedEvalStatus_IllegalOperation;
-  uint8_t size = ctx.loadp();
+  uint8_t size = ctx.fetch_byte();
   if (ctx.stack_depth < size) return WickedEvalStatus_StackUnderflow;
   if (size == 0) {
     if (ctx.stack_depth + 1 > ctx.stack_capacity) return WickedEvalStatus_StackOverflow;
@@ -247,9 +247,9 @@ WICKED_ALWAYS_INLINE WickedEvalStatus_t NormVec(ValidationContext& ctx) {
 
 WICKED_ALWAYS_INLINE WickedEvalStatus_t MulMat(ValidationContext& ctx) {
   if (!ctx.has_bytes(3)) return WickedEvalStatus_IllegalOperation;
-  uint8_t arows = ctx.loadp();
-  uint8_t brows = ctx.loadp();
-  uint8_t bcols = ctx.loadp();
+  uint8_t arows = ctx.fetch_byte();
+  uint8_t brows = ctx.fetch_byte();
+  uint8_t bcols = ctx.fetch_byte();
   uint16_t asize = uint16_t(arows) * brows;
   uint16_t bsize = uint16_t(brows) * bcols;
   uint16_t csize = uint16_t(arows) * bcols;
@@ -261,7 +261,7 @@ WICKED_ALWAYS_INLINE WickedEvalStatus_t MulMat(ValidationContext& ctx) {
 
 WICKED_ALWAYS_INLINE WickedEvalStatus_t PolyVec(ValidationContext& ctx) {
   if (!ctx.has_bytes(1)) return WickedEvalStatus_IllegalOperation;
-  uint8_t size = ctx.loadp();
+  uint8_t size = ctx.fetch_byte();
   if (ctx.stack_depth < int32_t(size) + 1) return WickedEvalStatus_StackUnderflow;
   ctx.stack_depth -= size;
   return WickedEvalStatus_Ok;
@@ -269,8 +269,8 @@ WICKED_ALWAYS_INLINE WickedEvalStatus_t PolyVec(ValidationContext& ctx) {
 
 WICKED_ALWAYS_INLINE WickedEvalStatus_t PolyMat(ValidationContext& ctx) {
   if (!ctx.has_bytes(2)) return WickedEvalStatus_IllegalOperation;
-  uint8_t rows = ctx.loadp();
-  uint8_t cols = ctx.loadp();
+  uint8_t rows = ctx.fetch_byte();
+  uint8_t cols = ctx.fetch_byte();
   uint16_t coeff_size = uint16_t(rows) * cols;
   if (ctx.stack_depth < int32_t(coeff_size) + 1) return WickedEvalStatus_StackUnderflow;
   if (ctx.stack_depth - (int32_t(coeff_size) + 1) + cols > ctx.stack_capacity) return WickedEvalStatus_StackOverflow;
@@ -280,7 +280,7 @@ WICKED_ALWAYS_INLINE WickedEvalStatus_t PolyMat(ValidationContext& ctx) {
 
 WICKED_ALWAYS_INLINE WickedEvalStatus_t LerpVec(ValidationContext& ctx) {
   if (!ctx.has_bytes(1)) return WickedEvalStatus_IllegalOperation;
-  uint8_t size = ctx.loadp();
+  uint8_t size = ctx.fetch_byte();
   if (ctx.stack_depth < int32_t(size) * 2 + 1) return WickedEvalStatus_StackUnderflow;
   ctx.stack_depth -= (int32_t(size) + 1);
   return WickedEvalStatus_Ok;
@@ -288,8 +288,8 @@ WICKED_ALWAYS_INLINE WickedEvalStatus_t LerpVec(ValidationContext& ctx) {
 
 WICKED_ALWAYS_INLINE WickedEvalStatus_t LerpTable(ValidationContext& ctx) {
   if (!ctx.has_bytes(2)) return WickedEvalStatus_IllegalOperation;
-  uint8_t rows = ctx.loadp();
-  uint8_t cols = ctx.loadp();
+  uint8_t rows = ctx.fetch_byte();
+  uint8_t cols = ctx.fetch_byte();
   if (rows < 1 || cols < 1) return WickedEvalStatus_IllegalOperation;
   uint16_t lut_size = uint16_t(rows) * cols;
   if (ctx.stack_depth < int32_t(lut_size) + 1) return WickedEvalStatus_StackUnderflow;
@@ -314,7 +314,7 @@ extern "C" WickedEvalStatus_t WickedPostfixValidateProgram(const uint8_t* prog_d
   };
 
   while (ctx.pc < ctx.pc_end) {
-    uint8_t op = ctx.loadp();
+    uint8_t op = ctx.fetch_byte();
     WickedEvalStatus_t status = WickedEvalStatus_Ok;
 
     switch (op) {
@@ -382,23 +382,17 @@ struct EvalContext {
   const uint8_t* pc;
   float* sp;
 
-  WICKED_ALWAYS_INLINE uint8_t loadp() {
+  WICKED_ALWAYS_INLINE uint8_t fetch_byte() {
     return *pc++;
-  }
-
-  WICKED_ALWAYS_INLINE const uint8_t* loadpv(uint16_t n) {
-    const uint8_t* p = pc;
-    pc += n;
-    return p;
   }
 
   WICKED_ALWAYS_INLINE void push(float v) {
     *sp++ = v;
   }
 
-  WICKED_ALWAYS_INLINE void pushv(const float* v, size_t n) {
-    std::memcpy(sp, v, n * sizeof(float));
-    sp += n;
+  WICKED_ALWAYS_INLINE void push(std::span<const float> v) {
+    std::memcpy(sp, v.data(), v.size_bytes());
+    sp += v.size();
   }
 
   WICKED_ALWAYS_INLINE float pop() {
@@ -428,24 +422,24 @@ struct EvalContext {
 namespace ops {
 
 WICKED_ALWAYS_INLINE void Push(EvalContext& ctx) {
-  uint8_t n = ctx.loadp();
-  const uint8_t* v = ctx.loadpv(uint16_t(n) * sizeof(float));
-  ctx.pushv(reinterpret_cast<const float*>(v), n);
+  uint8_t n = ctx.fetch_byte();
+  ctx.push({reinterpret_cast<const float*>(ctx.pc), n});
+  ctx.pc += uint16_t(n) * sizeof(float);
 }
 
 WICKED_ALWAYS_INLINE void Pop(EvalContext& ctx) {
-  uint8_t n = ctx.loadp();
+  uint8_t n = ctx.fetch_byte();
   ctx.sp -= n;
 }
 
 WICKED_ALWAYS_INLINE void Dup(EvalContext& ctx) {
-  uint8_t n = ctx.loadp();
+  uint8_t n = ctx.fetch_byte();
   float v = ctx.sp[-1 - n];
   ctx.push(v);
 }
 
 WICKED_ALWAYS_INLINE void RotL(EvalContext& ctx) {
-  uint8_t n = ctx.loadp();
+  uint8_t n = ctx.fetch_byte();
   if (n > 1) {
     std::span<float> values = ctx.peekv(n);
     float l = values[0];
@@ -455,7 +449,7 @@ WICKED_ALWAYS_INLINE void RotL(EvalContext& ctx) {
 }
 
 WICKED_ALWAYS_INLINE void RotR(EvalContext& ctx) {
-  uint8_t n = ctx.loadp();
+  uint8_t n = ctx.fetch_byte();
   if (n > 1) {
     std::span<float> values = ctx.peekv(n);
     float r = values.back();
@@ -465,7 +459,7 @@ WICKED_ALWAYS_INLINE void RotR(EvalContext& ctx) {
 }
 
 WICKED_ALWAYS_INLINE void Rev(EvalContext& ctx) {
-  uint8_t n = ctx.loadp();
+  uint8_t n = ctx.fetch_byte();
   if (n > 1) {
     std::span<float> values = ctx.peekv(n);
     std::reverse(values.begin(), values.end());
@@ -473,8 +467,8 @@ WICKED_ALWAYS_INLINE void Rev(EvalContext& ctx) {
 }
 
 WICKED_ALWAYS_INLINE void Transpose(EvalContext& ctx) {
-  uint8_t rows = ctx.loadp();
-  uint8_t cols = ctx.loadp();
+  uint8_t rows = ctx.fetch_byte();
+  uint8_t cols = ctx.fetch_byte();
   uint16_t size = uint16_t(rows) * cols;
   std::span<float> m = ctx.peekv(size);
   if (rows > 1 && cols > 1) {
@@ -583,7 +577,7 @@ WICKED_ALWAYS_INLINE void Atan2(EvalContext& ctx) {
 }
 
 WICKED_ALWAYS_INLINE void PolyVec(EvalContext& ctx) {
-  uint8_t size = ctx.loadp();
+  uint8_t size = ctx.fetch_byte();
   std::span<float> coeff = ctx.popv(size);
   float t = ctx.pop();
   float result = 0;
@@ -596,8 +590,8 @@ WICKED_ALWAYS_INLINE void PolyVec(EvalContext& ctx) {
 }
 
 WICKED_ALWAYS_INLINE void PolyMat(EvalContext& ctx) {
-  uint8_t rows = ctx.loadp();
-  uint8_t cols = ctx.loadp();
+  uint8_t rows = ctx.fetch_byte();
+  uint8_t cols = ctx.fetch_byte();
   std::span<float> coeff = ctx.popv(rows * cols);
   float t = ctx.pop();
   std::span<float> result = ctx.allocv(cols);
@@ -614,7 +608,7 @@ WICKED_ALWAYS_INLINE void PolyMat(EvalContext& ctx) {
 }
 
 WICKED_ALWAYS_INLINE void AddVec(EvalContext& ctx) {
-  uint8_t size = ctx.loadp();
+  uint8_t size = ctx.fetch_byte();
   std::span<float> rhs = ctx.popv(size);
   std::span<float> lhs = ctx.peekv(size);
   for (uint8_t i = 0; i < size; ++i) {
@@ -623,7 +617,7 @@ WICKED_ALWAYS_INLINE void AddVec(EvalContext& ctx) {
 }
 
 WICKED_ALWAYS_INLINE void SubVec(EvalContext& ctx) {
-  uint8_t size = ctx.loadp();
+  uint8_t size = ctx.fetch_byte();
   std::span<float> rhs = ctx.popv(size);
   std::span<float> lhs = ctx.peekv(size);
   for (uint8_t i = 0; i < size; ++i) {
@@ -632,7 +626,7 @@ WICKED_ALWAYS_INLINE void SubVec(EvalContext& ctx) {
 }
 
 WICKED_ALWAYS_INLINE void MulVec(EvalContext& ctx) {
-  uint8_t size = ctx.loadp();
+  uint8_t size = ctx.fetch_byte();
   std::span<float> rhs = ctx.popv(size);
   std::span<float> lhs = ctx.peekv(size);
   for (uint8_t i = 0; i < size; ++i) {
@@ -641,7 +635,7 @@ WICKED_ALWAYS_INLINE void MulVec(EvalContext& ctx) {
 }
 
 WICKED_ALWAYS_INLINE void MulAddVec(EvalContext& ctx) {
-  uint8_t size = ctx.loadp();
+  uint8_t size = ctx.fetch_byte();
   std::span<float> c = ctx.popv(size);
   std::span<float> b = ctx.popv(size);
   std::span<float> a = ctx.peekv(size);
@@ -651,7 +645,7 @@ WICKED_ALWAYS_INLINE void MulAddVec(EvalContext& ctx) {
 }
 
 WICKED_ALWAYS_INLINE void ScaleVec(EvalContext& ctx) {
-  uint8_t size = ctx.loadp();
+  uint8_t size = ctx.fetch_byte();
   std::span<float> v = ctx.popv(size);
   float scalar = ctx.pop();
   std::span<float> result = ctx.allocv(size);
@@ -661,7 +655,7 @@ WICKED_ALWAYS_INLINE void ScaleVec(EvalContext& ctx) {
 }
 
 WICKED_ALWAYS_INLINE void NegVec(EvalContext& ctx) {
-  uint8_t size = ctx.loadp();
+  uint8_t size = ctx.fetch_byte();
   std::span<float> v = ctx.peekv(size);
   for (uint8_t i = 0; i < size; ++i) {
     v[i] = -v[i];
@@ -669,7 +663,7 @@ WICKED_ALWAYS_INLINE void NegVec(EvalContext& ctx) {
 }
 
 WICKED_ALWAYS_INLINE void NormVec(EvalContext& ctx) {
-  uint8_t size = ctx.loadp();
+  uint8_t size = ctx.fetch_byte();
   std::span<float> v = ctx.popv(size);
   float result = 0;
   for (uint8_t i = 0; i < size; ++i) {
@@ -679,9 +673,9 @@ WICKED_ALWAYS_INLINE void NormVec(EvalContext& ctx) {
 }
 
 WICKED_ALWAYS_INLINE void MulMat(EvalContext& ctx) {
-  uint8_t arows = ctx.loadp();
-  uint8_t brows = ctx.loadp();
-  uint8_t bcols = ctx.loadp();
+  uint8_t arows = ctx.fetch_byte();
+  uint8_t brows = ctx.fetch_byte();
+  uint8_t bcols = ctx.fetch_byte();
 
   uint16_t asize = uint16_t(arows) * brows;
   uint16_t bsize = uint16_t(brows) * bcols;
@@ -709,7 +703,7 @@ WICKED_ALWAYS_INLINE void MulMat(EvalContext& ctx) {
 }
 
 WICKED_ALWAYS_INLINE void LerpVec(EvalContext& ctx) {
-  uint8_t size = ctx.loadp();
+  uint8_t size = ctx.fetch_byte();
   std::span<float> v1 = ctx.popv(size);
   std::span<float> v0 = ctx.popv(size);
   float t = ctx.pop();
@@ -720,8 +714,8 @@ WICKED_ALWAYS_INLINE void LerpVec(EvalContext& ctx) {
 }
 
 WICKED_ALWAYS_INLINE void LerpTable(EvalContext& ctx) {
-  uint8_t rows = ctx.loadp();
-  uint8_t cols = ctx.loadp();
+  uint8_t rows = ctx.fetch_byte();
+  uint8_t cols = ctx.fetch_byte();
   uint8_t size = rows * cols;
   uint8_t n = cols - 1;
   std::span<float> lut = ctx.popv(size);
@@ -761,7 +755,7 @@ extern "C" void WickedPostfixEvaluate(WickedPostfixEval_t* eval) {
   const uint8_t* const pc_end = eval->prog_data + eval->prog_size;
 
   while (ctx.pc < pc_end) {
-    const uint8_t op = ctx.loadp();
+    const uint8_t op = ctx.fetch_byte();
     switch (op) {
       case WickedPostfixOp_Push:      ops::Push(ctx); break;
       case WickedPostfixOp_Pop:       ops::Pop(ctx); break;
