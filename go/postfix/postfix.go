@@ -1,4 +1,4 @@
-package postfix
+﻿package postfix
 
 import (
 	"cmp"
@@ -59,7 +59,7 @@ const (
 	Operation_MulMat    Operation = 34
 	Operation_PolyVec   Operation = 35
 	Operation_PolyMat   Operation = 36
-	Operation_Lerp      Operation = 37
+	Operation_LerpVec   Operation = 37
 	Operation_LerpTable Operation = 38
 )
 
@@ -147,8 +147,8 @@ func (op Operation) String() string {
 		return "PolyVec"
 	case Operation_PolyMat:
 		return "PolyMat"
-	case Operation_Lerp:
-		return "Lerp"
+	case Operation_LerpVec:
+		return "LerpVec"
 	case Operation_LerpTable:
 		return "LerpTable"
 	default:
@@ -396,8 +396,8 @@ func (b *Builder) MulMat(arows, brows, bcols int) *Builder {
 	return b
 }
 
-func (b *Builder) Lerp(size int) *Builder {
-	b.expr.Prog = append(b.expr.Prog, uint8(Operation_Lerp), uint8(size))
+func (b *Builder) LerpVec(size int) *Builder {
+	b.expr.Prog = append(b.expr.Prog, uint8(Operation_LerpVec), uint8(size))
 	return b
 }
 
@@ -790,7 +790,7 @@ func Eval(expr *Expression, stack []float64) ([]float64, error) {
 				}
 			}
 			stack = append(stack, c...)
-		case Operation_Lerp:
+		case Operation_LerpVec:
 			if avail() < 1 {
 				return nil, ErrIllegalOperation
 			}

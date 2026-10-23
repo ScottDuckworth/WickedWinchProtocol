@@ -51,7 +51,7 @@ typedef enum WickedPostfixOp {
   WickedPostfixOp_MulMat    = 34,
   WickedPostfixOp_PolyVec   = 35,
   WickedPostfixOp_PolyMat   = 36,
-  WickedPostfixOp_Lerp      = 37,
+  WickedPostfixOp_LerpVec   = 37,
   WickedPostfixOp_LerpTable = 38,
 } WickedPostfixOp_t;
 

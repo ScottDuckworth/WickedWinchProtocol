@@ -1,4 +1,4 @@
-package postfix_test
+﻿package postfix_test
 
 import (
 	"bytes"
@@ -683,43 +683,43 @@ func TestEvalPostfixExpression(t *testing.T) {
 		},
 		{
 			name:      "lerp 1d 0",
-			expr:      postfix.MakeBuilder().Lerp(1).Build(),
+			expr:      postfix.MakeBuilder().LerpVec(1).Build(),
 			stack:     []float64{0, 1, 2},
 			wantStack: []float64{1},
 		},
 		{
 			name:      "lerp 1d 1",
-			expr:      postfix.MakeBuilder().Lerp(1).Build(),
+			expr:      postfix.MakeBuilder().LerpVec(1).Build(),
 			stack:     []float64{1, 1, 2},
 			wantStack: []float64{2},
 		},
 		{
 			name:      "lerp 1d 0.5",
-			expr:      postfix.MakeBuilder().Lerp(1).Build(),
+			expr:      postfix.MakeBuilder().LerpVec(1).Build(),
 			stack:     []float64{0.5, 1, 2},
 			wantStack: []float64{1.5},
 		},
 		{
 			name:      "lerp 3d 0.5",
-			expr:      postfix.MakeBuilder().Lerp(3).Build(),
+			expr:      postfix.MakeBuilder().LerpVec(3).Build(),
 			stack:     []float64{0.5, 1, 2, 3, 4, 5, 6},
 			wantStack: []float64{2.5, 3.5, 4.5},
 		},
 		{
 			name:    "lerp underflow",
-			expr:    postfix.MakeBuilder().Lerp(1).Build(),
+			expr:    postfix.MakeBuilder().LerpVec(1).Build(),
 			stack:   []float64{0.5, 1},
 			wantErr: postfix.ErrStackUnderflow,
 		},
 		{
 			name:      "push 1 lerp 3d 0.5",
-			expr:      postfix.MakeBuilder().Push(4, 5, 6).Lerp(3).Build(),
+			expr:      postfix.MakeBuilder().Push(4, 5, 6).LerpVec(3).Build(),
 			stack:     []float64{0.5, 1, 2, 3},
 			wantStack: []float64{2.5, 3.5, 4.5},
 		},
 		{
 			name:      "push 2 lerp 3d 0.5",
-			expr:      postfix.MakeBuilder().Push(1, 2, 3, 4, 5, 6).Lerp(3).Build(),
+			expr:      postfix.MakeBuilder().Push(1, 2, 3, 4, 5, 6).LerpVec(3).Build(),
 			stack:     []float64{0.5},
 			wantStack: []float64{2.5, 3.5, 4.5},
 		},

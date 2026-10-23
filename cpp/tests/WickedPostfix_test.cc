@@ -1,4 +1,4 @@
-﻿#include "WickedPostfix.h"
+#include "WickedPostfix.h"
 
 #include <cmath>
 #include <span>
@@ -1089,9 +1089,9 @@ TEST(EvalTest, MulMatIntUnderflow) {
 
 
 
-TEST(EvalTest, Lerp) {
+TEST(EvalTest, LerpVec) {
   WickedPostfixWriter writer;
-  writer.add_i(WickedPostfixOp_Lerp);
+  writer.add_i(WickedPostfixOp_LerpVec);
   writer.add_i(3);
   auto buffer = writer.Write();
 
@@ -1101,9 +1101,9 @@ TEST(EvalTest, Lerp) {
   EXPECT_THAT(eval.stack(), ElementsAre(0, 3, 4, 5));
 }
 
-TEST(EvalTest, LerpStackUnderflow) {
+TEST(EvalTest, LerpVecStackUnderflow) {
   WickedPostfixWriter writer;
-  writer.add_i(WickedPostfixOp_Lerp);
+  writer.add_i(WickedPostfixOp_LerpVec);
   writer.add_i(3);
   auto buffer = writer.Write();
 
@@ -1112,9 +1112,9 @@ TEST(EvalTest, LerpStackUnderflow) {
   EXPECT_EQ(WickedPostfixEvaluate(&eval.eval), WickedEvalStatus_StackUnderflow);
 }
 
-TEST(EvalTest, LerpIntUnderflow) {
+TEST(EvalTest, LerpVecIntUnderflow) {
   WickedPostfixWriter writer;
-  writer.add_i(WickedPostfixOp_Lerp);
+  writer.add_i(WickedPostfixOp_LerpVec);
   auto buffer = writer.Write();
 
   TestEval eval(12, {0, 0.25, 2, 3, 4, 5, 6, 7, 8});
