@@ -295,74 +295,77 @@ extern "C" WickedEvalStatus_t WickedPostfixValidate(const WickedPostfixEval_t* e
   return WickedPostfixValidateProgram(eval->prog_data, eval->prog_size, eval->stack_size, eval->stack_capacity, expected_final_stack_size);
 }
 
-static inline uint8_t loadp(WickedPostfixEval_t* eval) {
-  return eval->prog_data[eval->pc++];
-}
-
-static inline const uint8_t* loadpv(WickedPostfixEval_t* eval, uint16_t n) {
-  const uint8_t* p = &eval->prog_data[eval->pc];
-  eval->pc += n;
-  return p;
-}
-
-static inline void push(WickedPostfixEval_t* eval, float v) {
-  eval->stack_data[eval->stack_size++] = v;
-}
-
-static inline void pushv(WickedPostfixEval_t* eval, const float* v, size_t n) {
-  memcpy(&eval->stack_data[eval->stack_size], v, n * sizeof(float));
-  eval->stack_size += static_cast<uint8_t>(n);
-}
-
-static inline float pop(WickedPostfixEval_t* eval) {
-  return eval->stack_data[--eval->stack_size];
-}
-
-static inline std::span<float> popv(WickedPostfixEval_t* eval, uint8_t n) {
-  eval->stack_size -= n;
-  return std::span<float>(&eval->stack_data[eval->stack_size], n);
-}
-
-static inline float& peek(WickedPostfixEval_t* eval) {
-  return eval->stack_data[eval->stack_size - 1];
-}
-
-static inline std::span<float> peekv(WickedPostfixEval_t* eval, uint8_t n) {
-  return std::span<float>(&eval->stack_data[eval->stack_size - n], n);
-}
-
-static inline std::span<float> allocv(WickedPostfixEval_t* eval, uint8_t n) {
-  std::span<float> s(&eval->stack_data[eval->stack_size], n);
-  eval->stack_size += n;
-  return s;
-}
-
 extern "C" void WickedPostfixEvaluate(WickedPostfixEval_t* eval) {
-  eval->pc = 0;
-  while (eval->pc < eval->prog_size) {
-    const uint8_t op = eval->prog_data[eval->pc++];
+  const uint8_t* pc = eval->prog_data;
+  const uint8_t* const pc_end = eval->prog_data + eval->prog_size;
+  float* sp = eval->stack_data + eval->stack_size;
+
+  auto loadp = [&pc]() -> uint8_t {
+    return *pc++;
+  };
+
+  auto loadpv = [&pc](uint16_t n) -> const uint8_t* {
+    const uint8_t* p = pc;
+    pc += n;
+    return p;
+  };
+
+  auto push = [&sp](float v) {
+    *sp++ = v;
+  };
+
+  auto pushv = [&sp](const float* v, size_t n) {
+    std::memcpy(sp, v, n * sizeof(float));
+    sp += n;
+  };
+
+  auto pop = [&sp]() -> float {
+    return *--sp;
+  };
+
+  auto popv = [&sp](uint8_t n) -> std::span<float> {
+    sp -= n;
+    return std::span<float>(sp, n);
+  };
+
+  auto peek = [&sp]() -> float& {
+    return sp[-1];
+  };
+
+  auto peekv = [&sp](uint8_t n) -> std::span<float> {
+    return std::span<float>(sp - n, n);
+  };
+
+  auto allocv = [&sp](uint8_t n) -> std::span<float> {
+    std::span<float> s(sp, n);
+    sp += n;
+    return s;
+  };
+
+  while (pc < pc_end) {
+    const uint8_t op = *pc++;
     switch (op) {
     case WickedPostfixOp_Push: {
-      uint8_t n = loadp(eval);
-      const uint8_t* v = loadpv(eval, uint16_t(n) * sizeof(float));
-      pushv(eval, reinterpret_cast<const float*>(v), n);
+      uint8_t n = loadp();
+      const uint8_t* v = loadpv(uint16_t(n) * sizeof(float));
+      pushv(reinterpret_cast<const float*>(v), n);
       break;
     }
     case WickedPostfixOp_Pop: {
-      uint8_t n = loadp(eval);
-      eval->stack_size -= n;
+      uint8_t n = loadp();
+      sp -= n;
       break;
     }
     case WickedPostfixOp_Dup: {
-      uint8_t n = loadp(eval);
-      float v = eval->stack_data[eval->stack_size - 1 - n];
-      push(eval, v);
+      uint8_t n = loadp();
+      float v = sp[-1 - n];
+      push(v);
       break;
     }
     case WickedPostfixOp_RotL: {
-      uint8_t n = loadp(eval);
+      uint8_t n = loadp();
       if (n > 1) {
-        std::span<float> values = peekv(eval, n);
+        std::span<float> values = peekv(n);
         float l = values[0];
         std::copy(values.begin() + 1, values.end(), values.begin());
         values.back() = l;
@@ -370,9 +373,9 @@ extern "C" void WickedPostfixEvaluate(WickedPostfixEval_t* eval) {
       break;
     }
     case WickedPostfixOp_RotR: {
-      uint8_t n = loadp(eval);
+      uint8_t n = loadp();
       if (n > 1) {
-        std::span<float> values = peekv(eval, n);
+        std::span<float> values = peekv(n);
         float r = values.back();
         std::copy_backward(values.begin(), values.end() - 1, values.end());
         values.front() = r;
@@ -380,18 +383,18 @@ extern "C" void WickedPostfixEvaluate(WickedPostfixEval_t* eval) {
       break;
     }
     case WickedPostfixOp_Rev: {
-      uint8_t n = loadp(eval);
+      uint8_t n = loadp();
       if (n > 1) {
-        std::span<float> values = peekv(eval, n);
+        std::span<float> values = peekv(n);
         std::reverse(values.begin(), values.end());
       }
       break;
     }
     case WickedPostfixOp_Transpose: {
-      uint8_t rows = loadp(eval);
-      uint8_t cols = loadp(eval);
+      uint8_t rows = loadp();
+      uint8_t cols = loadp();
       uint16_t size = uint16_t(rows) * cols;
-      std::span<float> m = peekv(eval, size);
+      std::span<float> m = peekv(size);
       if (rows > 1 && cols > 1) {
         if (rows == cols) {
           for (uint8_t i = 0; i < rows; ++i) {
@@ -400,7 +403,7 @@ extern "C" void WickedPostfixEvaluate(WickedPostfixEval_t* eval) {
             }
           }
         } else {
-          float* out = &eval->stack_data[eval->stack_size];
+          float* out = sp;
           for (uint8_t i = 0; i < rows; ++i) {
             for (uint8_t j = 0; j < cols; ++j) {
               out[rows * j + i] = m[cols * i + j];
@@ -412,109 +415,110 @@ extern "C" void WickedPostfixEvaluate(WickedPostfixEval_t* eval) {
       break;
     }
     case WickedPostfixOp_Add: {
-      float b = pop(eval);
-      peek(eval) += b;
+      float b = pop();
+      peek() += b;
       break;
     }
     case WickedPostfixOp_Sub: {
-      float b = pop(eval);
-      peek(eval) -= b;
+      float b = pop();
+      peek() -= b;
       break;
     }
     case WickedPostfixOp_Mul: {
-      float b = pop(eval);
-      peek(eval) *= b;
+      float b = pop();
+      peek() *= b;
       break;
     }
     case WickedPostfixOp_MulAdd: {
-      float c = pop(eval);
-      float b = pop(eval);
-      peek(eval) = peek(eval) * b + c;
+      float c = pop();
+      float b = pop();
+      float& top = peek();
+      top = top * b + c;
       break;
     }
     case WickedPostfixOp_Div: {
-      float b = pop(eval);
-      peek(eval) /= b;
+      float b = pop();
+      peek() /= b;
       break;
     }
     case WickedPostfixOp_Mod: {
-      float b = pop(eval);
-      peek(eval) = std::fmod(peek(eval), b);
+      float b = pop();
+      peek() = std::fmod(peek(), b);
       break;
     }
     case WickedPostfixOp_Neg: {
-      peek(eval) = -peek(eval);
+      peek() = -peek();
       break;
     }
     case WickedPostfixOp_Abs: {
-      peek(eval) = std::abs(peek(eval));
+      peek() = std::abs(peek());
       break;
     }
     case WickedPostfixOp_Inv: {
-      peek(eval) = 1.0f / peek(eval);
+      peek() = 1.0f / peek();
       break;
     }
     case WickedPostfixOp_Pow: {
-      float b = pop(eval);
-      peek(eval) = std::pow(peek(eval), b);
+      float b = pop();
+      peek() = std::pow(peek(), b);
       break;
     }
     case WickedPostfixOp_Sqrt: {
-      peek(eval) = std::sqrt(peek(eval));
+      peek() = std::sqrt(peek());
       break;
     }
     case WickedPostfixOp_Exp: {
-      peek(eval) = std::exp(peek(eval));
+      peek() = std::exp(peek());
       break;
     }
     case WickedPostfixOp_Ln: {
-      peek(eval) = std::log(peek(eval));
+      peek() = std::log(peek());
       break;
     }
     case WickedPostfixOp_Sin: {
-      peek(eval) = std::sin(peek(eval));
+      peek() = std::sin(peek());
       break;
     }
     case WickedPostfixOp_Cos: {
-      peek(eval) = std::cos(peek(eval));
+      peek() = std::cos(peek());
       break;
     }
     case WickedPostfixOp_Tan: {
-      peek(eval) = std::tan(peek(eval));
+      peek() = std::tan(peek());
       break;
     }
     case WickedPostfixOp_Asin: {
-      peek(eval) = std::asin(peek(eval));
+      peek() = std::asin(peek());
       break;
     }
     case WickedPostfixOp_Acos: {
-      peek(eval) = std::acos(peek(eval));
+      peek() = std::acos(peek());
       break;
     }
     case WickedPostfixOp_Atan2: {
-      float x = pop(eval);
-      peek(eval) = std::atan2(peek(eval), x);
+      float x = pop();
+      peek() = std::atan2(peek(), x);
       break;
     }
     case WickedPostfixOp_PolyVec: {
-      uint8_t size = loadp(eval);
-      std::span<float> coeff = popv(eval, size);
-      float t = pop(eval);
+      uint8_t size = loadp();
+      std::span<float> coeff = popv(size);
+      float t = pop();
       float result = 0;
       float p = 1;
       for (uint8_t n = 0; n < size; ++n) {
         result += coeff[n] * p;
         p *= t;
       }
-      push(eval, result);
+      push(result);
       break;
     }
     case WickedPostfixOp_PolyMat: {
-      uint8_t rows = loadp(eval);
-      uint8_t cols = loadp(eval);
-      std::span<float> coeff = popv(eval, rows * cols);
-      float t = pop(eval);
-      std::span<float> result = allocv(eval, cols);
+      uint8_t rows = loadp();
+      uint8_t cols = loadp();
+      std::span<float> coeff = popv(rows * cols);
+      float t = pop();
+      std::span<float> result = allocv(cols);
       for (uint8_t j = 0; j < cols; ++j) {
         float r = 0;
         float p = 1;
@@ -528,83 +532,83 @@ extern "C" void WickedPostfixEvaluate(WickedPostfixEval_t* eval) {
       break;
     }
     case WickedPostfixOp_AddVec: {
-      uint8_t size = loadp(eval);
-      std::span<float> rhs = popv(eval, size);
-      std::span<float> lhs = peekv(eval, size);
+      uint8_t size = loadp();
+      std::span<float> rhs = popv(size);
+      std::span<float> lhs = peekv(size);
       for (uint8_t i = 0; i < size; ++i) {
         lhs[i] += rhs[i];
       }
       break;
     }
     case WickedPostfixOp_SubVec: {
-      uint8_t size = loadp(eval);
-      std::span<float> rhs = popv(eval, size);
-      std::span<float> lhs = peekv(eval, size);
+      uint8_t size = loadp();
+      std::span<float> rhs = popv(size);
+      std::span<float> lhs = peekv(size);
       for (uint8_t i = 0; i < size; ++i) {
         lhs[i] -= rhs[i];
       }
       break;
     }
     case WickedPostfixOp_MulVec: {
-      uint8_t size = loadp(eval);
-      std::span<float> rhs = popv(eval, size);
-      std::span<float> lhs = peekv(eval, size);
+      uint8_t size = loadp();
+      std::span<float> rhs = popv(size);
+      std::span<float> lhs = peekv(size);
       for (uint8_t i = 0; i < size; ++i) {
         lhs[i] *= rhs[i];
       }
       break;
     }
     case WickedPostfixOp_MulAddVec: {
-      uint8_t size = loadp(eval);
-      std::span<float> c = popv(eval, size);
-      std::span<float> b = popv(eval, size);
-      std::span<float> a = peekv(eval, size);
+      uint8_t size = loadp();
+      std::span<float> c = popv(size);
+      std::span<float> b = popv(size);
+      std::span<float> a = peekv(size);
       for (uint8_t i = 0; i < size; ++i) {
         a[i] = a[i] * b[i] + c[i];
       }
       break;
     }
     case WickedPostfixOp_ScaleVec: {
-      uint8_t size = loadp(eval);
-      std::span<float> v = popv(eval, size);
-      float scalar = pop(eval);
-      std::span<float> result = allocv(eval, size);
+      uint8_t size = loadp();
+      std::span<float> v = popv(size);
+      float scalar = pop();
+      std::span<float> result = allocv(size);
       for (uint8_t i = 0; i < size; ++i) {
         result[i] = scalar * v[i];
       }
       break;
     }
     case WickedPostfixOp_NegVec: {
-      uint8_t size = loadp(eval);
-      std::span<float> v = peekv(eval, size);
+      uint8_t size = loadp();
+      std::span<float> v = peekv(size);
       for (uint8_t i = 0; i < size; ++i) {
         v[i] = -v[i];
       }
       break;
     }
     case WickedPostfixOp_NormVec: {
-      uint8_t size = loadp(eval);
-      std::span<float> v = popv(eval, size);
+      uint8_t size = loadp();
+      std::span<float> v = popv(size);
       float result = 0;
       for (uint8_t i = 0; i < size; ++i) {
         result += v[i] * v[i];
       }
-      push(eval, std::sqrt(result));
+      push(std::sqrt(result));
       break;
     }
     case WickedPostfixOp_MulMat: {
-      uint8_t arows = loadp(eval);
-      uint8_t brows = loadp(eval);
-      uint8_t bcols = loadp(eval);
+      uint8_t arows = loadp();
+      uint8_t brows = loadp();
+      uint8_t bcols = loadp();
 
       uint16_t asize = uint16_t(arows) * brows;
       uint16_t bsize = uint16_t(brows) * bcols;
       uint16_t csize = uint16_t(arows) * bcols;
 
-      std::span<float> b = popv(eval, bsize);
-      std::span<float> a = popv(eval, asize);
+      std::span<float> b = popv(bsize);
+      std::span<float> a = popv(asize);
 
-      float* c = &eval->stack_data[eval->stack_size + asize + bsize];
+      float* c = sp + asize + bsize;
 
       for (uint8_t i = 0; i < arows; ++i) {
         for (uint8_t j = 0; j < bcols; ++j) {
@@ -619,28 +623,28 @@ extern "C" void WickedPostfixEvaluate(WickedPostfixEval_t* eval) {
 
       float* dest = a.data();
       std::memmove(dest, c, csize * sizeof(float));
-      eval->stack_size += csize;
+      sp += csize;
       break;
     }
     case WickedPostfixOp_LerpVec: {
-      uint8_t size = loadp(eval);
-      std::span<float> v1 = popv(eval, size);
-      std::span<float> v0 = popv(eval, size);
-      float t = pop(eval);
-      std::span<float> result = allocv(eval, size);
+      uint8_t size = loadp();
+      std::span<float> v1 = popv(size);
+      std::span<float> v0 = popv(size);
+      float t = pop();
+      std::span<float> result = allocv(size);
       for (uint8_t i = 0; i < size; ++i) {
         result[i] = (1.0f - t) * v0[i] + t * v1[i];
       }
       break;
     }
     case WickedPostfixOp_LerpTable: {
-      uint8_t rows = loadp(eval);
-      uint8_t cols = loadp(eval);
+      uint8_t rows = loadp();
+      uint8_t cols = loadp();
       uint8_t size = rows * cols;
       uint8_t n = cols - 1;
-      std::span<float> lut = popv(eval, size);
-      float t = pop(eval);
-      std::span<float> result = allocv(eval, n);
+      std::span<float> lut = popv(size);
+      float t = pop();
+      std::span<float> result = allocv(n);
       uint8_t ubrow = wicked_upper_bound(uint8_t(0), rows, [t, cols, lut](uint8_t i) -> bool {
         return t < lut[cols * i];
       });
@@ -668,6 +672,9 @@ extern "C" void WickedPostfixEvaluate(WickedPostfixEval_t* eval) {
       break;
     }
   }
+
+  eval->pc = static_cast<uint16_t>(pc - eval->prog_data);
+  eval->stack_size = static_cast<uint8_t>(sp - eval->stack_data);
 }
 
 bool WickedPostfixWriter::Write(uint8_t* data, size_t size) const {
