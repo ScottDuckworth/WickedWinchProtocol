@@ -12,6 +12,14 @@ static_assert(std::endian::native == std::endian::little);
 static_assert(sizeof(float) == 4);
 static_assert(sizeof(WickedPostfixHeader) == 2);
 
+#if defined(_MSC_VER)
+#define WICKED_ALWAYS_INLINE __forceinline
+#elif defined(__GNUC__) || defined(__clang__)
+#define WICKED_ALWAYS_INLINE inline __attribute__((always_inline))
+#else
+#define WICKED_ALWAYS_INLINE inline
+#endif
+
 extern "C" const char* WickedPostfixOpToString(WickedPostfixOp_t op) {
   switch (op) {
     case WickedPostfixOp_Undefined: return "Undefined";
@@ -106,77 +114,225 @@ extern "C" WickedEvalStatus_t WickedPostfixEval_popv(WickedPostfixEval_t* eval, 
   return WickedEvalStatus_Ok;
 }
 
+namespace {
+
+struct ValidationContext {
+  const uint8_t* pc;
+  const uint8_t* const pc_end;
+  int32_t stack_depth;
+  const uint8_t stack_capacity;
+
+  WICKED_ALWAYS_INLINE bool has_bytes(uint16_t n) const {
+    return static_cast<size_t>(pc_end - pc) >= n;
+  }
+
+  WICKED_ALWAYS_INLINE uint8_t loadp() {
+    return *pc++;
+  }
+
+  WICKED_ALWAYS_INLINE void skip(uint16_t n) {
+    pc += n;
+  }
+};
+
+namespace validate {
+
+WICKED_ALWAYS_INLINE WickedEvalStatus_t Push(ValidationContext& ctx) {
+  if (!ctx.has_bytes(1)) return WickedEvalStatus_IllegalOperation;
+  uint8_t n = ctx.loadp();
+  uint16_t byte_count = uint16_t(n) * sizeof(float);
+  if (!ctx.has_bytes(byte_count)) return WickedEvalStatus_IllegalOperation;
+  ctx.skip(byte_count);
+  if (ctx.stack_depth + n > ctx.stack_capacity) return WickedEvalStatus_StackOverflow;
+  ctx.stack_depth += n;
+  return WickedEvalStatus_Ok;
+}
+
+WICKED_ALWAYS_INLINE WickedEvalStatus_t Pop(ValidationContext& ctx) {
+  if (!ctx.has_bytes(1)) return WickedEvalStatus_IllegalOperation;
+  uint8_t n = ctx.loadp();
+  if (ctx.stack_depth < n) return WickedEvalStatus_StackUnderflow;
+  ctx.stack_depth -= n;
+  return WickedEvalStatus_Ok;
+}
+
+WICKED_ALWAYS_INLINE WickedEvalStatus_t Dup(ValidationContext& ctx) {
+  if (!ctx.has_bytes(1)) return WickedEvalStatus_IllegalOperation;
+  uint8_t n = ctx.loadp();
+  if (ctx.stack_depth < int32_t(n) + 1) return WickedEvalStatus_StackUnderflow;
+  if (ctx.stack_depth + 1 > ctx.stack_capacity) return WickedEvalStatus_StackOverflow;
+  ctx.stack_depth += 1;
+  return WickedEvalStatus_Ok;
+}
+
+WICKED_ALWAYS_INLINE WickedEvalStatus_t RotOrRev(ValidationContext& ctx) {
+  if (!ctx.has_bytes(1)) return WickedEvalStatus_IllegalOperation;
+  uint8_t n = ctx.loadp();
+  if (ctx.stack_depth < n) return WickedEvalStatus_StackUnderflow;
+  return WickedEvalStatus_Ok;
+}
+
+WICKED_ALWAYS_INLINE WickedEvalStatus_t Transpose(ValidationContext& ctx) {
+  if (!ctx.has_bytes(2)) return WickedEvalStatus_IllegalOperation;
+  uint8_t rows = ctx.loadp();
+  uint8_t cols = ctx.loadp();
+  uint16_t size = uint16_t(rows) * cols;
+  if (ctx.stack_depth < size) return WickedEvalStatus_StackUnderflow;
+  if (rows > 1 && cols > 1 && rows != cols) {
+    if (ctx.stack_depth + size > ctx.stack_capacity) return WickedEvalStatus_StackOverflow;
+  }
+  return WickedEvalStatus_Ok;
+}
+
+WICKED_ALWAYS_INLINE WickedEvalStatus_t BinaryOp(ValidationContext& ctx) {
+  if (ctx.stack_depth < 2) return WickedEvalStatus_StackUnderflow;
+  ctx.stack_depth -= 1;
+  return WickedEvalStatus_Ok;
+}
+
+WICKED_ALWAYS_INLINE WickedEvalStatus_t MulAdd(ValidationContext& ctx) {
+  if (ctx.stack_depth < 3) return WickedEvalStatus_StackUnderflow;
+  ctx.stack_depth -= 2;
+  return WickedEvalStatus_Ok;
+}
+
+WICKED_ALWAYS_INLINE WickedEvalStatus_t UnaryOp(ValidationContext& ctx) {
+  if (ctx.stack_depth < 1) return WickedEvalStatus_StackUnderflow;
+  return WickedEvalStatus_Ok;
+}
+
+WICKED_ALWAYS_INLINE WickedEvalStatus_t BinaryVec(ValidationContext& ctx) {
+  if (!ctx.has_bytes(1)) return WickedEvalStatus_IllegalOperation;
+  uint8_t size = ctx.loadp();
+  if (ctx.stack_depth < int32_t(size) * 2) return WickedEvalStatus_StackUnderflow;
+  ctx.stack_depth -= size;
+  return WickedEvalStatus_Ok;
+}
+
+WICKED_ALWAYS_INLINE WickedEvalStatus_t MulAddVec(ValidationContext& ctx) {
+  if (!ctx.has_bytes(1)) return WickedEvalStatus_IllegalOperation;
+  uint8_t size = ctx.loadp();
+  if (ctx.stack_depth < int32_t(size) * 3) return WickedEvalStatus_StackUnderflow;
+  ctx.stack_depth -= int32_t(size) * 2;
+  return WickedEvalStatus_Ok;
+}
+
+WICKED_ALWAYS_INLINE WickedEvalStatus_t ScaleVec(ValidationContext& ctx) {
+  if (!ctx.has_bytes(1)) return WickedEvalStatus_IllegalOperation;
+  uint8_t size = ctx.loadp();
+  if (ctx.stack_depth < int32_t(size) + 1) return WickedEvalStatus_StackUnderflow;
+  ctx.stack_depth -= 1;
+  return WickedEvalStatus_Ok;
+}
+
+WICKED_ALWAYS_INLINE WickedEvalStatus_t NegVec(ValidationContext& ctx) {
+  if (!ctx.has_bytes(1)) return WickedEvalStatus_IllegalOperation;
+  uint8_t size = ctx.loadp();
+  if (ctx.stack_depth < size) return WickedEvalStatus_StackUnderflow;
+  return WickedEvalStatus_Ok;
+}
+
+WICKED_ALWAYS_INLINE WickedEvalStatus_t NormVec(ValidationContext& ctx) {
+  if (!ctx.has_bytes(1)) return WickedEvalStatus_IllegalOperation;
+  uint8_t size = ctx.loadp();
+  if (ctx.stack_depth < size) return WickedEvalStatus_StackUnderflow;
+  if (size == 0) {
+    if (ctx.stack_depth + 1 > ctx.stack_capacity) return WickedEvalStatus_StackOverflow;
+    ctx.stack_depth += 1;
+  } else {
+    ctx.stack_depth -= (size - 1);
+  }
+  return WickedEvalStatus_Ok;
+}
+
+WICKED_ALWAYS_INLINE WickedEvalStatus_t MulMat(ValidationContext& ctx) {
+  if (!ctx.has_bytes(3)) return WickedEvalStatus_IllegalOperation;
+  uint8_t arows = ctx.loadp();
+  uint8_t brows = ctx.loadp();
+  uint8_t bcols = ctx.loadp();
+  uint16_t asize = uint16_t(arows) * brows;
+  uint16_t bsize = uint16_t(brows) * bcols;
+  uint16_t csize = uint16_t(arows) * bcols;
+  if (ctx.stack_depth < asize + bsize) return WickedEvalStatus_StackUnderflow;
+  if (ctx.stack_depth + csize > ctx.stack_capacity) return WickedEvalStatus_StackOverflow;
+  ctx.stack_depth = ctx.stack_depth - asize - bsize + csize;
+  return WickedEvalStatus_Ok;
+}
+
+WICKED_ALWAYS_INLINE WickedEvalStatus_t PolyVec(ValidationContext& ctx) {
+  if (!ctx.has_bytes(1)) return WickedEvalStatus_IllegalOperation;
+  uint8_t size = ctx.loadp();
+  if (ctx.stack_depth < int32_t(size) + 1) return WickedEvalStatus_StackUnderflow;
+  ctx.stack_depth -= size;
+  return WickedEvalStatus_Ok;
+}
+
+WICKED_ALWAYS_INLINE WickedEvalStatus_t PolyMat(ValidationContext& ctx) {
+  if (!ctx.has_bytes(2)) return WickedEvalStatus_IllegalOperation;
+  uint8_t rows = ctx.loadp();
+  uint8_t cols = ctx.loadp();
+  uint16_t coeff_size = uint16_t(rows) * cols;
+  if (ctx.stack_depth < int32_t(coeff_size) + 1) return WickedEvalStatus_StackUnderflow;
+  if (ctx.stack_depth - (int32_t(coeff_size) + 1) + cols > ctx.stack_capacity) return WickedEvalStatus_StackOverflow;
+  ctx.stack_depth = ctx.stack_depth - (int32_t(coeff_size) + 1) + cols;
+  return WickedEvalStatus_Ok;
+}
+
+WICKED_ALWAYS_INLINE WickedEvalStatus_t LerpVec(ValidationContext& ctx) {
+  if (!ctx.has_bytes(1)) return WickedEvalStatus_IllegalOperation;
+  uint8_t size = ctx.loadp();
+  if (ctx.stack_depth < int32_t(size) * 2 + 1) return WickedEvalStatus_StackUnderflow;
+  ctx.stack_depth -= (int32_t(size) + 1);
+  return WickedEvalStatus_Ok;
+}
+
+WICKED_ALWAYS_INLINE WickedEvalStatus_t LerpTable(ValidationContext& ctx) {
+  if (!ctx.has_bytes(2)) return WickedEvalStatus_IllegalOperation;
+  uint8_t rows = ctx.loadp();
+  uint8_t cols = ctx.loadp();
+  if (rows < 1 || cols < 1) return WickedEvalStatus_IllegalOperation;
+  uint16_t lut_size = uint16_t(rows) * cols;
+  if (ctx.stack_depth < int32_t(lut_size) + 1) return WickedEvalStatus_StackUnderflow;
+  if (ctx.stack_depth - (int32_t(lut_size) + 1) + (cols - 1) > ctx.stack_capacity) return WickedEvalStatus_StackOverflow;
+  ctx.stack_depth = ctx.stack_depth - (int32_t(lut_size) + 1) + (cols - 1);
+  return WickedEvalStatus_Ok;
+}
+
+} // namespace validate
+} // namespace
+
 extern "C" WickedEvalStatus_t WickedPostfixValidateProgram(const uint8_t* prog_data, uint16_t prog_size, uint8_t initial_stack_size, uint8_t stack_capacity, uint8_t expected_final_stack_size) {
   if (initial_stack_size > stack_capacity) {
     return WickedEvalStatus_StackOverflow;
   }
 
-  uint16_t pc = 0;
-  int32_t stack_depth = initial_stack_size;
+  ValidationContext ctx{
+    .pc = prog_data,
+    .pc_end = prog_data + prog_size,
+    .stack_depth = initial_stack_size,
+    .stack_capacity = stack_capacity,
+  };
 
-  while (pc < prog_size) {
-    uint8_t op = prog_data[pc++];
+  while (ctx.pc < ctx.pc_end) {
+    uint8_t op = ctx.loadp();
+    WickedEvalStatus_t status = WickedEvalStatus_Ok;
+
     switch (op) {
-      case WickedPostfixOp_Push: {
-        if (pc >= prog_size) return WickedEvalStatus_IllegalOperation;
-        uint8_t n = prog_data[pc++];
-        uint16_t byte_count = uint16_t(n) * sizeof(float);
-        if (prog_size - pc < byte_count) return WickedEvalStatus_IllegalOperation;
-        pc += byte_count;
-        if (stack_depth + n > stack_capacity) return WickedEvalStatus_StackOverflow;
-        stack_depth += n;
-        break;
-      }
-      case WickedPostfixOp_Pop: {
-        if (pc >= prog_size) return WickedEvalStatus_IllegalOperation;
-        uint8_t n = prog_data[pc++];
-        if (stack_depth < n) return WickedEvalStatus_StackUnderflow;
-        stack_depth -= n;
-        break;
-      }
-      case WickedPostfixOp_Dup: {
-        if (pc >= prog_size) return WickedEvalStatus_IllegalOperation;
-        uint8_t n = prog_data[pc++];
-        if (stack_depth < int32_t(n) + 1) return WickedEvalStatus_StackUnderflow;
-        if (stack_depth + 1 > stack_capacity) return WickedEvalStatus_StackOverflow;
-        stack_depth += 1;
-        break;
-      }
+      case WickedPostfixOp_Push:      status = validate::Push(ctx); break;
+      case WickedPostfixOp_Pop:       status = validate::Pop(ctx); break;
+      case WickedPostfixOp_Dup:       status = validate::Dup(ctx); break;
       case WickedPostfixOp_RotL:
       case WickedPostfixOp_RotR:
-      case WickedPostfixOp_Rev: {
-        if (pc >= prog_size) return WickedEvalStatus_IllegalOperation;
-        uint8_t n = prog_data[pc++];
-        if (stack_depth < n) return WickedEvalStatus_StackUnderflow;
-        break;
-      }
-      case WickedPostfixOp_Transpose: {
-        if (prog_size - pc < 2) return WickedEvalStatus_IllegalOperation;
-        uint8_t rows = prog_data[pc++];
-        uint8_t cols = prog_data[pc++];
-        uint16_t size = uint16_t(rows) * cols;
-        if (stack_depth < size) return WickedEvalStatus_StackUnderflow;
-        if (rows > 1 && cols > 1 && rows != cols) {
-          if (stack_depth + size > stack_capacity) return WickedEvalStatus_StackOverflow;
-        }
-        break;
-      }
+      case WickedPostfixOp_Rev:       status = validate::RotOrRev(ctx); break;
+      case WickedPostfixOp_Transpose: status = validate::Transpose(ctx); break;
       case WickedPostfixOp_Add:
       case WickedPostfixOp_Sub:
       case WickedPostfixOp_Mul:
       case WickedPostfixOp_Div:
       case WickedPostfixOp_Mod:
       case WickedPostfixOp_Pow:
-      case WickedPostfixOp_Atan2: {
-        if (stack_depth < 2) return WickedEvalStatus_StackUnderflow;
-        stack_depth -= 1;
-        break;
-      }
-      case WickedPostfixOp_MulAdd: {
-        if (stack_depth < 3) return WickedEvalStatus_StackUnderflow;
-        stack_depth -= 2;
-        break;
-      }
+      case WickedPostfixOp_Atan2:     status = validate::BinaryOp(ctx); break;
+      case WickedPostfixOp_MulAdd:    status = validate::MulAdd(ctx); break;
       case WickedPostfixOp_Neg:
       case WickedPostfixOp_Abs:
       case WickedPostfixOp_Inv:
@@ -187,104 +343,29 @@ extern "C" WickedEvalStatus_t WickedPostfixValidateProgram(const uint8_t* prog_d
       case WickedPostfixOp_Cos:
       case WickedPostfixOp_Tan:
       case WickedPostfixOp_Asin:
-      case WickedPostfixOp_Acos: {
-        if (stack_depth < 1) return WickedEvalStatus_StackUnderflow;
-        break;
-      }
+      case WickedPostfixOp_Acos:      status = validate::UnaryOp(ctx); break;
       case WickedPostfixOp_AddVec:
       case WickedPostfixOp_SubVec:
-      case WickedPostfixOp_MulVec: {
-        if (pc >= prog_size) return WickedEvalStatus_IllegalOperation;
-        uint8_t size = prog_data[pc++];
-        if (stack_depth < int32_t(size) * 2) return WickedEvalStatus_StackUnderflow;
-        stack_depth -= size;
-        break;
-      }
-      case WickedPostfixOp_MulAddVec: {
-        if (pc >= prog_size) return WickedEvalStatus_IllegalOperation;
-        uint8_t size = prog_data[pc++];
-        if (stack_depth < int32_t(size) * 3) return WickedEvalStatus_StackUnderflow;
-        stack_depth -= int32_t(size) * 2;
-        break;
-      }
-      case WickedPostfixOp_ScaleVec: {
-        if (pc >= prog_size) return WickedEvalStatus_IllegalOperation;
-        uint8_t size = prog_data[pc++];
-        if (stack_depth < int32_t(size) + 1) return WickedEvalStatus_StackUnderflow;
-        stack_depth -= 1;
-        break;
-      }
-      case WickedPostfixOp_NegVec: {
-        if (pc >= prog_size) return WickedEvalStatus_IllegalOperation;
-        uint8_t size = prog_data[pc++];
-        if (stack_depth < size) return WickedEvalStatus_StackUnderflow;
-        break;
-      }
-      case WickedPostfixOp_NormVec: {
-        if (pc >= prog_size) return WickedEvalStatus_IllegalOperation;
-        uint8_t size = prog_data[pc++];
-        if (stack_depth < size) return WickedEvalStatus_StackUnderflow;
-        if (size == 0) {
-          if (stack_depth + 1 > stack_capacity) return WickedEvalStatus_StackOverflow;
-          stack_depth += 1;
-        } else {
-          stack_depth -= (size - 1);
-        }
-        break;
-      }
-      case WickedPostfixOp_MulMat: {
-        if (prog_size - pc < 3) return WickedEvalStatus_IllegalOperation;
-        uint8_t arows = prog_data[pc++];
-        uint8_t brows = prog_data[pc++];
-        uint8_t bcols = prog_data[pc++];
-        uint16_t asize = uint16_t(arows) * brows;
-        uint16_t bsize = uint16_t(brows) * bcols;
-        uint16_t csize = uint16_t(arows) * bcols;
-        if (stack_depth < asize + bsize) return WickedEvalStatus_StackUnderflow;
-        if (stack_depth + csize > stack_capacity) return WickedEvalStatus_StackOverflow;
-        stack_depth = stack_depth - asize - bsize + csize;
-        break;
-      }
-      case WickedPostfixOp_PolyVec: {
-        if (pc >= prog_size) return WickedEvalStatus_IllegalOperation;
-        uint8_t size = prog_data[pc++];
-        if (stack_depth < int32_t(size) + 1) return WickedEvalStatus_StackUnderflow;
-        stack_depth -= size;
-        break;
-      }
-      case WickedPostfixOp_PolyMat: {
-        if (prog_size - pc < 2) return WickedEvalStatus_IllegalOperation;
-        uint8_t rows = prog_data[pc++];
-        uint8_t cols = prog_data[pc++];
-        uint16_t coeff_size = uint16_t(rows) * cols;
-        if (stack_depth < int32_t(coeff_size) + 1) return WickedEvalStatus_StackUnderflow;
-        if (stack_depth - (int32_t(coeff_size) + 1) + cols > stack_capacity) return WickedEvalStatus_StackOverflow;
-        stack_depth = stack_depth - (int32_t(coeff_size) + 1) + cols;
-        break;
-      }
-      case WickedPostfixOp_LerpVec: {
-        if (pc >= prog_size) return WickedEvalStatus_IllegalOperation;
-        uint8_t size = prog_data[pc++];
-        if (stack_depth < int32_t(size) * 2 + 1) return WickedEvalStatus_StackUnderflow;
-        stack_depth -= (int32_t(size) + 1);
-        break;
-      }
-      case WickedPostfixOp_LerpTable: {
-        if (prog_size - pc < 2) return WickedEvalStatus_IllegalOperation;
-        uint8_t rows = prog_data[pc++];
-        uint8_t cols = prog_data[pc++];
-        if (rows < 1 || cols < 1) return WickedEvalStatus_IllegalOperation;
-        uint16_t lut_size = uint16_t(rows) * cols;
-        if (stack_depth < int32_t(lut_size) + 1) return WickedEvalStatus_StackUnderflow;
-        if (stack_depth - (int32_t(lut_size) + 1) + (cols - 1) > stack_capacity) return WickedEvalStatus_StackOverflow;
-        stack_depth = stack_depth - (int32_t(lut_size) + 1) + (cols - 1);
-        break;
-      }
+      case WickedPostfixOp_MulVec:    status = validate::BinaryVec(ctx); break;
+      case WickedPostfixOp_MulAddVec: status = validate::MulAddVec(ctx); break;
+      case WickedPostfixOp_ScaleVec:  status = validate::ScaleVec(ctx); break;
+      case WickedPostfixOp_NegVec:    status = validate::NegVec(ctx); break;
+      case WickedPostfixOp_NormVec:   status = validate::NormVec(ctx); break;
+      case WickedPostfixOp_MulMat:    status = validate::MulMat(ctx); break;
+      case WickedPostfixOp_PolyVec:   status = validate::PolyVec(ctx); break;
+      case WickedPostfixOp_PolyMat:   status = validate::PolyMat(ctx); break;
+      case WickedPostfixOp_LerpVec:   status = validate::LerpVec(ctx); break;
+      case WickedPostfixOp_LerpTable: status = validate::LerpTable(ctx); break;
       default:
         return WickedEvalStatus_UndefinedOperation;
     }
+
+    if (status != WickedEvalStatus_Ok) {
+      return status;
+    }
   }
-  if (stack_depth != expected_final_stack_size) {
+
+  if (ctx.stack_depth != expected_final_stack_size) {
     return WickedEvalStatus_UnexpectedStackSize;
   }
   return WickedEvalStatus_Ok;
@@ -294,14 +375,6 @@ extern "C" WickedEvalStatus_t WickedPostfixValidate(const WickedPostfixEval_t* e
   if (!eval) return WickedEvalStatus_IllegalOperation;
   return WickedPostfixValidateProgram(eval->prog_data, eval->prog_size, eval->stack_size, eval->stack_capacity, expected_final_stack_size);
 }
-
-#if defined(_MSC_VER)
-#define WICKED_ALWAYS_INLINE __forceinline
-#elif defined(__GNUC__) || defined(__clang__)
-#define WICKED_ALWAYS_INLINE inline __attribute__((always_inline))
-#else
-#define WICKED_ALWAYS_INLINE inline
-#endif
 
 namespace {
 
