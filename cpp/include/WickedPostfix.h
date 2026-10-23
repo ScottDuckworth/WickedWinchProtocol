@@ -53,7 +53,6 @@ typedef enum WickedPostfixOp {
   WickedPostfixOp_PolyVec   = 35,
   WickedPostfixOp_PolyMat   = 36,
   WickedPostfixOp_LerpVec   = 37,
-  WickedPostfixOp_LerpTable = 38,
 } WickedPostfixOp_t;
 
 const char* WickedPostfixOpToString(WickedPostfixOp_t op);

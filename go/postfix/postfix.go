@@ -8,7 +8,6 @@ import (
 	"io"
 	"math"
 	"slices"
-	"sort"
 	"strings"
 )
 
@@ -62,7 +61,6 @@ const (
 	Operation_PolyVec   Operation = 35
 	Operation_PolyMat   Operation = 36
 	Operation_LerpVec   Operation = 37
-	Operation_LerpTable Operation = 38
 )
 
 type Expression struct {
@@ -151,8 +149,6 @@ func (op Operation) String() string {
 		return "PolyMat"
 	case Operation_LerpVec:
 		return "LerpVec"
-	case Operation_LerpTable:
-		return "LerpTable"
 	default:
 		return fmt.Sprintf("unknown[%d]", op)
 	}
@@ -403,11 +399,6 @@ func (b *Builder) LerpVec(size int) *Builder {
 	return b
 }
 
-func (b *Builder) LerpTable(rows, cols int) *Builder {
-	b.expr.Prog = append(b.expr.Prog, uint8(Operation_LerpTable), uint8(rows), uint8(cols))
-	return b
-}
-
 func (expr *Expression) Validate(initialStackLen int) (minCapacity, finalStackLen int, err error) {
 	pc := 0
 	stackLen := initialStackLen
@@ -591,21 +582,6 @@ func (expr *Expression) Validate(initialStackLen int) (minCapacity, finalStackLe
 				return 0, 0, ErrStackUnderflow
 			}
 			stackLen -= size + 1
-		case Operation_LerpTable:
-			if avail() < 2 {
-				return 0, 0, ErrIllegalOperation
-			}
-			rows := fetchByte()
-			cols := fetchByte()
-			if rows < 1 || cols < 1 {
-				return 0, 0, ErrIllegalOperation
-			}
-			lutSize := rows * cols
-			if stackLen < lutSize+1 {
-				return 0, 0, ErrStackUnderflow
-			}
-			stackLen = stackLen - (lutSize + 1) + (cols - 1)
-			updateMax(stackLen)
 		default:
 			return 0, 0, ErrUndefinedOperation
 		}
@@ -863,35 +839,6 @@ func (expr *Expression) Evaluate(stack []float64) []float64 {
 			for i := range size {
 				stack = append(stack, (1-t)*v0[i]+t*v1[i])
 			}
-		case Operation_LerpTable:
-			rows := fetchByte()
-			cols := fetchByte()
-			size := rows * cols
-			lut := popv(size)
-			t := pop()
-			ub := sort.Search(rows, func(i int) bool {
-				return t < lut[cols*i]
-			})
-			if ub == 0 {
-				bound := lut[:cols]
-				stack = append(stack, bound[1:]...)
-			} else if ub == rows {
-				bound := lut[len(lut)-cols:]
-				stack = append(stack, bound[1:]...)
-			} else {
-				t0 := lut[(ub-1)*cols]
-				t1 := lut[ub*cols]
-				t = (t - t0) / (t1 - t0)
-				v0 := lut[(ub-1)*cols+1 : ub*cols]
-				v1 := lut[ub*cols+1 : (ub+1)*cols]
-				result := make([]float64, cols-1)
-				for i := range cols - 1 {
-					result[i] = (1-t)*v0[i] + t*v1[i]
-				}
-				stack = append(stack, result...)
-			}
-		default:
-			break
 		}
 	}
 	return stack

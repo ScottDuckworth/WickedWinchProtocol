@@ -1,5 +1,4 @@
 #include "WickedPostfix.h"
-#include "WickedUtil.hh"
 
 #include <algorithm>
 #include <bit>
@@ -60,7 +59,6 @@ extern "C" const char* WickedPostfixOpToString(WickedPostfixOp_t op) {
     case WickedPostfixOp_PolyVec:   return "PolyVec";
     case WickedPostfixOp_PolyMat:   return "PolyMat";
     case WickedPostfixOp_LerpVec:   return "LerpVec";
-    case WickedPostfixOp_LerpTable: return "LerpTable";
   }
   return "UNKNOWN";
 }
@@ -255,18 +253,6 @@ WICKED_ALWAYS_INLINE WickedEvalStatus_t LerpVec(ValidationContext& ctx) {
   return WickedEvalStatus_Ok;
 }
 
-WICKED_ALWAYS_INLINE WickedEvalStatus_t LerpTable(ValidationContext& ctx) {
-  if (!ctx.has_bytes(2)) return WickedEvalStatus_IllegalOperation;
-  uint8_t rows = ctx.fetch_byte();
-  uint8_t cols = ctx.fetch_byte();
-  if (rows < 1 || cols < 1) return WickedEvalStatus_IllegalOperation;
-  uint16_t lut_size = uint16_t(rows) * cols;
-  if (ctx.stack_depth < int32_t(lut_size) + 1) return WickedEvalStatus_StackUnderflow;
-  ctx.stack_depth = ctx.stack_depth - (int32_t(lut_size) + 1) + (cols - 1);
-  ctx.update_max(ctx.stack_depth);
-  return WickedEvalStatus_Ok;
-}
-
 } // namespace validate
 } // namespace
 
@@ -320,7 +306,6 @@ extern "C" WickedEvalStatus_t WickedPostfixValidate(const uint8_t* prog_data, ui
       case WickedPostfixOp_PolyVec:   status = validate::PolyVec(ctx); break;
       case WickedPostfixOp_PolyMat:   status = validate::PolyMat(ctx); break;
       case WickedPostfixOp_LerpVec:   status = validate::LerpVec(ctx); break;
-      case WickedPostfixOp_LerpTable: status = validate::LerpTable(ctx); break;
       default:
         return WickedEvalStatus_UndefinedOperation;
     }
@@ -677,37 +662,6 @@ WICKED_ALWAYS_INLINE void LerpVec(EvalContext& ctx) {
   }
 }
 
-WICKED_ALWAYS_INLINE void LerpTable(EvalContext& ctx) {
-  uint8_t rows = ctx.fetch_byte();
-  uint8_t cols = ctx.fetch_byte();
-  uint8_t size = rows * cols;
-  uint8_t n = cols - 1;
-  std::span<float> lut = ctx.popv(size);
-  float t = ctx.pop();
-  std::span<float> result = ctx.allocv(n);
-  uint8_t ubrow = wicked_upper_bound(uint8_t(0), rows, [t, cols, lut](uint8_t i) -> bool {
-    return t < lut[cols * i];
-  });
-  if (ubrow == 0) {
-    auto bound = lut.begin();
-    std::copy(bound + 1, bound + cols, result.begin());
-  } else if (ubrow == rows) {
-    auto bound = lut.end() - cols;
-    std::copy(bound + 1, bound + cols, result.begin());
-  } else {
-    auto ub = lut.begin() + ubrow * cols;
-    auto lb = ub - cols;
-    float t0 = *lb;
-    float t1 = *ub;
-    t = (t - t0) / (t1 - t0);
-    std::span<const float> v0(lb + 1, n);
-    std::span<const float> v1(ub + 1, n);
-    for (size_t i = 0; i < result.size(); ++i) {
-      result[i] = (1.0f - t) * v0[i] + t * v1[i];
-    }
-  }
-}
-
 } // namespace ops
 } // namespace
 
@@ -758,7 +712,6 @@ extern "C" void WickedPostfixEvaluate(const uint8_t* prog_data, uint16_t prog_si
       case WickedPostfixOp_NormVec:   ops::NormVec(ctx); break;
       case WickedPostfixOp_MulMat:    ops::MulMat(ctx); break;
       case WickedPostfixOp_LerpVec:   ops::LerpVec(ctx); break;
-      case WickedPostfixOp_LerpTable: ops::LerpTable(ctx); break;
       default:
         break;
     }

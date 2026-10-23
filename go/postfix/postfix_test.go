@@ -724,36 +724,6 @@ func TestEvalPostfixExpression(t *testing.T) {
 			stack:     []float64{0.5},
 			wantStack: []float64{2.5, 3.5, 4.5},
 		},
-		{
-			name:      "lut before first",
-			expr:      postfix.MakeBuilder().LerpTable(2, 3).Build(),
-			stack:     []float64{0, 1, 10, 100, 2, 20, 200},
-			wantStack: []float64{10, 100},
-		},
-		{
-			name:      "lut after last",
-			expr:      postfix.MakeBuilder().LerpTable(2, 3).Build(),
-			stack:     []float64{3, 1, 10, 100, 2, 20, 200},
-			wantStack: []float64{20, 200},
-		},
-		{
-			name:      "lut lerp 1.5",
-			expr:      postfix.MakeBuilder().LerpTable(3, 3).Build(),
-			stack:     []float64{1.5, 1, 10, 100, 2, 20, 200, 4, 40, 400},
-			wantStack: []float64{15, 150},
-		},
-		{
-			name:      "lut lerp 3",
-			expr:      postfix.MakeBuilder().LerpTable(3, 3).Build(),
-			stack:     []float64{3, 1, 10, 100, 2, 20, 200, 4, 40, 400},
-			wantStack: []float64{30, 300},
-		},
-		{
-			name:    "lut underflow",
-			expr:    postfix.MakeBuilder().LerpTable(1, 2).Build(),
-			stack:   []float64{1, 0},
-			wantErr: postfix.ErrStackUnderflow,
-		},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			gotStack, gotErr := postfix.Eval(test.expr, test.stack)
