@@ -1386,4 +1386,23 @@ TEST(EvalTest, StackCapacityExceedsUint16) {
   EXPECT_EQ(::WickedPostfixValidate(prog_data, prog_size, 64770, &min_capacity, &final_stack_size), WickedEvalStatus_StackOverflow);
 }
 
+TEST(EvalTest, ReadUnsafe) {
+  WickedPostfixWriter writer;
+  writer.Push({1.0f, 2.0f});
+  auto buffer = writer.Write();
+
+  const uint8_t* safe_prog_data = nullptr;
+  uint16_t safe_prog_size = 0;
+  EXPECT_TRUE(::WickedPostfixRead(buffer.data(), buffer.size(), &safe_prog_data, &safe_prog_size));
+
+  const uint8_t* unsafe_prog_data = nullptr;
+  uint16_t unsafe_prog_size = 0;
+  WickedPostfixReadUnsafe(buffer.data(), &unsafe_prog_data, &unsafe_prog_size);
+
+  EXPECT_EQ(safe_prog_data, unsafe_prog_data);
+  EXPECT_EQ(safe_prog_size, unsafe_prog_size);
+  EXPECT_NE(unsafe_prog_data, nullptr);
+  EXPECT_GT(unsafe_prog_size, 0);
+}
+
 }

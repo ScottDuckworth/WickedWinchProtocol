@@ -24,11 +24,11 @@ typedef struct WickedPathSegmentHeader {
 
 typedef struct WickedPathSegmentDescriptor {
   uint32_t start_time;
-  const uint8_t* postfix_data;
-  uint16_t postfix_size;
+  const uint8_t* prog_data;
+  uint16_t prog_size;
 } WickedPathSegmentDescriptor_t;
 
-bool WickedPathValidate(const uint8_t* path_data, size_t path_size, uint16_t stack_capacity);
+WickedEvalStatus_t WickedPathValidate(const uint8_t* path_data, size_t path_size, uint16_t stack_capacity);
 bool WickedPathSegmentAt(const uint8_t* path_data, uint32_t t, WickedPathSegmentDescriptor_t* descriptor);
 WickedEvalStatus_t WickedPathEvaluate(const uint8_t* path_data, uint32_t t, float* stack_data);
 

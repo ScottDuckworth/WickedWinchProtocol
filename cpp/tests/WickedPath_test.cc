@@ -22,12 +22,12 @@ struct TestEval {
 
 TEST(PathEvalTest, Empty) {
   TestEval eval;
-  EXPECT_FALSE(WickedPathValidate(nullptr, 3, eval.stack_capacity));
+  EXPECT_EQ(WickedPathValidate(nullptr, 3, eval.stack_capacity), WickedEvalStatus_IllegalOperation);
 
   WickedPathWriter writer;
   auto buffer = writer.Write();
-  EXPECT_FALSE(WickedPathValidate(buffer.data(), buffer.size(), 0));
-  EXPECT_TRUE(WickedPathValidate(buffer.data(), buffer.size(), eval.stack_capacity));
+  EXPECT_EQ(WickedPathValidate(buffer.data(), buffer.size(), 0), WickedEvalStatus_StackOverflow);
+  EXPECT_EQ(WickedPathValidate(buffer.data(), buffer.size(), eval.stack_capacity), WickedEvalStatus_Ok);
 
   EXPECT_EQ(WickedPathEvaluate(buffer.data(), 0, eval.stack_buffer), WickedEvalStatus_UndefinedOperation);
 }
@@ -38,8 +38,8 @@ TEST(PathEvalTest, NoStack) {
   segment = writer.add_segments();
   segment->start_time = 0;
   auto buffer = writer.Write();
-  EXPECT_FALSE(WickedPathValidate(buffer.data(), buffer.size(), 0));
-  EXPECT_TRUE(WickedPathValidate(buffer.data(), buffer.size(), 1));
+  EXPECT_EQ(WickedPathValidate(buffer.data(), buffer.size(), 0), WickedEvalStatus_StackOverflow);
+  EXPECT_EQ(WickedPathValidate(buffer.data(), buffer.size(), 1), WickedEvalStatus_Ok);
 
   float dummy = 0;
   EXPECT_EQ(WickedPathEvaluate(buffer.data(), 0, &dummy), WickedEvalStatus_Ok);
@@ -57,8 +57,8 @@ TEST(PathEvalTest, Eval) {
   auto buffer = writer.Write();
 
   TestEval eval;
-  EXPECT_FALSE(WickedPathValidate(buffer.data(), buffer.size(), 0));
-  EXPECT_TRUE(WickedPathValidate(buffer.data(), buffer.size(), eval.stack_capacity));
+  EXPECT_EQ(WickedPathValidate(buffer.data(), buffer.size(), 0), WickedEvalStatus_StackOverflow);
+  EXPECT_EQ(WickedPathValidate(buffer.data(), buffer.size(), eval.stack_capacity), WickedEvalStatus_Ok);
 
   EXPECT_EQ(WickedPathEvaluate(buffer.data(), 1000, eval.stack_buffer), WickedEvalStatus_Ok);
   EXPECT_THAT(eval.stack(), Pointwise(FloatEq(), {0}));
@@ -84,8 +84,8 @@ TEST(PathEvalTest, Wraparound) {
   auto buffer = writer.Write();
 
   TestEval eval;
-  EXPECT_FALSE(WickedPathValidate(buffer.data(), buffer.size(), 0));
-  EXPECT_TRUE(WickedPathValidate(buffer.data(), buffer.size(), eval.stack_capacity));
+  EXPECT_EQ(WickedPathValidate(buffer.data(), buffer.size(), 0), WickedEvalStatus_StackOverflow);
+  EXPECT_EQ(WickedPathValidate(buffer.data(), buffer.size(), eval.stack_capacity), WickedEvalStatus_Ok);
 
   EXPECT_EQ(WickedPathEvaluate(buffer.data(), -1000, eval.stack_buffer), WickedEvalStatus_Ok);
   EXPECT_THAT(eval.stack(), Pointwise(FloatEq(), {0}));
@@ -113,7 +113,7 @@ TEST(PathEvalTest, UnexpectedStackSize) {
   // Initial stack is 1, push 2 more -> final stack is 3 (expected 1)
   segment->expr.Push(std::array<float, 2>{1, 2});
   auto buffer = writer.Write();
-  EXPECT_FALSE(WickedPathValidate(buffer.data(), buffer.size(), 8));
+  EXPECT_EQ(WickedPathValidate(buffer.data(), buffer.size(), 8), WickedEvalStatus_UnexpectedStackSize);
 }
 
 TEST(PathEvalTest, InsufficientStackCapacity) {
@@ -125,12 +125,88 @@ TEST(PathEvalTest, InsufficientStackCapacity) {
   segment->expr.Pop(2);
   auto buffer = writer.Write();
 
-  EXPECT_FALSE(WickedPathValidate(buffer.data(), buffer.size(), 2));
-  EXPECT_TRUE(WickedPathValidate(buffer.data(), buffer.size(), 3));
+  EXPECT_EQ(WickedPathValidate(buffer.data(), buffer.size(), 2), WickedEvalStatus_StackOverflow);
+  EXPECT_EQ(WickedPathValidate(buffer.data(), buffer.size(), 3), WickedEvalStatus_Ok);
 
   float stack_data[3];
   EXPECT_EQ(WickedPathEvaluate(buffer.data(), 0, stack_data), WickedEvalStatus_Ok);
   EXPECT_EQ(stack_data[0], 0);
+}
+
+TEST(PathEvalTest, SegmentAt) {
+  WickedPathWriter empty_writer;
+  auto empty_buffer = empty_writer.Write();
+  WickedPathSegmentDescriptor_t descriptor;
+  EXPECT_FALSE(WickedPathSegmentAt(empty_buffer.data(), 500, &descriptor));
+
+  WickedPathWriter writer;
+  WickedPathSegmentWriter* segment;
+  segment = writer.add_segments();
+  segment->start_time = 1000;
+  segment->expr.Pop(1);
+  segment->expr.Push(std::array<float, 1>{42});
+
+  segment = writer.add_segments();
+  segment->start_time = 2000;
+  segment->expr.Pop(1);
+  segment->expr.Push(std::array<float, 1>{99});
+
+  auto buffer = writer.Write();
+  EXPECT_EQ(WickedPathValidate(buffer.data(), buffer.size(), 8), WickedEvalStatus_Ok);
+
+  EXPECT_TRUE(WickedPathSegmentAt(buffer.data(), 1000, nullptr));
+
+  // At 1000: segment 0
+  EXPECT_TRUE(WickedPathSegmentAt(buffer.data(), 1000, &descriptor));
+  EXPECT_EQ(descriptor.start_time, 1000);
+  EXPECT_NE(descriptor.prog_data, nullptr);
+  EXPECT_GT(descriptor.prog_size, 0);
+
+  // At 1999: still segment 0
+  EXPECT_TRUE(WickedPathSegmentAt(buffer.data(), 1999, &descriptor));
+  EXPECT_EQ(descriptor.start_time, 1000);
+
+  // At 2000: segment 1
+  EXPECT_TRUE(WickedPathSegmentAt(buffer.data(), 2000, &descriptor));
+  EXPECT_EQ(descriptor.start_time, 2000);
+  EXPECT_NE(descriptor.prog_data, nullptr);
+  EXPECT_GT(descriptor.prog_size, 0);
+
+  // At 500: wraps around to segment 1 (since 1000 is start of segment 0)
+  EXPECT_TRUE(WickedPathSegmentAt(buffer.data(), 500, &descriptor));
+  EXPECT_EQ(descriptor.start_time, 2000);
+}
+
+TEST(PathEvalTest, PostfixErrors) {
+  // Stack underflow
+  {
+    WickedPathWriter writer;
+    WickedPathSegmentWriter* segment = writer.add_segments();
+    segment->start_time = 0;
+    segment->expr.Pop(2); // Popping 2 from stack of 1
+    auto buffer = writer.Write();
+    EXPECT_EQ(WickedPathValidate(buffer.data(), buffer.size(), 8), WickedEvalStatus_StackUnderflow);
+  }
+
+  // Undefined opcode
+  {
+    WickedPathWriter writer;
+    WickedPathSegmentWriter* segment = writer.add_segments();
+    segment->start_time = 0;
+    segment->expr.add_b(255); // Undefined opcode
+    auto buffer = writer.Write();
+    EXPECT_EQ(WickedPathValidate(buffer.data(), buffer.size(), 8), WickedEvalStatus_UndefinedOperation);
+  }
+
+  // Truncated buffer
+  {
+    WickedPathWriter writer;
+    WickedPathSegmentWriter* segment = writer.add_segments();
+    segment->start_time = 0;
+    auto buffer = writer.Write();
+    EXPECT_EQ(WickedPathValidate(buffer.data(), sizeof(WickedPathHeader_t), 8), WickedEvalStatus_IllegalOperation);
+    EXPECT_EQ(WickedPathValidate(buffer.data(), sizeof(WickedPathHeader_t) + sizeof(WickedPathSegmentHeader_t), 8), WickedEvalStatus_IllegalOperation);
+  }
 }
 
 }
