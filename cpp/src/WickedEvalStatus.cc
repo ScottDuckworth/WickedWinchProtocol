@@ -8,7 +8,6 @@ extern "C" const char* WickedEvalStatus_ToString(WickedEvalStatus_t status) {
     case WickedEvalStatus_DataUnderflow:      return "Float Literals Underflow";
     case WickedEvalStatus_StackOverflow:      return "Stack Overflow";
     case WickedEvalStatus_StackUnderflow:     return "Stack Underflow";
-    case WickedEvalStatus_TempOverflow:       return "Temp Overflow";
   }
   return "UNKNOWN";
 }

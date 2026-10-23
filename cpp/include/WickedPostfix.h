@@ -63,10 +63,8 @@ typedef struct WickedPostfixEval {
   uint16_t pc;
 
   float* stack_data;
-  float* temp_data;
   uint8_t stack_size;
   uint8_t stack_capacity;
-  uint8_t temp_capacity;
 } WickedPostfixEval_t;
 
 void WickedPostfixEval_reset(WickedPostfixEval_t* eval);

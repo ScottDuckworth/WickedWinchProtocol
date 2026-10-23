@@ -215,16 +215,26 @@ extern "C" WickedEvalStatus_t WickedPostfixEvaluate(WickedPostfixEval_t* eval) {
       uint8_t rows, cols;
       CHECK_STATUS(WickedPostfixEval_loadp(eval, &rows));
       CHECK_STATUS(WickedPostfixEval_loadp(eval, &cols));
+      uint16_t size = uint16_t(rows) * cols;
       std::span<float> m;
-      CHECK_STATUS(WickedPostfixEval_peekv(eval, rows * cols, &m));
-      if (rows * cols > eval->temp_capacity) return WickedEvalStatus_TempOverflow;
-      for (uint8_t i = 0; i < rows; ++i) {
-        for (uint8_t j = 0; j < cols; ++j) {
-          eval->temp_data[rows * j + i] = m[cols * i + j];
+      CHECK_STATUS(WickedPostfixEval_peekv(eval, size, &m));
+      if (rows > 1 && cols > 1) {
+        if (rows == cols) {
+          for (uint8_t i = 0; i < rows; ++i) {
+            for (uint8_t j = i + 1; j < cols; ++j) {
+              std::swap(m[i * cols + j], m[j * cols + i]);
+            }
+          }
+        } else {
+          if (eval->stack_capacity - eval->stack_size < size) return WickedEvalStatus_StackOverflow;
+          float* out = &eval->stack_data[eval->stack_size];
+          for (uint8_t i = 0; i < rows; ++i) {
+            for (uint8_t j = 0; j < cols; ++j) {
+              out[rows * j + i] = m[cols * i + j];
+            }
+          }
+          std::memcpy(m.data(), out, size * sizeof(float));
         }
-      }
-      for (size_t i = 0; i < m.size(); ++i) {
-        m[i] = eval->temp_data[i];
       }
       break;
     }
@@ -483,11 +493,18 @@ extern "C" WickedEvalStatus_t WickedPostfixEvaluate(WickedPostfixEval_t* eval) {
       CHECK_STATUS(WickedPostfixEval_loadp(eval, &brows));
       CHECK_STATUS(WickedPostfixEval_loadp(eval, &bcols));
 
+      uint16_t asize = uint16_t(arows) * brows;
+      uint16_t bsize = uint16_t(brows) * bcols;
+      uint16_t csize = uint16_t(arows) * bcols;
+
       std::span<float> a, b;
-      CHECK_STATUS(WickedPostfixEval_popv(eval, brows * bcols, &b));
-      CHECK_STATUS(WickedPostfixEval_popv(eval, arows * brows, &a));
-      size_t temp_size = arows * bcols;
-      if (temp_size > eval->temp_capacity) return WickedEvalStatus_TempOverflow;
+      CHECK_STATUS(WickedPostfixEval_popv(eval, bsize, &b));
+      CHECK_STATUS(WickedPostfixEval_popv(eval, asize, &a));
+
+      if (eval->stack_capacity - (eval->stack_size + asize + bsize) < csize) return WickedEvalStatus_StackOverflow;
+
+      float* c = &eval->stack_data[eval->stack_size + asize + bsize];
+
       for (uint8_t i = 0; i < arows; ++i) {
         for (uint8_t j = 0; j < bcols; ++j) {
           float r = 0;
@@ -497,10 +514,13 @@ extern "C" WickedEvalStatus_t WickedPostfixEvaluate(WickedPostfixEval_t* eval) {
             r += a[aidx] * b[bidx];
           }
           size_t cidx = bcols * i + j;
-          eval->temp_data[cidx] = r;
+          c[cidx] = r;
         }
       }
-      CHECK_STATUS(WickedPostfixEval_pushv(eval, std::span(eval->temp_data, temp_size)));
+
+      float* dest = a.data();
+      std::memmove(dest, c, csize * sizeof(float));
+      eval->stack_size += csize;
       break;
     }
     case WickedPostfixOp_LerpVec: {

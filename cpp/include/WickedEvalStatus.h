@@ -11,7 +11,6 @@ typedef enum WickedEvalStatus {
   WickedEvalStatus_DataUnderflow,
   WickedEvalStatus_StackOverflow,
   WickedEvalStatus_StackUnderflow,
-  WickedEvalStatus_TempOverflow,
 } WickedEvalStatus_t;
 
 const char* WickedEvalStatus_ToString(WickedEvalStatus_t status);

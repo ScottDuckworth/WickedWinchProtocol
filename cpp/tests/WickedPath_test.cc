@@ -15,15 +15,11 @@ namespace {
 struct TestEval {
   WickedPostfixEval_t eval;
   float stack_buffer[8];
-  float temp_buffer[4];
 
   TestEval() {
     eval.stack_data = stack_buffer;
     eval.stack_size = 0;
     eval.stack_capacity = sizeof(stack_buffer) / sizeof(float);
-
-    eval.temp_data = temp_buffer;
-    eval.temp_capacity = sizeof(temp_buffer) / sizeof(float);
   }
 
   std::span<float> stack() { return std::span<float>(eval.stack_data, eval.stack_size); }

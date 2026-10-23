@@ -13,18 +13,12 @@ namespace {
 struct TestEval {
   struct WickedPostfixEval eval;
 
-  TestEval(uint8_t stack_capacity, std::initializer_list<float> stack_values)
-      : TestEval(stack_capacity, 0, stack_values) {}
-
-  TestEval(uint8_t stack_capacity, uint8_t temp_capacity, std::initializer_list<float> stack_values) {
+  TestEval(uint8_t stack_capacity, std::initializer_list<float> stack_values) {
     assert(stack_capacity >= stack_values.size());
 
     eval.stack_data = new float[stack_capacity];
     eval.stack_size = stack_values.size();
     eval.stack_capacity = stack_capacity;
-
-    eval.temp_data = new float[temp_capacity];
-    eval.temp_capacity = temp_capacity;
 
     float* v = eval.stack_data;
     for (float value : stack_values) {
@@ -34,7 +28,6 @@ struct TestEval {
 
   ~TestEval() {
     delete[] eval.stack_data;
-    delete[] eval.temp_data;
   }
 
   std::span<float> stack() { return std::span<float>(eval.stack_data, eval.stack_size); }
@@ -271,22 +264,35 @@ TEST(EvalTest, Transpose) {
   writer.add_i(3);
   auto buffer = writer.Write();
 
-  TestEval eval(8, 6, {0, 1, 2, 3, 4, 5, 6});
+  TestEval eval(14, {0, 1, 2, 3, 4, 5, 6});
   EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval.eval));
   EXPECT_EQ(WickedPostfixEvaluate(&eval.eval), WickedEvalStatus_Ok);
   EXPECT_THAT(eval.stack(), ElementsAre(0, 1, 4, 2, 5, 3, 6));
 }
 
-TEST(EvalTest, TransposeTempOverflow) {
+TEST(EvalTest, TransposeSquare) {
+  WickedPostfixWriter writer;
+  writer.add_i(WickedPostfixOp_Transpose);
+  writer.add_i(2);
+  writer.add_i(2);
+  auto buffer = writer.Write();
+
+  TestEval eval(5, {0, 1, 2, 3, 4});
+  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval.eval));
+  EXPECT_EQ(WickedPostfixEvaluate(&eval.eval), WickedEvalStatus_Ok);
+  EXPECT_THAT(eval.stack(), ElementsAre(0, 1, 3, 2, 4));
+}
+
+TEST(EvalTest, TransposeStackOverflow) {
   WickedPostfixWriter writer;
   writer.add_i(WickedPostfixOp_Transpose);
   writer.add_i(2);
   writer.add_i(3);
   auto buffer = writer.Write();
 
-  TestEval eval(8, 5, {0, 1, 2, 3, 4, 5, 6});
+  TestEval eval(12, {0, 1, 2, 3, 4, 5, 6});
   EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval.eval));
-  EXPECT_EQ(WickedPostfixEvaluate(&eval.eval), WickedEvalStatus_TempOverflow);
+  EXPECT_EQ(WickedPostfixEvaluate(&eval.eval), WickedEvalStatus_StackOverflow);
 }
 
 TEST(EvalTest, TransposeStackUnderflow) {
@@ -1040,7 +1046,7 @@ TEST(EvalTest, MulMat) {
   writer.add_i(4);
   auto buffer = writer.Write();
 
-  TestEval eval(32, 8, {0, 1, 2, 3, 4, 5, 6, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12});
+  TestEval eval(32, {0, 1, 2, 3, 4, 5, 6, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12});
   EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval.eval));
   EXPECT_EQ(WickedPostfixEvaluate(&eval.eval), WickedEvalStatus_Ok);
   EXPECT_THAT(eval.stack(), ElementsAre(
@@ -1049,7 +1055,7 @@ TEST(EvalTest, MulMat) {
     4*1 + 5*5 + 6*9, 4*2 + 5*6 + 6*10, 4*3 + 5*7 + 6*11, 4*4 + 5*8 + 6*12));
 }
 
-TEST(EvalTest, MulMatTempOverflow) {
+TEST(EvalTest, MulMatStackOverflow) {
   WickedPostfixWriter writer;
   writer.add_i(WickedPostfixOp_MulMat);
   writer.add_i(2);
@@ -1057,9 +1063,9 @@ TEST(EvalTest, MulMatTempOverflow) {
   writer.add_i(4);
   auto buffer = writer.Write();
 
-  TestEval eval(32, 7, {0, 1, 2, 3, 4, 5, 6, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12});
+  TestEval eval(26, {0, 1, 2, 3, 4, 5, 6, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12});
   EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval.eval));
-  EXPECT_EQ(WickedPostfixEvaluate(&eval.eval), WickedEvalStatus_TempOverflow);
+  EXPECT_EQ(WickedPostfixEvaluate(&eval.eval), WickedEvalStatus_StackOverflow);
 }
 
 TEST(EvalTest, MulMatStackUnderflow) {
