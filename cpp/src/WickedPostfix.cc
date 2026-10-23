@@ -8,8 +8,6 @@
 #include <iterator>
 #include <span>
 
-#define CHECK_STATUS(expr) if (WickedEvalStatus_t status = expr; status != WickedEvalStatus_Ok) return status
-
 static_assert(std::endian::native == std::endian::little);
 static_assert(sizeof(float) == 4);
 static_assert(sizeof(WickedPostfixHeader) == 2);
@@ -94,130 +92,303 @@ extern "C" WickedEvalStatus_t WickedPostfixEval_pushv(WickedPostfixEval_t* eval,
   return WickedEvalStatus_Ok;
 }
 
-static WickedEvalStatus_t WickedPostfixEval_pushv(WickedPostfixEval_t* eval, std::span<const float> v) {
-  return WickedPostfixEval_pushv(eval, v.data(), v.size());
-}
-
-static WickedEvalStatus_t WickedPostfixEval_allocv(WickedPostfixEval_t* eval, uint8_t n, std::span<float>* v) {
-  if (eval->stack_size + n > eval->stack_capacity) return WickedEvalStatus_StackOverflow;
-  *v = std::span<float>(&eval->stack_data[eval->stack_size], n);
-  eval->stack_size += n;
-  return WickedEvalStatus_Ok;
-}
-
 extern "C" WickedEvalStatus_t WickedPostfixEval_pop(WickedPostfixEval_t* eval, float* v) {
   if (eval->stack_size < 1) return WickedEvalStatus_StackUnderflow;
   *v = eval->stack_data[--eval->stack_size];
   return WickedEvalStatus_Ok;
 }
 
-static WickedEvalStatus_t WickedPostfixEval_popv(WickedPostfixEval_t* eval, uint8_t n, std::span<float>* v) {
-  if (eval->stack_size < n) return WickedEvalStatus_StackUnderflow;
-  eval->stack_size -= n;
-  *v = std::span<float>(&eval->stack_data[eval->stack_size], n);
-  return WickedEvalStatus_Ok;
-}
-
 extern "C" WickedEvalStatus_t WickedPostfixEval_popv(WickedPostfixEval_t* eval, float* v, size_t n) {
-  std::span<float> src;
-  WickedEvalStatus_t status = WickedPostfixEval_popv(eval, static_cast<uint8_t>(n), &src);
-  if (status != WickedEvalStatus_Ok) return status;
-  for (float s : src) *v++ = s;
-  return status;
-}
-
-static WickedEvalStatus_t WickedPostfixEval_peek(WickedPostfixEval_t* eval, float* v) {
-  if (eval->stack_size < 1) return WickedEvalStatus_StackUnderflow;
-  *v = eval->stack_data[eval->stack_size-1];
-  return WickedEvalStatus_Ok;
-}
-
-static WickedEvalStatus_t WickedPostfixEval_peekv(WickedPostfixEval_t* eval, uint8_t n, std::span<float>* v) {
   if (eval->stack_size < n) return WickedEvalStatus_StackUnderflow;
-  *v = std::span<float>(&eval->stack_data[eval->stack_size - n], n);
+  eval->stack_size -= static_cast<uint8_t>(n);
+  const float* src = &eval->stack_data[eval->stack_size];
+  for (size_t i = 0; i < n; ++i) v[i] = src[i];
   return WickedEvalStatus_Ok;
 }
 
-static WickedEvalStatus_t WickedPostfixEval_loadp(WickedPostfixEval_t* eval, uint8_t* v) {
-  if (eval->prog_size - eval->pc < 1) return WickedEvalStatus_IllegalOperation;
-  *v = eval->prog_data[eval->pc++];
+extern "C" WickedEvalStatus_t WickedPostfixValidateProgram(const uint8_t* prog_data, uint16_t prog_size, uint8_t initial_stack_size, uint8_t stack_capacity) {
+  if (initial_stack_size > stack_capacity) {
+    return WickedEvalStatus_StackOverflow;
+  }
+
+  uint16_t pc = 0;
+  int32_t stack_depth = initial_stack_size;
+
+  while (pc < prog_size) {
+    uint8_t op = prog_data[pc++];
+    switch (op) {
+      case WickedPostfixOp_Push: {
+        if (pc >= prog_size) return WickedEvalStatus_IllegalOperation;
+        uint8_t n = prog_data[pc++];
+        uint16_t byte_count = uint16_t(n) * sizeof(float);
+        if (prog_size - pc < byte_count) return WickedEvalStatus_IllegalOperation;
+        pc += byte_count;
+        if (stack_depth + n > stack_capacity) return WickedEvalStatus_StackOverflow;
+        stack_depth += n;
+        break;
+      }
+      case WickedPostfixOp_Pop: {
+        if (pc >= prog_size) return WickedEvalStatus_IllegalOperation;
+        uint8_t n = prog_data[pc++];
+        if (stack_depth < n) return WickedEvalStatus_StackUnderflow;
+        stack_depth -= n;
+        break;
+      }
+      case WickedPostfixOp_Dup: {
+        if (pc >= prog_size) return WickedEvalStatus_IllegalOperation;
+        uint8_t n = prog_data[pc++];
+        if (stack_depth < int32_t(n) + 1) return WickedEvalStatus_StackUnderflow;
+        if (stack_depth + 1 > stack_capacity) return WickedEvalStatus_StackOverflow;
+        stack_depth += 1;
+        break;
+      }
+      case WickedPostfixOp_RotL:
+      case WickedPostfixOp_RotR:
+      case WickedPostfixOp_Rev: {
+        if (pc >= prog_size) return WickedEvalStatus_IllegalOperation;
+        uint8_t n = prog_data[pc++];
+        if (stack_depth < n) return WickedEvalStatus_StackUnderflow;
+        break;
+      }
+      case WickedPostfixOp_Transpose: {
+        if (prog_size - pc < 2) return WickedEvalStatus_IllegalOperation;
+        uint8_t rows = prog_data[pc++];
+        uint8_t cols = prog_data[pc++];
+        uint16_t size = uint16_t(rows) * cols;
+        if (stack_depth < size) return WickedEvalStatus_StackUnderflow;
+        if (rows > 1 && cols > 1 && rows != cols) {
+          if (stack_depth + size > stack_capacity) return WickedEvalStatus_StackOverflow;
+        }
+        break;
+      }
+      case WickedPostfixOp_Add:
+      case WickedPostfixOp_Sub:
+      case WickedPostfixOp_Mul:
+      case WickedPostfixOp_Div:
+      case WickedPostfixOp_Mod:
+      case WickedPostfixOp_Pow:
+      case WickedPostfixOp_Atan2: {
+        if (stack_depth < 2) return WickedEvalStatus_StackUnderflow;
+        stack_depth -= 1;
+        break;
+      }
+      case WickedPostfixOp_MulAdd: {
+        if (stack_depth < 3) return WickedEvalStatus_StackUnderflow;
+        stack_depth -= 2;
+        break;
+      }
+      case WickedPostfixOp_Neg:
+      case WickedPostfixOp_Abs:
+      case WickedPostfixOp_Inv:
+      case WickedPostfixOp_Sqrt:
+      case WickedPostfixOp_Exp:
+      case WickedPostfixOp_Ln:
+      case WickedPostfixOp_Sin:
+      case WickedPostfixOp_Cos:
+      case WickedPostfixOp_Tan:
+      case WickedPostfixOp_Asin:
+      case WickedPostfixOp_Acos: {
+        if (stack_depth < 1) return WickedEvalStatus_StackUnderflow;
+        break;
+      }
+      case WickedPostfixOp_AddVec:
+      case WickedPostfixOp_SubVec:
+      case WickedPostfixOp_MulVec: {
+        if (pc >= prog_size) return WickedEvalStatus_IllegalOperation;
+        uint8_t size = prog_data[pc++];
+        if (stack_depth < int32_t(size) * 2) return WickedEvalStatus_StackUnderflow;
+        stack_depth -= size;
+        break;
+      }
+      case WickedPostfixOp_MulAddVec: {
+        if (pc >= prog_size) return WickedEvalStatus_IllegalOperation;
+        uint8_t size = prog_data[pc++];
+        if (stack_depth < int32_t(size) * 3) return WickedEvalStatus_StackUnderflow;
+        stack_depth -= int32_t(size) * 2;
+        break;
+      }
+      case WickedPostfixOp_ScaleVec: {
+        if (pc >= prog_size) return WickedEvalStatus_IllegalOperation;
+        uint8_t size = prog_data[pc++];
+        if (stack_depth < int32_t(size) + 1) return WickedEvalStatus_StackUnderflow;
+        stack_depth -= 1;
+        break;
+      }
+      case WickedPostfixOp_NegVec: {
+        if (pc >= prog_size) return WickedEvalStatus_IllegalOperation;
+        uint8_t size = prog_data[pc++];
+        if (stack_depth < size) return WickedEvalStatus_StackUnderflow;
+        break;
+      }
+      case WickedPostfixOp_NormVec: {
+        if (pc >= prog_size) return WickedEvalStatus_IllegalOperation;
+        uint8_t size = prog_data[pc++];
+        if (stack_depth < size) return WickedEvalStatus_StackUnderflow;
+        if (size == 0) {
+          if (stack_depth + 1 > stack_capacity) return WickedEvalStatus_StackOverflow;
+          stack_depth += 1;
+        } else {
+          stack_depth -= (size - 1);
+        }
+        break;
+      }
+      case WickedPostfixOp_MulMat: {
+        if (prog_size - pc < 3) return WickedEvalStatus_IllegalOperation;
+        uint8_t arows = prog_data[pc++];
+        uint8_t brows = prog_data[pc++];
+        uint8_t bcols = prog_data[pc++];
+        uint16_t asize = uint16_t(arows) * brows;
+        uint16_t bsize = uint16_t(brows) * bcols;
+        uint16_t csize = uint16_t(arows) * bcols;
+        if (stack_depth < asize + bsize) return WickedEvalStatus_StackUnderflow;
+        if (stack_depth + csize > stack_capacity) return WickedEvalStatus_StackOverflow;
+        stack_depth = stack_depth - asize - bsize + csize;
+        break;
+      }
+      case WickedPostfixOp_PolyVec: {
+        if (pc >= prog_size) return WickedEvalStatus_IllegalOperation;
+        uint8_t size = prog_data[pc++];
+        if (stack_depth < int32_t(size) + 1) return WickedEvalStatus_StackUnderflow;
+        stack_depth -= size;
+        break;
+      }
+      case WickedPostfixOp_PolyMat: {
+        if (prog_size - pc < 2) return WickedEvalStatus_IllegalOperation;
+        uint8_t rows = prog_data[pc++];
+        uint8_t cols = prog_data[pc++];
+        uint16_t coeff_size = uint16_t(rows) * cols;
+        if (stack_depth < int32_t(coeff_size) + 1) return WickedEvalStatus_StackUnderflow;
+        if (stack_depth - (int32_t(coeff_size) + 1) + cols > stack_capacity) return WickedEvalStatus_StackOverflow;
+        stack_depth = stack_depth - (int32_t(coeff_size) + 1) + cols;
+        break;
+      }
+      case WickedPostfixOp_LerpVec: {
+        if (pc >= prog_size) return WickedEvalStatus_IllegalOperation;
+        uint8_t size = prog_data[pc++];
+        if (stack_depth < int32_t(size) * 2 + 1) return WickedEvalStatus_StackUnderflow;
+        stack_depth -= (int32_t(size) + 1);
+        break;
+      }
+      case WickedPostfixOp_LerpTable: {
+        if (prog_size - pc < 2) return WickedEvalStatus_IllegalOperation;
+        uint8_t rows = prog_data[pc++];
+        uint8_t cols = prog_data[pc++];
+        if (rows < 1 || cols < 1) return WickedEvalStatus_IllegalOperation;
+        uint16_t lut_size = uint16_t(rows) * cols;
+        if (stack_depth < int32_t(lut_size) + 1) return WickedEvalStatus_StackUnderflow;
+        if (stack_depth - (int32_t(lut_size) + 1) + (cols - 1) > stack_capacity) return WickedEvalStatus_StackOverflow;
+        stack_depth = stack_depth - (int32_t(lut_size) + 1) + (cols - 1);
+        break;
+      }
+      default:
+        return WickedEvalStatus_UndefinedOperation;
+    }
+  }
   return WickedEvalStatus_Ok;
 }
 
-static WickedEvalStatus_t WickedPostfixEval_loadpv(WickedPostfixEval_t* eval, uint16_t n, const uint8_t** v) {
-  if (eval->prog_size - eval->pc < n) return WickedEvalStatus_IllegalOperation;
-  *v = &eval->prog_data[eval->pc];
+extern "C" WickedEvalStatus_t WickedPostfixValidate(const WickedPostfixEval_t* eval) {
+  if (!eval) return WickedEvalStatus_IllegalOperation;
+  return WickedPostfixValidateProgram(eval->prog_data, eval->prog_size, eval->stack_size, eval->stack_capacity);
+}
+
+static inline uint8_t loadp(WickedPostfixEval_t* eval) {
+  return eval->prog_data[eval->pc++];
+}
+
+static inline const uint8_t* loadpv(WickedPostfixEval_t* eval, uint16_t n) {
+  const uint8_t* p = &eval->prog_data[eval->pc];
   eval->pc += n;
-  return WickedEvalStatus_Ok;
+  return p;
 }
 
-extern "C" WickedEvalStatus_t WickedPostfixEvaluate(WickedPostfixEval_t* eval) {
+static inline void push(WickedPostfixEval_t* eval, float v) {
+  eval->stack_data[eval->stack_size++] = v;
+}
+
+static inline void pushv(WickedPostfixEval_t* eval, const float* v, size_t n) {
+  memcpy(&eval->stack_data[eval->stack_size], v, n * sizeof(float));
+  eval->stack_size += static_cast<uint8_t>(n);
+}
+
+static inline float pop(WickedPostfixEval_t* eval) {
+  return eval->stack_data[--eval->stack_size];
+}
+
+static inline std::span<float> popv(WickedPostfixEval_t* eval, uint8_t n) {
+  eval->stack_size -= n;
+  return std::span<float>(&eval->stack_data[eval->stack_size], n);
+}
+
+static inline float& peek(WickedPostfixEval_t* eval) {
+  return eval->stack_data[eval->stack_size - 1];
+}
+
+static inline std::span<float> peekv(WickedPostfixEval_t* eval, uint8_t n) {
+  return std::span<float>(&eval->stack_data[eval->stack_size - n], n);
+}
+
+static inline std::span<float> allocv(WickedPostfixEval_t* eval, uint8_t n) {
+  std::span<float> s(&eval->stack_data[eval->stack_size], n);
+  eval->stack_size += n;
+  return s;
+}
+
+extern "C" void WickedPostfixEvaluate(WickedPostfixEval_t* eval) {
   eval->pc = 0;
   while (eval->pc < eval->prog_size) {
     const uint8_t op = eval->prog_data[eval->pc++];
     switch (op) {
     case WickedPostfixOp_Push: {
-      uint8_t n;
-      CHECK_STATUS(WickedPostfixEval_loadp(eval, &n));
-      const uint8_t* v;
-      uint16_t byte_count = uint16_t(n) * sizeof(float);
-      CHECK_STATUS(WickedPostfixEval_loadpv(eval, byte_count, &v));
-      CHECK_STATUS(WickedPostfixEval_pushv(eval, reinterpret_cast<const float*>(v), n));
+      uint8_t n = loadp(eval);
+      const uint8_t* v = loadpv(eval, uint16_t(n) * sizeof(float));
+      pushv(eval, reinterpret_cast<const float*>(v), n);
       break;
     }
     case WickedPostfixOp_Pop: {
-      uint8_t n;
-      CHECK_STATUS(WickedPostfixEval_loadp(eval, &n));
-      std::span<float> discard;
-      CHECK_STATUS(WickedPostfixEval_popv(eval, n, &discard));
+      uint8_t n = loadp(eval);
+      eval->stack_size -= n;
       break;
     }
     case WickedPostfixOp_Dup: {
-      uint8_t n;
-      CHECK_STATUS(WickedPostfixEval_loadp(eval, &n));
-      if (eval->stack_size - 1 < n) return WickedEvalStatus_StackUnderflow;
+      uint8_t n = loadp(eval);
       float v = eval->stack_data[eval->stack_size - 1 - n];
-      CHECK_STATUS(WickedPostfixEval_push(eval, v));
+      push(eval, v);
       break;
     }
     case WickedPostfixOp_RotL: {
-      uint8_t n;
-      CHECK_STATUS(WickedPostfixEval_loadp(eval, &n));
-      if (n <= 1) break;
-      std::span<float> values;
-      CHECK_STATUS(WickedPostfixEval_peekv(eval, n, &values));
-      float l = values[0];
-      std::copy(values.begin() + 1, values.end(), values.begin());
-      values.back() = l;
+      uint8_t n = loadp(eval);
+      if (n > 1) {
+        std::span<float> values = peekv(eval, n);
+        float l = values[0];
+        std::copy(values.begin() + 1, values.end(), values.begin());
+        values.back() = l;
+      }
       break;
     }
     case WickedPostfixOp_RotR: {
-      uint8_t n;
-      CHECK_STATUS(WickedPostfixEval_loadp(eval, &n));
-      if (n <= 1) break;
-      std::span<float> values;
-      CHECK_STATUS(WickedPostfixEval_peekv(eval, n, &values));
-      float r = values.back();
-      std::copy_backward(values.begin(), values.end() - 1, values.end());
-      values.front() = r;
+      uint8_t n = loadp(eval);
+      if (n > 1) {
+        std::span<float> values = peekv(eval, n);
+        float r = values.back();
+        std::copy_backward(values.begin(), values.end() - 1, values.end());
+        values.front() = r;
+      }
       break;
     }
     case WickedPostfixOp_Rev: {
-      uint8_t n;
-      CHECK_STATUS(WickedPostfixEval_loadp(eval, &n));
-      if (n <= 1) break;
-      std::span<float> values;
-      CHECK_STATUS(WickedPostfixEval_peekv(eval, n, &values));
-      std::reverse(values.begin(), values.end());
+      uint8_t n = loadp(eval);
+      if (n > 1) {
+        std::span<float> values = peekv(eval, n);
+        std::reverse(values.begin(), values.end());
+      }
       break;
     }
     case WickedPostfixOp_Transpose: {
-      uint8_t rows, cols;
-      CHECK_STATUS(WickedPostfixEval_loadp(eval, &rows));
-      CHECK_STATUS(WickedPostfixEval_loadp(eval, &cols));
+      uint8_t rows = loadp(eval);
+      uint8_t cols = loadp(eval);
       uint16_t size = uint16_t(rows) * cols;
-      std::span<float> m;
-      CHECK_STATUS(WickedPostfixEval_peekv(eval, size, &m));
+      std::span<float> m = peekv(eval, size);
       if (rows > 1 && cols > 1) {
         if (rows == cols) {
           for (uint8_t i = 0; i < rows; ++i) {
@@ -226,7 +397,6 @@ extern "C" WickedEvalStatus_t WickedPostfixEvaluate(WickedPostfixEval_t* eval) {
             }
           }
         } else {
-          if (eval->stack_capacity - eval->stack_size < size) return WickedEvalStatus_StackOverflow;
           float* out = &eval->stack_data[eval->stack_size];
           for (uint8_t i = 0; i < rows; ++i) {
             for (uint8_t j = 0; j < cols; ++j) {
@@ -239,155 +409,109 @@ extern "C" WickedEvalStatus_t WickedPostfixEvaluate(WickedPostfixEval_t* eval) {
       break;
     }
     case WickedPostfixOp_Add: {
-      float a, b;
-      CHECK_STATUS(WickedPostfixEval_pop(eval, &b));
-      CHECK_STATUS(WickedPostfixEval_peek(eval, &a));
-      eval->stack_data[eval->stack_size-1] = a + b;
+      float b = pop(eval);
+      peek(eval) += b;
       break;
     }
     case WickedPostfixOp_Sub: {
-      float a, b;
-      CHECK_STATUS(WickedPostfixEval_pop(eval, &b));
-      CHECK_STATUS(WickedPostfixEval_peek(eval, &a));
-      eval->stack_data[eval->stack_size-1] = a - b;
+      float b = pop(eval);
+      peek(eval) -= b;
       break;
     }
     case WickedPostfixOp_Mul: {
-      float a, b;
-      CHECK_STATUS(WickedPostfixEval_pop(eval, &b));
-      CHECK_STATUS(WickedPostfixEval_peek(eval, &a));
-      eval->stack_data[eval->stack_size-1] = a * b;
+      float b = pop(eval);
+      peek(eval) *= b;
       break;
     }
     case WickedPostfixOp_MulAdd: {
-      float a, b, c;
-      CHECK_STATUS(WickedPostfixEval_pop(eval, &c));
-      CHECK_STATUS(WickedPostfixEval_pop(eval, &b));
-      CHECK_STATUS(WickedPostfixEval_peek(eval, &a));
-      eval->stack_data[eval->stack_size-1] = a * b + c;
+      float c = pop(eval);
+      float b = pop(eval);
+      peek(eval) = peek(eval) * b + c;
       break;
     }
     case WickedPostfixOp_Div: {
-      float a, b;
-      CHECK_STATUS(WickedPostfixEval_pop(eval, &b));
-      CHECK_STATUS(WickedPostfixEval_peek(eval, &a));
-      eval->stack_data[eval->stack_size-1] = a / b;
+      float b = pop(eval);
+      peek(eval) /= b;
       break;
     }
     case WickedPostfixOp_Mod: {
-      float a, b;
-      CHECK_STATUS(WickedPostfixEval_pop(eval, &b));
-      CHECK_STATUS(WickedPostfixEval_peek(eval, &a));
-      eval->stack_data[eval->stack_size-1] = std::fmod(a, b);
+      float b = pop(eval);
+      peek(eval) = std::fmod(peek(eval), b);
       break;
     }
     case WickedPostfixOp_Neg: {
-      float a;
-      CHECK_STATUS(WickedPostfixEval_peek(eval, &a));
-      eval->stack_data[eval->stack_size-1] = -a;
+      peek(eval) = -peek(eval);
       break;
     }
     case WickedPostfixOp_Abs: {
-      float a;
-      CHECK_STATUS(WickedPostfixEval_peek(eval, &a));
-      eval->stack_data[eval->stack_size-1] = std::abs(a);
+      peek(eval) = std::abs(peek(eval));
       break;
     }
     case WickedPostfixOp_Inv: {
-      float a;
-      CHECK_STATUS(WickedPostfixEval_peek(eval, &a));
-      eval->stack_data[eval->stack_size-1] = 1.0f / a;
+      peek(eval) = 1.0f / peek(eval);
       break;
     }
     case WickedPostfixOp_Pow: {
-      float a, b;
-      CHECK_STATUS(WickedPostfixEval_pop(eval, &b));
-      CHECK_STATUS(WickedPostfixEval_peek(eval, &a));
-      eval->stack_data[eval->stack_size-1] = std::pow(a, b);
+      float b = pop(eval);
+      peek(eval) = std::pow(peek(eval), b);
       break;
     }
     case WickedPostfixOp_Sqrt: {
-      float a;
-      CHECK_STATUS(WickedPostfixEval_peek(eval, &a));
-      eval->stack_data[eval->stack_size-1] = std::sqrt(a);
+      peek(eval) = std::sqrt(peek(eval));
       break;
     }
     case WickedPostfixOp_Exp: {
-      float a;
-      CHECK_STATUS(WickedPostfixEval_peek(eval, &a));
-      eval->stack_data[eval->stack_size-1] = std::exp(a);
+      peek(eval) = std::exp(peek(eval));
       break;
     }
     case WickedPostfixOp_Ln: {
-      float a;
-      CHECK_STATUS(WickedPostfixEval_peek(eval, &a));
-      eval->stack_data[eval->stack_size-1] = std::log(a);
+      peek(eval) = std::log(peek(eval));
       break;
     }
     case WickedPostfixOp_Sin: {
-      float a;
-      CHECK_STATUS(WickedPostfixEval_peek(eval, &a));
-      eval->stack_data[eval->stack_size-1] = std::sin(a);
+      peek(eval) = std::sin(peek(eval));
       break;
     }
     case WickedPostfixOp_Cos: {
-      float a;
-      CHECK_STATUS(WickedPostfixEval_peek(eval, &a));
-      eval->stack_data[eval->stack_size-1] = std::cos(a);
+      peek(eval) = std::cos(peek(eval));
       break;
     }
     case WickedPostfixOp_Tan: {
-      float a;
-      CHECK_STATUS(WickedPostfixEval_peek(eval, &a));
-      eval->stack_data[eval->stack_size-1] = std::tan(a);
+      peek(eval) = std::tan(peek(eval));
       break;
     }
     case WickedPostfixOp_Asin: {
-      float a;
-      CHECK_STATUS(WickedPostfixEval_peek(eval, &a));
-      eval->stack_data[eval->stack_size-1] = std::asin(a);
+      peek(eval) = std::asin(peek(eval));
       break;
     }
     case WickedPostfixOp_Acos: {
-      float a;
-      CHECK_STATUS(WickedPostfixEval_peek(eval, &a));
-      eval->stack_data[eval->stack_size-1] = std::acos(a);
+      peek(eval) = std::acos(peek(eval));
       break;
     }
     case WickedPostfixOp_Atan2: {
-      float y, x;
-      CHECK_STATUS(WickedPostfixEval_pop(eval, &x));
-      CHECK_STATUS(WickedPostfixEval_peek(eval, &y));
-      eval->stack_data[eval->stack_size-1] = std::atan2(y, x);
+      float x = pop(eval);
+      peek(eval) = std::atan2(peek(eval), x);
       break;
     }
     case WickedPostfixOp_PolyVec: {
-      uint8_t size;
-      CHECK_STATUS(WickedPostfixEval_loadp(eval, &size));
-
+      uint8_t size = loadp(eval);
+      std::span<float> coeff = popv(eval, size);
+      float t = pop(eval);
       float result = 0;
       float p = 1;
-      float t;
-      std::span<float> coeff;
-      CHECK_STATUS(WickedPostfixEval_popv(eval, size, &coeff));
-      CHECK_STATUS(WickedPostfixEval_pop(eval, &t));
       for (uint8_t n = 0; n < size; ++n) {
         result += coeff[n] * p;
         p *= t;
       }
-      CHECK_STATUS(WickedPostfixEval_push(eval, result));
+      push(eval, result);
       break;
     }
     case WickedPostfixOp_PolyMat: {
-      uint8_t rows, cols;
-      CHECK_STATUS(WickedPostfixEval_loadp(eval, &rows));
-      CHECK_STATUS(WickedPostfixEval_loadp(eval, &cols));
-
-      float t;
-      std::span<float> coeff, result;
-      CHECK_STATUS(WickedPostfixEval_popv(eval, rows * cols, &coeff));
-      CHECK_STATUS(WickedPostfixEval_pop(eval, &t));
-      CHECK_STATUS(WickedPostfixEval_allocv(eval, cols, &result));
+      uint8_t rows = loadp(eval);
+      uint8_t cols = loadp(eval);
+      std::span<float> coeff = popv(eval, rows * cols);
+      float t = pop(eval);
+      std::span<float> result = allocv(eval, cols);
       for (uint8_t j = 0; j < cols; ++j) {
         float r = 0;
         float p = 1;
@@ -401,107 +525,81 @@ extern "C" WickedEvalStatus_t WickedPostfixEvaluate(WickedPostfixEval_t* eval) {
       break;
     }
     case WickedPostfixOp_AddVec: {
-      uint8_t size;
-      CHECK_STATUS(WickedPostfixEval_loadp(eval, &size));
-
-      std::span<float> rhs, lhs;
-      CHECK_STATUS(WickedPostfixEval_popv(eval, size, &rhs));
-      CHECK_STATUS(WickedPostfixEval_peekv(eval, size, &lhs));
+      uint8_t size = loadp(eval);
+      std::span<float> rhs = popv(eval, size);
+      std::span<float> lhs = peekv(eval, size);
       for (uint8_t i = 0; i < size; ++i) {
         lhs[i] += rhs[i];
       }
       break;
     }
     case WickedPostfixOp_SubVec: {
-      uint8_t size;
-      CHECK_STATUS(WickedPostfixEval_loadp(eval, &size));
-
-      std::span<float> rhs, lhs;
-      CHECK_STATUS(WickedPostfixEval_popv(eval, size, &rhs));
-      CHECK_STATUS(WickedPostfixEval_peekv(eval, size, &lhs));
+      uint8_t size = loadp(eval);
+      std::span<float> rhs = popv(eval, size);
+      std::span<float> lhs = peekv(eval, size);
       for (uint8_t i = 0; i < size; ++i) {
         lhs[i] -= rhs[i];
       }
       break;
     }
     case WickedPostfixOp_MulVec: {
-      uint8_t size;
-      CHECK_STATUS(WickedPostfixEval_loadp(eval, &size));
-
-      std::span<float> rhs, lhs;
-      CHECK_STATUS(WickedPostfixEval_popv(eval, size, &rhs));
-      CHECK_STATUS(WickedPostfixEval_peekv(eval, size, &lhs));
+      uint8_t size = loadp(eval);
+      std::span<float> rhs = popv(eval, size);
+      std::span<float> lhs = peekv(eval, size);
       for (uint8_t i = 0; i < size; ++i) {
         lhs[i] *= rhs[i];
       }
       break;
     }
     case WickedPostfixOp_MulAddVec: {
-      uint8_t size;
-      CHECK_STATUS(WickedPostfixEval_loadp(eval, &size));
-
-      std::span<float> a, b, c;
-      CHECK_STATUS(WickedPostfixEval_popv(eval, size, &c));
-      CHECK_STATUS(WickedPostfixEval_popv(eval, size, &b));
-      CHECK_STATUS(WickedPostfixEval_peekv(eval, size, &a));
+      uint8_t size = loadp(eval);
+      std::span<float> c = popv(eval, size);
+      std::span<float> b = popv(eval, size);
+      std::span<float> a = peekv(eval, size);
       for (uint8_t i = 0; i < size; ++i) {
         a[i] = a[i] * b[i] + c[i];
       }
       break;
     }
     case WickedPostfixOp_ScaleVec: {
-      uint8_t size;
-      CHECK_STATUS(WickedPostfixEval_loadp(eval, &size));
-
-      float scalar;
-      std::span<float> v, result;
-      CHECK_STATUS(WickedPostfixEval_popv(eval, size, &v));
-      CHECK_STATUS(WickedPostfixEval_pop(eval, &scalar));
-      CHECK_STATUS(WickedPostfixEval_allocv(eval, size, &result));
+      uint8_t size = loadp(eval);
+      std::span<float> v = popv(eval, size);
+      float scalar = pop(eval);
+      std::span<float> result = allocv(eval, size);
       for (uint8_t i = 0; i < size; ++i) {
         result[i] = scalar * v[i];
       }
       break;
     }
     case WickedPostfixOp_NegVec: {
-      uint8_t size;
-      CHECK_STATUS(WickedPostfixEval_loadp(eval, &size));
-
-      std::span<float> v;
-      CHECK_STATUS(WickedPostfixEval_peekv(eval, size, &v));
+      uint8_t size = loadp(eval);
+      std::span<float> v = peekv(eval, size);
       for (uint8_t i = 0; i < size; ++i) {
         v[i] = -v[i];
       }
       break;
     }
     case WickedPostfixOp_NormVec: {
-      uint8_t size;
-      CHECK_STATUS(WickedPostfixEval_loadp(eval, &size));
-
-      std::span<float> v;
-      CHECK_STATUS(WickedPostfixEval_popv(eval, size, &v));
+      uint8_t size = loadp(eval);
+      std::span<float> v = popv(eval, size);
       float result = 0;
       for (uint8_t i = 0; i < size; ++i) {
         result += v[i] * v[i];
       }
-      CHECK_STATUS(WickedPostfixEval_push(eval, std::sqrt(result)));
+      push(eval, std::sqrt(result));
       break;
     }
     case WickedPostfixOp_MulMat: {
-      uint8_t arows, brows, bcols;
-      CHECK_STATUS(WickedPostfixEval_loadp(eval, &arows));
-      CHECK_STATUS(WickedPostfixEval_loadp(eval, &brows));
-      CHECK_STATUS(WickedPostfixEval_loadp(eval, &bcols));
+      uint8_t arows = loadp(eval);
+      uint8_t brows = loadp(eval);
+      uint8_t bcols = loadp(eval);
 
       uint16_t asize = uint16_t(arows) * brows;
       uint16_t bsize = uint16_t(brows) * bcols;
       uint16_t csize = uint16_t(arows) * bcols;
 
-      std::span<float> a, b;
-      CHECK_STATUS(WickedPostfixEval_popv(eval, bsize, &b));
-      CHECK_STATUS(WickedPostfixEval_popv(eval, asize, &a));
-
-      if (eval->stack_capacity - (eval->stack_size + asize + bsize) < csize) return WickedEvalStatus_StackOverflow;
+      std::span<float> b = popv(eval, bsize);
+      std::span<float> a = popv(eval, asize);
 
       float* c = &eval->stack_data[eval->stack_size + asize + bsize];
 
@@ -509,9 +607,7 @@ extern "C" WickedEvalStatus_t WickedPostfixEvaluate(WickedPostfixEval_t* eval) {
         for (uint8_t j = 0; j < bcols; ++j) {
           float r = 0;
           for (uint8_t k = 0; k < brows; ++k) {
-            size_t aidx = brows * i + k;
-            size_t bidx = bcols * k + j;
-            r += a[aidx] * b[bidx];
+            r += a[brows * i + k] * b[bcols * k + j];
           }
           size_t cidx = bcols * i + j;
           c[cidx] = r;
@@ -524,36 +620,26 @@ extern "C" WickedEvalStatus_t WickedPostfixEvaluate(WickedPostfixEval_t* eval) {
       break;
     }
     case WickedPostfixOp_LerpVec: {
-      uint8_t size;
-      CHECK_STATUS(WickedPostfixEval_loadp(eval, &size));
-
-      float t;
-      std::span<float> v0, v1, result;
-      CHECK_STATUS(WickedPostfixEval_popv(eval, size, &v1));
-      CHECK_STATUS(WickedPostfixEval_popv(eval, size, &v0));
-      CHECK_STATUS(WickedPostfixEval_pop(eval, &t));
-      CHECK_STATUS(WickedPostfixEval_allocv(eval, size, &result));
+      uint8_t size = loadp(eval);
+      std::span<float> v1 = popv(eval, size);
+      std::span<float> v0 = popv(eval, size);
+      float t = pop(eval);
+      std::span<float> result = allocv(eval, size);
       for (uint8_t i = 0; i < size; ++i) {
-        result[i] = (1-t)*v0[i] + t*v1[i];
+        result[i] = (1.0f - t) * v0[i] + t * v1[i];
       }
       break;
     }
     case WickedPostfixOp_LerpTable: {
-      uint8_t rows, cols;
-      CHECK_STATUS(WickedPostfixEval_loadp(eval, &rows));
-      CHECK_STATUS(WickedPostfixEval_loadp(eval, &cols));
-      if (rows < 1) return WickedEvalStatus_IllegalOperation;
-      if (cols < 1) return WickedEvalStatus_IllegalOperation;
-
-      float t;
-      std::span<float> lut, result;
+      uint8_t rows = loadp(eval);
+      uint8_t cols = loadp(eval);
       uint8_t size = rows * cols;
       uint8_t n = cols - 1;
-      CHECK_STATUS(WickedPostfixEval_popv(eval, size, &lut));
-      CHECK_STATUS(WickedPostfixEval_pop(eval, &t));
-      CHECK_STATUS(WickedPostfixEval_allocv(eval, n, &result));
+      std::span<float> lut = popv(eval, size);
+      float t = pop(eval);
+      std::span<float> result = allocv(eval, n);
       uint8_t ubrow = wicked_upper_bound(uint8_t(0), rows, [t, cols, lut](uint8_t i) -> bool {
-        return t < lut[cols*i];
+        return t < lut[cols * i];
       });
       if (ubrow == 0) {
         auto bound = lut.begin();
@@ -562,7 +648,7 @@ extern "C" WickedEvalStatus_t WickedPostfixEvaluate(WickedPostfixEval_t* eval) {
         auto bound = lut.end() - cols;
         std::copy(bound + 1, bound + cols, result.begin());
       } else {
-        auto ub = lut.begin() + ubrow*cols;
+        auto ub = lut.begin() + ubrow * cols;
         auto lb = ub - cols;
         float t0 = *lb;
         float t1 = *ub;
@@ -570,16 +656,15 @@ extern "C" WickedEvalStatus_t WickedPostfixEvaluate(WickedPostfixEval_t* eval) {
         std::span<const float> v0(lb + 1, n);
         std::span<const float> v1(ub + 1, n);
         for (size_t i = 0; i < result.size(); ++i) {
-          result[i] = (1-t)*v0[i] + t*v1[i];
+          result[i] = (1.0f - t) * v0[i] + t * v1[i];
         }
       }
       break;
     }
     default:
-      return WickedEvalStatus_UndefinedOperation;
+      break;
     }
   }
-  return WickedEvalStatus_Ok;
 }
 
 bool WickedPostfixWriter::Write(uint8_t* data, size_t size) const {

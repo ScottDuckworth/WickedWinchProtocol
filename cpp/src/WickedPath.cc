@@ -12,7 +12,9 @@ extern "C" bool WickedPathValidate(const uint8_t* path_data, size_t path_size) {
   for (uint8_t i = 0; i < header->segment_size; ++i) {
     const WickedPathSegmentHeader_t& segment = segments[i];
     if (path_size < segment.offset + segment.size) return false;
-    if (!WickedPostfixRead(path_data + segment.offset, segment.size, nullptr)) return false;
+    WickedPostfixEval_t eval;
+    if (!WickedPostfixRead(path_data + segment.offset, segment.size, &eval)) return false;
+    if (WickedPostfixValidateProgram(eval.prog_data, eval.prog_size, 1, 255) != WickedEvalStatus_Ok) return false;
   }
   return true;
 }
@@ -42,7 +44,8 @@ extern "C" WickedEvalStatus_t WickedPathEvaluate(const uint8_t* path_data, uint3
   WickedPostfixEval_reset(eval);
   WickedEvalStatus_t status = WickedPostfixEval_push(eval, t - descriptor.start_time);
   if (status != WickedEvalStatus_Ok) return status;
-  return WickedPostfixEvaluate(eval);
+  WickedPostfixEvaluate(eval);
+  return WickedEvalStatus_Ok;
 }
 
 uint16_t WickedPathWriter::data_size() const {
