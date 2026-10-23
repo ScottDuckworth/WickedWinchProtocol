@@ -253,8 +253,8 @@ WICKED_ALWAYS_INLINE WickedEvalStatus_t LerpVec(ValidationContext& ctx) {
   return WickedEvalStatus_Ok;
 }
 
-} // namespace validate
-} // namespace
+}  // namespace validate
+}  // namespace
 
 extern "C" WickedEvalStatus_t WickedPostfixValidate(const uint8_t* prog_data, uint16_t prog_size, uint16_t initial_stack_size, uint16_t* minimum_stack_capacity, uint16_t* final_stack_size) {
   ValidationContext ctx{
@@ -662,8 +662,8 @@ WICKED_ALWAYS_INLINE void LerpVec(EvalContext& ctx) {
   }
 }
 
-} // namespace ops
-} // namespace
+}  // namespace ops
+}  // namespace
 
 extern "C" void WickedPostfixEvaluate(const uint8_t* prog_data, uint16_t prog_size, uint16_t initial_stack_size, float* stack_data) {
   EvalContext ctx{

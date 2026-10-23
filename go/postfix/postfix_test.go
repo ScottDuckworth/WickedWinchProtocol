@@ -13,7 +13,7 @@ func equalSlices(got, want []float64) bool {
 	if len(got) != len(want) {
 		return false
 	}
-	for i := 0; i < len(got); i++ {
+	for i := range got {
 		if math.Abs(got[i]-want[i]) > 0.001 {
 			return false
 		}
@@ -92,17 +92,17 @@ func TestEvalPostfixExpression(t *testing.T) {
 		},
 		{
 			name: "push int literals underflow",
-		expr: &postfix.Expression{
-			Prog: []uint8{uint8(postfix.Operation_Push)},
-		},
+			expr: &postfix.Expression{
+				Prog: []uint8{uint8(postfix.Operation_Push)},
+			},
 			wantErr: postfix.ErrIllegalOperation,
 		},
 		{
 			name: "push float literals underflow",
-		expr: &postfix.Expression{
-			Prog: []uint8{uint8(postfix.Operation_Push), 1},
-		},
-		wantErr: postfix.ErrIllegalOperation,
+			expr: &postfix.Expression{
+				Prog: []uint8{uint8(postfix.Operation_Push), 1},
+			},
+			wantErr: postfix.ErrIllegalOperation,
 		},
 		{
 			name:      "pop 0",

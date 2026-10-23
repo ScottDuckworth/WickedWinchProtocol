@@ -83,22 +83,22 @@ inline std::ostream& operator<<(std::ostream& out, WickedPostfixOp_t op) {
 }
 
 class WickedPostfixWriter {
-public:
-	uint8_t* prog_data() { return prog_.data(); }
-	const uint8_t* prog_data() const { return prog_.data(); }
-	uint16_t prog_size() const { return static_cast<uint16_t>(prog_.size()); }
-	uint16_t data_size() const { return prog_offset() + prog_size(); }
+ public:
+  uint8_t* prog_data() { return prog_.data(); }
+  const uint8_t* prog_data() const { return prog_.data(); }
+  uint16_t prog_size() const { return static_cast<uint16_t>(prog_.size()); }
+  uint16_t data_size() const { return prog_offset() + prog_size(); }
 
-	bool Write(uint8_t* data, size_t size) const;
+  bool Write(uint8_t* data, size_t size) const;
   std::vector<uint8_t> Write() const {
     std::vector<uint8_t> buffer(data_size());
     Write(buffer.data(), buffer.size());
     return buffer;
   }
 
-	void clear() {
-		prog_.clear();
-	}
+  void clear() {
+    prog_.clear();
+  }
 
   void EmitByte(uint8_t b) { prog_.push_back(b); }
 
@@ -235,10 +235,10 @@ public:
     EmitByte(size);
   }
 
-private:
-	constexpr uint16_t prog_offset() const { return sizeof(WickedPostfixHeader); }
+ private:
+  constexpr uint16_t prog_offset() const { return sizeof(WickedPostfixHeader); }
 
-	std::vector<uint8_t> prog_;
+  std::vector<uint8_t> prog_;
 };
 
 #endif
