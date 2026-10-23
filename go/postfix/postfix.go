@@ -1,4 +1,4 @@
-﻿package postfix
+package postfix
 
 import (
 	"cmp"
@@ -17,6 +17,7 @@ var (
 	ErrIllegalOperation       = errors.New("illegal operation")
 	ErrStackUnderflow         = errors.New("stack underflow")
 	ErrFloatLiteralsUnderflow = errors.New("floats underflow")
+	ErrUnexpectedStackSize    = errors.New("unexpected stack size")
 )
 
 type Operation uint8
@@ -406,7 +407,202 @@ func (b *Builder) LerpTable(rows, cols int) *Builder {
 	return b
 }
 
-func Eval(expr *Expression, stack []float64) ([]float64, error) {
+func (expr *Expression) Validate(initialStackLen, expectedFinalStackLen int) error {
+	pc := 0
+	stackLen := initialStackLen
+
+	avail := func() int {
+		return len(expr.Prog) - pc
+	}
+	popi := func() int {
+		v := expr.Prog[pc]
+		pc++
+		return int(v)
+	}
+
+	for avail() > 0 {
+		op := Operation(popi())
+		switch op {
+		case Operation_Undefined:
+			return ErrUndefinedOperation
+		case Operation_Push:
+			if avail() < 1 {
+				return ErrIllegalOperation
+			}
+			n := popi()
+			if avail() < n*4 {
+				return ErrIllegalOperation
+			}
+			pc += n * 4
+			stackLen += n
+		case Operation_Pop:
+			if avail() < 1 {
+				return ErrIllegalOperation
+			}
+			n := popi()
+			if stackLen < n {
+				return ErrStackUnderflow
+			}
+			stackLen -= n
+		case Operation_Dup:
+			if avail() < 1 {
+				return ErrIllegalOperation
+			}
+			n := popi()
+			if stackLen < n+1 {
+				return ErrStackUnderflow
+			}
+			stackLen += 1
+		case Operation_RotL, Operation_RotR, Operation_Rev:
+			if avail() < 1 {
+				return ErrIllegalOperation
+			}
+			n := popi()
+			if stackLen < n {
+				return ErrStackUnderflow
+			}
+		case Operation_Transpose:
+			if avail() < 2 {
+				return ErrIllegalOperation
+			}
+			rows := popi()
+			cols := popi()
+			size := rows * cols
+			if stackLen < size {
+				return ErrStackUnderflow
+			}
+		case Operation_Add, Operation_Sub, Operation_Mul, Operation_Div, Operation_Mod, Operation_Pow, Operation_Atan2:
+			if stackLen < 2 {
+				return ErrStackUnderflow
+			}
+			stackLen -= 1
+		case Operation_MulAdd:
+			if stackLen < 3 {
+				return ErrStackUnderflow
+			}
+			stackLen -= 2
+		case Operation_Neg, Operation_Abs, Operation_Inv, Operation_Sqrt, Operation_Exp, Operation_Ln, Operation_Sin, Operation_Cos, Operation_Tan, Operation_Asin, Operation_Acos:
+			if stackLen < 1 {
+				return ErrStackUnderflow
+			}
+		case Operation_AddVec, Operation_SubVec, Operation_MulVec:
+			if avail() < 1 {
+				return ErrIllegalOperation
+			}
+			size := popi()
+			if stackLen < size*2 {
+				return ErrStackUnderflow
+			}
+			stackLen -= size
+		case Operation_MulAddVec:
+			if avail() < 1 {
+				return ErrIllegalOperation
+			}
+			size := popi()
+			if stackLen < size*3 {
+				return ErrStackUnderflow
+			}
+			stackLen -= size * 2
+		case Operation_ScaleVec:
+			if avail() < 1 {
+				return ErrIllegalOperation
+			}
+			size := popi()
+			if stackLen < size+1 {
+				return ErrStackUnderflow
+			}
+			stackLen -= 1
+		case Operation_NegVec:
+			if avail() < 1 {
+				return ErrIllegalOperation
+			}
+			size := popi()
+			if stackLen < size {
+				return ErrStackUnderflow
+			}
+		case Operation_NormVec:
+			if avail() < 1 {
+				return ErrIllegalOperation
+			}
+			size := popi()
+			if stackLen < size {
+				return ErrStackUnderflow
+			}
+			stackLen = stackLen - size + 1
+		case Operation_MulMat:
+			if avail() < 3 {
+				return ErrIllegalOperation
+			}
+			arows := popi()
+			brows := popi()
+			bcols := popi()
+			asize := arows * brows
+			bsize := brows * bcols
+			csize := arows * bcols
+			if stackLen < asize+bsize {
+				return ErrStackUnderflow
+			}
+			stackLen = stackLen - (asize + bsize) + csize
+		case Operation_PolyVec:
+			if avail() < 1 {
+				return ErrIllegalOperation
+			}
+			size := popi()
+			if stackLen < size+1 {
+				return ErrStackUnderflow
+			}
+			stackLen -= size
+		case Operation_PolyMat:
+			if avail() < 2 {
+				return ErrIllegalOperation
+			}
+			rows := popi()
+			cols := popi()
+			coeffSize := rows * cols
+			if stackLen < coeffSize+1 {
+				return ErrStackUnderflow
+			}
+			stackLen = stackLen - (coeffSize + 1) + cols
+		case Operation_LerpVec:
+			if avail() < 1 {
+				return ErrIllegalOperation
+			}
+			size := popi()
+			if stackLen < size*2+1 {
+				return ErrStackUnderflow
+			}
+			stackLen -= size + 1
+		case Operation_LerpTable:
+			if avail() < 2 {
+				return ErrIllegalOperation
+			}
+			rows := popi()
+			cols := popi()
+			if rows < 1 || cols < 1 {
+				return ErrIllegalOperation
+			}
+			lutSize := rows * cols
+			if stackLen < lutSize+1 {
+				return ErrStackUnderflow
+			}
+			stackLen = stackLen - (lutSize + 1) + (cols - 1)
+		default:
+			return ErrUndefinedOperation
+		}
+	}
+
+	if expectedFinalStackLen >= 0 && stackLen != expectedFinalStackLen {
+		return ErrUnexpectedStackSize
+	}
+
+	return nil
+}
+
+func Validate(expr *Expression, initialStackLen, expectedFinalStackLen int) error {
+	return expr.Validate(initialStackLen, expectedFinalStackLen)
+}
+
+func (expr *Expression) Evaluate(stack []float64) []float64 {
 	pc := 0
 
 	pop := func() float64 {
@@ -426,94 +622,49 @@ func Eval(expr *Expression, stack []float64) ([]float64, error) {
 		pc++
 		return int(v)
 	}
-	avail := func() int {
-		return len(expr.Prog) - pc
-	}
 
-	for avail() > 0 {
+	for pc < len(expr.Prog) {
 		op := Operation(popi())
 		switch op {
-		case Operation_Undefined:
-			return nil, ErrUndefinedOperation
 		case Operation_Push:
-			if avail() < 1 {
-				return nil, ErrIllegalOperation
-			}
 			n := popi()
-			if avail() < n*4 {
-				return nil, ErrIllegalOperation
-			}
 			for range n {
 				bits := binary.LittleEndian.Uint32(expr.Prog[pc : pc+4])
 				pc += 4
 				stack = append(stack, float64(math.Float32frombits(bits)))
 			}
 		case Operation_Pop:
-			if avail() < 1 {
-				return nil, ErrIllegalOperation
-			}
 			n := popi()
-			if len(stack) < n {
-				return nil, ErrStackUnderflow
-			}
 			stack = stack[:len(stack)-n]
 		case Operation_Dup:
-			if avail() < 1 {
-				return nil, ErrIllegalOperation
-			}
 			n := popi()
-			if len(stack) < n+1 {
-				return nil, ErrStackUnderflow
-			}
 			stack = append(stack, stack[len(stack)-n-1])
 		case Operation_RotL:
-			if avail() < 1 {
-				return nil, ErrIllegalOperation
-			}
 			n := popi()
 			if n > 1 {
-				if len(stack) < n {
-					return nil, ErrStackUnderflow
-				}
 				values := popv(n)
 				result := append(values[1:], values[0])
 				stack = append(stack, result...)
 			}
 		case Operation_RotR:
-			if avail() < 1 {
-				return nil, ErrIllegalOperation
-			}
 			n := popi()
 			if n > 1 {
-				if len(stack) < n {
-					return nil, ErrStackUnderflow
-				}
 				values := popv(n)
 				result := append([]float64{values[len(values)-1]}, values[0:len(values)-1]...)
 				stack = append(stack, result...)
 			}
 		case Operation_Rev:
-			if avail() < 1 {
-				return nil, ErrIllegalOperation
-			}
 			n := popi()
-			if len(stack) < n {
-				return nil, ErrStackUnderflow
-			}
-			values := stack[len(stack)-n:]
-			for i, j := 0, n-1; i < j; i, j = i+1, j-1 {
-				values[i], values[j] = values[j], values[i]
+			if n > 1 {
+				values := stack[len(stack)-n:]
+				for i, j := 0, n-1; i < j; i, j = i+1, j-1 {
+					values[i], values[j] = values[j], values[i]
+				}
 			}
 		case Operation_Transpose:
-			if avail() < 2 {
-				return nil, ErrIllegalOperation
-			}
 			rows := popi()
 			cols := popi()
 			size := rows * cols
-			if len(stack) < size {
-				return nil, ErrStackUnderflow
-			}
 			m := popv(size)
 			t := make([]float64, size)
 			for i := range rows {
@@ -523,202 +674,94 @@ func Eval(expr *Expression, stack []float64) ([]float64, error) {
 			}
 			stack = append(stack, t...)
 		case Operation_Add:
-			if len(stack) < 2 {
-				return nil, ErrStackUnderflow
-			}
 			rhs := pop()
 			lhs := pop()
 			stack = append(stack, lhs+rhs)
 		case Operation_Sub:
-			if len(stack) < 2 {
-				return nil, ErrStackUnderflow
-			}
 			rhs := pop()
 			lhs := pop()
 			stack = append(stack, lhs-rhs)
 		case Operation_Mul:
-			if len(stack) < 2 {
-				return nil, ErrStackUnderflow
-			}
 			rhs := pop()
 			lhs := pop()
 			stack = append(stack, lhs*rhs)
 		case Operation_MulAdd:
-			if len(stack) < 3 {
-				return nil, ErrStackUnderflow
-			}
 			c := pop()
 			b := pop()
 			a := pop()
 			stack = append(stack, a*b+c)
 		case Operation_Div:
-			if len(stack) < 2 {
-				return nil, ErrStackUnderflow
-			}
 			rhs := pop()
 			lhs := pop()
 			stack = append(stack, lhs/rhs)
 		case Operation_Mod:
-			if len(stack) < 2 {
-				return nil, ErrStackUnderflow
-			}
 			rhs := pop()
 			lhs := pop()
-			stack = append(stack, math.Remainder(lhs, rhs))
+			stack = append(stack, math.Mod(lhs, rhs))
 		case Operation_Neg:
-			if len(stack) < 1 {
-				return nil, ErrStackUnderflow
-			}
-			stack = append(stack, -pop())
+			v := pop()
+			stack = append(stack, -v)
 		case Operation_Abs:
-			if len(stack) < 1 {
-				return nil, ErrStackUnderflow
-			}
-			stack = append(stack, math.Abs(pop()))
+			v := pop()
+			stack = append(stack, math.Abs(v))
 		case Operation_Inv:
-			if len(stack) < 1 {
-				return nil, ErrStackUnderflow
-			}
-			stack = append(stack, 1/pop())
+			v := pop()
+			stack = append(stack, 1/v)
 		case Operation_Pow:
-			if len(stack) < 2 {
-				return nil, ErrStackUnderflow
-			}
-			exp := pop()
-			base := pop()
-			stack = append(stack, math.Pow(base, exp))
+			rhs := pop()
+			lhs := pop()
+			stack = append(stack, math.Pow(lhs, rhs))
 		case Operation_Sqrt:
-			if len(stack) < 1 {
-				return nil, ErrStackUnderflow
-			}
-			stack = append(stack, math.Sqrt(pop()))
+			v := pop()
+			stack = append(stack, math.Sqrt(v))
 		case Operation_Exp:
-			if len(stack) < 1 {
-				return nil, ErrStackUnderflow
-			}
-			stack = append(stack, math.Exp(pop()))
+			v := pop()
+			stack = append(stack, math.Exp(v))
 		case Operation_Ln:
-			if len(stack) < 1 {
-				return nil, ErrStackUnderflow
-			}
-			stack = append(stack, math.Log(pop()))
+			v := pop()
+			stack = append(stack, math.Log(v))
 		case Operation_Sin:
-			if len(stack) < 1 {
-				return nil, ErrStackUnderflow
-			}
-			stack = append(stack, math.Sin(pop()))
+			v := pop()
+			stack = append(stack, math.Sin(v))
 		case Operation_Cos:
-			if len(stack) < 1 {
-				return nil, ErrStackUnderflow
-			}
-			stack = append(stack, math.Cos(pop()))
+			v := pop()
+			stack = append(stack, math.Cos(v))
 		case Operation_Tan:
-			if len(stack) < 1 {
-				return nil, ErrStackUnderflow
-			}
-			stack = append(stack, math.Tan(pop()))
+			v := pop()
+			stack = append(stack, math.Tan(v))
 		case Operation_Asin:
-			if len(stack) < 1 {
-				return nil, ErrStackUnderflow
-			}
-			stack = append(stack, math.Asin(pop()))
+			v := pop()
+			stack = append(stack, math.Asin(v))
 		case Operation_Acos:
-			if len(stack) < 1 {
-				return nil, ErrStackUnderflow
-			}
-			stack = append(stack, math.Acos(pop()))
+			v := pop()
+			stack = append(stack, math.Acos(v))
 		case Operation_Atan2:
-			if len(stack) < 2 {
-				return nil, ErrStackUnderflow
-			}
 			x := pop()
 			y := pop()
 			stack = append(stack, math.Atan2(y, x))
-		case Operation_PolyVec:
-			if avail() < 1 {
-				return nil, ErrIllegalOperation
-			}
-			size := popi()
-			if len(stack) < size+1 {
-				return nil, ErrStackUnderflow
-			}
-			coeff := popv(size)
-			param := pop()
-			paramPower := float64(1)
-			var result float64
-			for n := range size {
-				result += coeff[n] * paramPower
-				paramPower *= param
-			}
-			stack = append(stack, result)
-		case Operation_PolyMat:
-			if avail() < 2 {
-				return nil, ErrIllegalOperation
-			}
-			rows := popi()
-			cols := popi()
-			coeffs := rows * cols
-			if len(stack) < coeffs+1 {
-				return nil, ErrStackUnderflow
-			}
-			coeff := popv(coeffs)
-			param := pop()
-			paramPower := float64(1)
-			result := make([]float64, cols)
-			for i := range rows {
-				for j := range cols {
-					result[j] += coeff[cols*i+j] * paramPower
-				}
-				paramPower *= param
-			}
-			stack = append(stack, result...)
 		case Operation_AddVec:
-			if avail() < 1 {
-				return nil, ErrIllegalOperation
-			}
 			size := popi()
-			if len(stack) < size*2 {
-				return nil, ErrStackUnderflow
-			}
 			rhs := popv(size)
 			lhs := popv(size)
 			for i := range size {
 				stack = append(stack, lhs[i]+rhs[i])
 			}
 		case Operation_SubVec:
-			if avail() < 1 {
-				return nil, ErrIllegalOperation
-			}
 			size := popi()
-			if len(stack) < size*2 {
-				return nil, ErrStackUnderflow
-			}
 			rhs := popv(size)
 			lhs := popv(size)
 			for i := range size {
 				stack = append(stack, lhs[i]-rhs[i])
 			}
 		case Operation_MulVec:
-			if avail() < 1 {
-				return nil, ErrIllegalOperation
-			}
 			size := popi()
-			if len(stack) < size*2 {
-				return nil, ErrStackUnderflow
-			}
 			rhs := popv(size)
 			lhs := popv(size)
 			for i := range size {
 				stack = append(stack, lhs[i]*rhs[i])
 			}
 		case Operation_MulAddVec:
-			if avail() < 1 {
-				return nil, ErrIllegalOperation
-			}
 			size := popi()
-			if len(stack) < size*3 {
-				return nil, ErrStackUnderflow
-			}
 			c := popv(size)
 			b := popv(size)
 			a := popv(size)
@@ -726,38 +769,20 @@ func Eval(expr *Expression, stack []float64) ([]float64, error) {
 				stack = append(stack, a[i]*b[i]+c[i])
 			}
 		case Operation_ScaleVec:
-			if avail() < 1 {
-				return nil, ErrIllegalOperation
-			}
 			size := popi()
-			if len(stack) < size+1 {
-				return nil, ErrStackUnderflow
-			}
 			vec := popv(size)
 			scalar := pop()
 			for i := range size {
 				stack = append(stack, scalar*vec[i])
 			}
 		case Operation_NegVec:
-			if avail() < 1 {
-				return nil, ErrIllegalOperation
-			}
 			size := popi()
-			if len(stack) < size {
-				return nil, ErrStackUnderflow
-			}
 			vec := popv(size)
 			for i := range size {
 				stack = append(stack, -vec[i])
 			}
 		case Operation_NormVec:
-			if avail() < 1 {
-				return nil, ErrIllegalOperation
-			}
 			size := popi()
-			if len(stack) < size {
-				return nil, ErrStackUnderflow
-			}
 			vec := popv(size)
 			var result float64
 			for i := range size {
@@ -765,18 +790,12 @@ func Eval(expr *Expression, stack []float64) ([]float64, error) {
 			}
 			stack = append(stack, math.Sqrt(result))
 		case Operation_MulMat:
-			if avail() < 3 {
-				return nil, ErrIllegalOperation
-			}
 			arows := popi()
 			brows := popi()
 			bcols := popi()
 			asize := arows * brows
 			bsize := brows * bcols
 			csize := arows * bcols
-			if len(stack) < asize+bsize {
-				return nil, ErrStackUnderflow
-			}
 			b := popv(bsize)
 			a := popv(asize)
 			c := make([]float64, csize)
@@ -790,44 +809,55 @@ func Eval(expr *Expression, stack []float64) ([]float64, error) {
 				}
 			}
 			stack = append(stack, c...)
-		case Operation_LerpVec:
-			if avail() < 1 {
-				return nil, ErrIllegalOperation
-			}
+		case Operation_PolyVec:
 			size := popi()
-			if len(stack) < size*2+1 {
-				return nil, ErrStackUnderflow
+			coeff := popv(size)
+			t := pop()
+			var result float64
+			p := 1.0
+			for i := range size {
+				result += coeff[i] * p
+				p *= t
 			}
+			stack = append(stack, result)
+		case Operation_PolyMat:
+			rows := popi()
+			cols := popi()
+			coeff := popv(rows * cols)
+			t := pop()
+			for j := range cols {
+				var r float64
+				p := 1.0
+				for i := range rows {
+					cidx := cols*i + j
+					r += coeff[cidx] * p
+					p *= t
+				}
+				stack = append(stack, r)
+			}
+		case Operation_LerpVec:
+			size := popi()
 			v1 := popv(size)
 			v0 := popv(size)
 			t := pop()
-			result := make([]float64, size)
 			for i := range size {
-				result[i] = (1-t)*v0[i] + t*v1[i]
+				stack = append(stack, (1-t)*v0[i]+t*v1[i])
 			}
-			stack = append(stack, result...)
 		case Operation_LerpTable:
-			if avail() < 2 {
-				return nil, ErrIllegalOperation
-			}
 			rows := popi()
 			cols := popi()
-			if rows < 1 || cols < 1 {
-				return nil, ErrIllegalOperation
-			}
 			size := rows * cols
-			if len(stack) < size+1 {
-				return nil, ErrStackUnderflow
-			}
 			lut := popv(size)
 			t := pop()
 			ub := sort.Search(rows, func(i int) bool {
-				return t < lut[i*cols]
+				return t < lut[cols*i]
 			})
 			if ub == 0 {
-				stack = append(stack, lut[1:cols]...)
+				bound := lut[:cols]
+				stack = append(stack, bound[1:]...)
 			} else if ub == rows {
-				stack = append(stack, lut[len(lut)-cols+1:]...)
+				bound := lut[len(lut)-cols:]
+				stack = append(stack, bound[1:]...)
 			} else {
 				t0 := lut[(ub-1)*cols]
 				t1 := lut[ub*cols]
@@ -841,8 +871,23 @@ func Eval(expr *Expression, stack []float64) ([]float64, error) {
 				stack = append(stack, result...)
 			}
 		default:
-			return nil, ErrUndefinedOperation
+			break
 		}
 	}
-	return stack, nil
+	return stack
+}
+
+func Evaluate(expr *Expression, stack []float64) []float64 {
+	return expr.Evaluate(stack)
+}
+
+func (expr *Expression) Eval(stack []float64) ([]float64, error) {
+	if err := expr.Validate(len(stack), -1); err != nil {
+		return nil, err
+	}
+	return expr.Evaluate(stack), nil
+}
+
+func Eval(expr *Expression, stack []float64) ([]float64, error) {
+	return expr.Eval(stack)
 }

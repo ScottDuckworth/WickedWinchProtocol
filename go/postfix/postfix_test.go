@@ -1,7 +1,8 @@
-﻿package postfix_test
+package postfix_test
 
 import (
 	"bytes"
+	"errors"
 	"math"
 	"testing"
 
@@ -775,5 +776,45 @@ func TestEvalPostfixExpression(t *testing.T) {
 				t.Errorf("after serialization: got %v, want %v", got, want)
 			}
 		})
+	}
+}
+
+func TestValidateAndEvaluate(t *testing.T) {
+	// Push 1, 2 to an initial stack of [42]. Initial length = 1.
+	// Expected final stack is [42, 1, 2], final length = 3.
+	expr := postfix.MakeBuilder().Push(1, 2).Build()
+
+	// Validation with matching expected final stack length
+	if err := postfix.Validate(expr, 1, 3); err != nil {
+		t.Fatalf("unexpected validation error: %v", err)
+	}
+	if err := expr.Validate(1, 3); err != nil {
+		t.Fatalf("unexpected validation error: %v", err)
+	}
+
+	// Validation with mismatched expected final stack length
+	if err := postfix.Validate(expr, 1, 2); !errors.Is(err, postfix.ErrUnexpectedStackSize) {
+		t.Errorf("got %v, want %v", err, postfix.ErrUnexpectedStackSize)
+	}
+	if err := postfix.Validate(expr, 1, 4); !errors.Is(err, postfix.ErrUnexpectedStackSize) {
+		t.Errorf("got %v, want %v", err, postfix.ErrUnexpectedStackSize)
+	}
+
+	// Validation without enforcing final stack length (-1)
+	if err := postfix.Validate(expr, 1, -1); err != nil {
+		t.Errorf("unexpected validation error with -1: %v", err)
+	}
+
+	// Direct evaluation
+	got := expr.Evaluate([]float64{42})
+	want := []float64{42, 1, 2}
+	if !equalSlices(got, want) {
+		t.Errorf("got %v, want %v", got, want)
+	}
+
+	// Package-level Evaluate
+	gotPkg := postfix.Evaluate(expr, []float64{42})
+	if !equalSlices(gotPkg, want) {
+		t.Errorf("got %v, want %v", gotPkg, want)
 	}
 }
