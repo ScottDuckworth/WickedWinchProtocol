@@ -28,9 +28,9 @@ typedef struct WickedPathSegmentDescriptor {
   uint16_t postfix_size;
 } WickedPathSegmentDescriptor_t;
 
-bool WickedPathValidate(const uint8_t* path_data, size_t path_size);
+bool WickedPathValidate(const uint8_t* path_data, size_t path_size, uint16_t stack_capacity);
 bool WickedPathSegmentAt(const uint8_t* path_data, uint32_t t, WickedPathSegmentDescriptor_t* descriptor);
-WickedEvalStatus_t WickedPathEvaluate(const uint8_t* path_data, uint32_t t, float* stack_data, uint16_t stack_capacity);
+WickedEvalStatus_t WickedPathEvaluate(const uint8_t* path_data, uint32_t t, float* stack_data);
 
 #ifdef __cplusplus
 }
