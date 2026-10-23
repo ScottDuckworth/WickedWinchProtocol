@@ -56,24 +56,15 @@ typedef enum WickedPostfixOp {
 } WickedPostfixOp_t;
 
 const char* WickedPostfixOpToString(WickedPostfixOp_t op);
-
 bool WickedPostfixRead(const uint8_t* data, size_t size, const uint8_t** prog_data, uint16_t* prog_size);
+WickedEvalStatus_t WickedPostfixValidate(const uint8_t* prog_data, uint16_t prog_size, uint16_t initial_stack_size, uint16_t* minimum_stack_capacity, uint16_t* final_stack_size);
+void WickedPostfixEvaluate(const uint8_t* prog_data, uint16_t prog_size, uint16_t initial_stack_size, float* stack_data);
 
-#ifdef __cplusplus
-inline void WickedPostfixReadUnsafe(const uint8_t* data, const uint8_t** prog_data, uint16_t* prog_size) {
-  const auto* header = reinterpret_cast<const WickedPostfixHeader*>(data);
-  if (prog_data) *prog_data = data + sizeof(WickedPostfixHeader);
-  if (prog_size) *prog_size = header->prog_size;
-}
-#else
 static inline void WickedPostfixReadUnsafe(const uint8_t* data, const uint8_t** prog_data, uint16_t* prog_size) {
   const WickedPostfixHeader_t* header = (const WickedPostfixHeader_t*)data;
   if (prog_data) *prog_data = data + sizeof(WickedPostfixHeader_t);
   if (prog_size) *prog_size = header->prog_size;
 }
-#endif
-WickedEvalStatus_t WickedPostfixValidate(const uint8_t* prog_data, uint16_t prog_size, uint16_t initial_stack_size, uint16_t* minimum_stack_capacity, uint16_t* final_stack_size);
-void WickedPostfixEvaluate(const uint8_t* prog_data, uint16_t prog_size, uint16_t initial_stack_size, float* stack_data);
 
 #ifdef __cplusplus
 }
