@@ -11,36 +11,67 @@ using ::testing::ElementsAre;
 namespace {
 
 struct TestEval {
-  struct WickedPostfixEval eval;
+  const uint8_t* prog_data = nullptr;
+  uint16_t prog_size = 0;
+  float* stack_data = nullptr;
+  uint16_t stack_size = 0;
+  uint16_t stack_capacity = 0;
+  uint16_t min_capacity = 0;
+  uint16_t final_stack_size = 0;
 
-  TestEval(uint8_t stack_capacity, std::initializer_list<float> stack_values) {
-    assert(stack_capacity >= stack_values.size());
+  TestEval(uint16_t capacity, std::initializer_list<float> stack_values) {
+    assert(capacity >= stack_values.size());
 
-    eval.stack_data = new float[stack_capacity];
-    eval.stack_size = stack_values.size();
-    eval.stack_capacity = stack_capacity;
+    stack_data = new float[capacity];
+    stack_size = static_cast<uint16_t>(stack_values.size());
+    stack_capacity = capacity;
 
-    float* v = eval.stack_data;
+    float* v = stack_data;
     for (float value : stack_values) {
       *v++ = value;
     }
   }
 
   ~TestEval() {
-    delete[] eval.stack_data;
+    delete[] stack_data;
   }
 
-  std::span<float> stack() { return std::span<float>(eval.stack_data, eval.stack_size); }
+  std::span<float> stack() { return std::span<float>(stack_data, stack_size); }
 };
+
+bool WickedPostfixRead(const uint8_t* data, size_t size, TestEval* eval) {
+  return ::WickedPostfixRead(data, size, &eval->prog_data, &eval->prog_size);
+}
+
+WickedEvalStatus_t WickedPostfixValidate(TestEval* eval, uint16_t expected_final_stack_size) {
+  WickedEvalStatus_t status = ::WickedPostfixValidate(
+      eval->prog_data, eval->prog_size, eval->stack_size,
+      &eval->min_capacity, &eval->final_stack_size);
+  if (status != WickedEvalStatus_Ok) {
+    return status;
+  }
+  if (eval->min_capacity > eval->stack_capacity) {
+    return WickedEvalStatus_StackOverflow;
+  }
+  if (eval->final_stack_size != expected_final_stack_size) {
+    return WickedEvalStatus_UnexpectedStackSize;
+  }
+  return WickedEvalStatus_Ok;
+}
+
+void WickedPostfixEvaluate(TestEval* eval) {
+  ::WickedPostfixEvaluate(eval->prog_data, eval->prog_size, eval->stack_size, eval->stack_data);
+  eval->stack_size = eval->final_stack_size;
+}
 
 TEST(EvalTest, Empty) {
   WickedPostfixWriter writer;
   auto buffer = writer.Write();
 
   TestEval eval(4, {42});
-  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval.eval));
-  EXPECT_EQ(WickedPostfixValidate(&eval.eval, 1), WickedEvalStatus_Ok);
-WickedPostfixEvaluate(&eval.eval);
+  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval));
+  EXPECT_EQ(WickedPostfixValidate(&eval, 1), WickedEvalStatus_Ok);
+WickedPostfixEvaluate(&eval);
   EXPECT_THAT(eval.stack(), ElementsAre(42));
 }
 
@@ -54,9 +85,9 @@ TEST(EvalTest, Push) {
   auto buffer = writer.Write();
 
   TestEval eval(4, {42});
-  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval.eval));
-  EXPECT_EQ(WickedPostfixValidate(&eval.eval, 3), WickedEvalStatus_Ok);
-WickedPostfixEvaluate(&eval.eval);
+  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval));
+  EXPECT_EQ(WickedPostfixValidate(&eval, 3), WickedEvalStatus_Ok);
+WickedPostfixEvaluate(&eval);
   EXPECT_THAT(eval.stack(), ElementsAre(42, 1, 2));
 }
 
@@ -68,9 +99,9 @@ TEST(EvalTest, PushMany) {
   auto buffer = writer.Write();
 
   TestEval eval(4, {42});
-  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval.eval));
-  EXPECT_EQ(WickedPostfixValidate(&eval.eval, 4), WickedEvalStatus_Ok);
-WickedPostfixEvaluate(&eval.eval);
+  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval));
+  EXPECT_EQ(WickedPostfixValidate(&eval, 4), WickedEvalStatus_Ok);
+WickedPostfixEvaluate(&eval);
   EXPECT_THAT(eval.stack(), ElementsAre(42, 1, 2, 3));
 }
 
@@ -80,8 +111,8 @@ TEST(EvalTest, PushIntUnderflow) {
   auto buffer = writer.Write();
 
   TestEval eval(4, {42});
-  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval.eval));
-  EXPECT_EQ(WickedPostfixValidate(&eval.eval, 0), WickedEvalStatus_IllegalOperation);
+  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval));
+  EXPECT_EQ(WickedPostfixValidate(&eval, 0), WickedEvalStatus_IllegalOperation);
 }
 
 TEST(EvalTest, PushDataUnderflow) {
@@ -92,8 +123,8 @@ TEST(EvalTest, PushDataUnderflow) {
   auto buffer = writer.Write();
 
   TestEval eval(4, {42});
-  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval.eval));
-  EXPECT_EQ(WickedPostfixValidate(&eval.eval, 0), WickedEvalStatus_IllegalOperation);
+  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval));
+  EXPECT_EQ(WickedPostfixValidate(&eval, 0), WickedEvalStatus_IllegalOperation);
 }
 TEST(EvalTest, Pop) {
   WickedPostfixWriter writer;
@@ -102,9 +133,9 @@ TEST(EvalTest, Pop) {
   auto buffer = writer.Write();
 
   TestEval eval(4, {1, 2, 3});
-  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval.eval));
-  EXPECT_EQ(WickedPostfixValidate(&eval.eval, 1), WickedEvalStatus_Ok);
-WickedPostfixEvaluate(&eval.eval);
+  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval));
+  EXPECT_EQ(WickedPostfixValidate(&eval, 1), WickedEvalStatus_Ok);
+WickedPostfixEvaluate(&eval);
   EXPECT_THAT(eval.stack(), ElementsAre(1));
 }
 
@@ -115,8 +146,8 @@ TEST(EvalTest, PopStackUnderflow) {
   auto buffer = writer.Write();
 
   TestEval eval(4, {1, 2});
-  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval.eval));
-  EXPECT_EQ(WickedPostfixValidate(&eval.eval, 0), WickedEvalStatus_StackUnderflow);
+  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval));
+  EXPECT_EQ(WickedPostfixValidate(&eval, 0), WickedEvalStatus_StackUnderflow);
 }
 
 TEST(EvalTest, PopIntUnderflow) {
@@ -125,8 +156,8 @@ TEST(EvalTest, PopIntUnderflow) {
   auto buffer = writer.Write();
 
   TestEval eval(4, {1, 2, 3});
-  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval.eval));
-  EXPECT_EQ(WickedPostfixValidate(&eval.eval, 0), WickedEvalStatus_IllegalOperation);
+  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval));
+  EXPECT_EQ(WickedPostfixValidate(&eval, 0), WickedEvalStatus_IllegalOperation);
 }
 
 TEST(EvalTest, Dup) {
@@ -136,9 +167,9 @@ TEST(EvalTest, Dup) {
   auto buffer = writer.Write();
 
   TestEval eval(4, {1, 2, 3});
-  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval.eval));
-  EXPECT_EQ(WickedPostfixValidate(&eval.eval, 4), WickedEvalStatus_Ok);
-WickedPostfixEvaluate(&eval.eval);
+  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval));
+  EXPECT_EQ(WickedPostfixValidate(&eval, 4), WickedEvalStatus_Ok);
+WickedPostfixEvaluate(&eval);
   EXPECT_THAT(eval.stack(), ElementsAre(1, 2, 3, 2));
 }
 
@@ -149,8 +180,8 @@ TEST(EvalTest, DupStackUnderflow) {
   auto buffer = writer.Write();
 
   TestEval eval(4, {1, 2});
-  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval.eval));
-  EXPECT_EQ(WickedPostfixValidate(&eval.eval, 0), WickedEvalStatus_StackUnderflow);
+  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval));
+  EXPECT_EQ(WickedPostfixValidate(&eval, 0), WickedEvalStatus_StackUnderflow);
 }
 
 TEST(EvalTest, DupIntUnderflow) {
@@ -159,8 +190,8 @@ TEST(EvalTest, DupIntUnderflow) {
   auto buffer = writer.Write();
 
   TestEval eval(4, {1, 2, 3});
-  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval.eval));
-  EXPECT_EQ(WickedPostfixValidate(&eval.eval, 0), WickedEvalStatus_IllegalOperation);
+  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval));
+  EXPECT_EQ(WickedPostfixValidate(&eval, 0), WickedEvalStatus_IllegalOperation);
 }
 
 TEST(EvalTest, RotL) {
@@ -170,9 +201,9 @@ TEST(EvalTest, RotL) {
   auto buffer = writer.Write();
 
   TestEval eval(4, {1, 2, 3, 4});
-  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval.eval));
-  EXPECT_EQ(WickedPostfixValidate(&eval.eval, 4), WickedEvalStatus_Ok);
-WickedPostfixEvaluate(&eval.eval);
+  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval));
+  EXPECT_EQ(WickedPostfixValidate(&eval, 4), WickedEvalStatus_Ok);
+WickedPostfixEvaluate(&eval);
   EXPECT_THAT(eval.stack(), ElementsAre(1, 3, 4, 2));
 }
 
@@ -183,8 +214,8 @@ TEST(EvalTest, RotLStackUnderflow) {
   auto buffer = writer.Write();
 
   TestEval eval(4, {1, 2});
-  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval.eval));
-  EXPECT_EQ(WickedPostfixValidate(&eval.eval, 0), WickedEvalStatus_StackUnderflow);
+  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval));
+  EXPECT_EQ(WickedPostfixValidate(&eval, 0), WickedEvalStatus_StackUnderflow);
 }
 
 TEST(EvalTest, RotLIntUnderflow) {
@@ -193,8 +224,8 @@ TEST(EvalTest, RotLIntUnderflow) {
   auto buffer = writer.Write();
 
   TestEval eval(4, {1, 2, 3, 4});
-  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval.eval));
-  EXPECT_EQ(WickedPostfixValidate(&eval.eval, 0), WickedEvalStatus_IllegalOperation);
+  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval));
+  EXPECT_EQ(WickedPostfixValidate(&eval, 0), WickedEvalStatus_IllegalOperation);
 }
 
 TEST(EvalTest, RotR) {
@@ -204,9 +235,9 @@ TEST(EvalTest, RotR) {
   auto buffer = writer.Write();
 
   TestEval eval(4, {1, 2, 3, 4});
-  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval.eval));
-  EXPECT_EQ(WickedPostfixValidate(&eval.eval, 4), WickedEvalStatus_Ok);
-WickedPostfixEvaluate(&eval.eval);
+  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval));
+  EXPECT_EQ(WickedPostfixValidate(&eval, 4), WickedEvalStatus_Ok);
+WickedPostfixEvaluate(&eval);
   EXPECT_THAT(eval.stack(), ElementsAre(1, 4, 2, 3));
 }
 
@@ -217,8 +248,8 @@ TEST(EvalTest, RotRStackUnderflow) {
   auto buffer = writer.Write();
 
   TestEval eval(4, {1, 2});
-  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval.eval));
-  EXPECT_EQ(WickedPostfixValidate(&eval.eval, 0), WickedEvalStatus_StackUnderflow);
+  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval));
+  EXPECT_EQ(WickedPostfixValidate(&eval, 0), WickedEvalStatus_StackUnderflow);
 }
 
 TEST(EvalTest, RotRIntUnderflow) {
@@ -227,8 +258,8 @@ TEST(EvalTest, RotRIntUnderflow) {
   auto buffer = writer.Write();
 
   TestEval eval(4, {1, 2, 3, 4});
-  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval.eval));
-  EXPECT_EQ(WickedPostfixValidate(&eval.eval, 0), WickedEvalStatus_IllegalOperation);
+  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval));
+  EXPECT_EQ(WickedPostfixValidate(&eval, 0), WickedEvalStatus_IllegalOperation);
 }
 
 TEST(EvalTest, Rev) {
@@ -238,9 +269,9 @@ TEST(EvalTest, Rev) {
   auto buffer = writer.Write();
 
   TestEval eval(4, {1, 2, 3, 4});
-  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval.eval));
-  EXPECT_EQ(WickedPostfixValidate(&eval.eval, 4), WickedEvalStatus_Ok);
-WickedPostfixEvaluate(&eval.eval);
+  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval));
+  EXPECT_EQ(WickedPostfixValidate(&eval, 4), WickedEvalStatus_Ok);
+WickedPostfixEvaluate(&eval);
   EXPECT_THAT(eval.stack(), ElementsAre(1, 4, 3, 2));
 }
 
@@ -251,8 +282,8 @@ TEST(EvalTest, RevStackUnderflow) {
   auto buffer = writer.Write();
 
   TestEval eval(4, {1, 2});
-  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval.eval));
-  EXPECT_EQ(WickedPostfixValidate(&eval.eval, 0), WickedEvalStatus_StackUnderflow);
+  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval));
+  EXPECT_EQ(WickedPostfixValidate(&eval, 0), WickedEvalStatus_StackUnderflow);
 }
 
 TEST(EvalTest, RevIntUnderflow) {
@@ -261,8 +292,8 @@ TEST(EvalTest, RevIntUnderflow) {
   auto buffer = writer.Write();
 
   TestEval eval(4, {1, 2, 3, 4});
-  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval.eval));
-  EXPECT_EQ(WickedPostfixValidate(&eval.eval, 0), WickedEvalStatus_IllegalOperation);
+  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval));
+  EXPECT_EQ(WickedPostfixValidate(&eval, 0), WickedEvalStatus_IllegalOperation);
 }
 
 TEST(EvalTest, Transpose) {
@@ -273,9 +304,9 @@ TEST(EvalTest, Transpose) {
   auto buffer = writer.Write();
 
   TestEval eval(14, {0, 1, 2, 3, 4, 5, 6});
-  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval.eval));
-  EXPECT_EQ(WickedPostfixValidate(&eval.eval, 7), WickedEvalStatus_Ok);
-WickedPostfixEvaluate(&eval.eval);
+  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval));
+  EXPECT_EQ(WickedPostfixValidate(&eval, 7), WickedEvalStatus_Ok);
+WickedPostfixEvaluate(&eval);
   EXPECT_THAT(eval.stack(), ElementsAre(0, 1, 4, 2, 5, 3, 6));
 }
 
@@ -287,9 +318,9 @@ TEST(EvalTest, TransposeSquare) {
   auto buffer = writer.Write();
 
   TestEval eval(5, {0, 1, 2, 3, 4});
-  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval.eval));
-  EXPECT_EQ(WickedPostfixValidate(&eval.eval, 5), WickedEvalStatus_Ok);
-WickedPostfixEvaluate(&eval.eval);
+  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval));
+  EXPECT_EQ(WickedPostfixValidate(&eval, 5), WickedEvalStatus_Ok);
+WickedPostfixEvaluate(&eval);
   EXPECT_THAT(eval.stack(), ElementsAre(0, 1, 3, 2, 4));
 }
 
@@ -301,8 +332,8 @@ TEST(EvalTest, TransposeStackOverflow) {
   auto buffer = writer.Write();
 
   TestEval eval(12, {0, 1, 2, 3, 4, 5, 6});
-  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval.eval));
-  EXPECT_EQ(WickedPostfixValidate(&eval.eval, 0), WickedEvalStatus_StackOverflow);
+  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval));
+  EXPECT_EQ(WickedPostfixValidate(&eval, 0), WickedEvalStatus_StackOverflow);
 }
 
 TEST(EvalTest, TransposeStackUnderflow) {
@@ -313,8 +344,8 @@ TEST(EvalTest, TransposeStackUnderflow) {
   auto buffer = writer.Write();
 
   TestEval eval(8, {1, 2, 3, 4, 5});
-  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval.eval));
-  EXPECT_EQ(WickedPostfixValidate(&eval.eval, 0), WickedEvalStatus_StackUnderflow);
+  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval));
+  EXPECT_EQ(WickedPostfixValidate(&eval, 0), WickedEvalStatus_StackUnderflow);
 }
 
 TEST(EvalTest, TransposeIntUnderflow) {
@@ -324,8 +355,8 @@ TEST(EvalTest, TransposeIntUnderflow) {
   auto buffer = writer.Write();
 
   TestEval eval(8, {0, 1, 2, 3, 4, 5, 6});
-  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval.eval));
-  EXPECT_EQ(WickedPostfixValidate(&eval.eval, 0), WickedEvalStatus_IllegalOperation);
+  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval));
+  EXPECT_EQ(WickedPostfixValidate(&eval, 0), WickedEvalStatus_IllegalOperation);
 }
 
 
@@ -336,9 +367,9 @@ TEST(EvalTest, Add) {
   auto buffer = writer.Write();
 
   TestEval eval(4, {0, 1, 2});
-  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval.eval));
-  EXPECT_EQ(WickedPostfixValidate(&eval.eval, 2), WickedEvalStatus_Ok);
-WickedPostfixEvaluate(&eval.eval);
+  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval));
+  EXPECT_EQ(WickedPostfixValidate(&eval, 2), WickedEvalStatus_Ok);
+WickedPostfixEvaluate(&eval);
   EXPECT_THAT(eval.stack(), ElementsAre(0, 3));
 }
 
@@ -348,8 +379,8 @@ TEST(EvalTest, AddStackUnderflow) {
   auto buffer = writer.Write();
 
   TestEval eval(4, {1});
-  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval.eval));
-  EXPECT_EQ(WickedPostfixValidate(&eval.eval, 0), WickedEvalStatus_StackUnderflow);
+  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval));
+  EXPECT_EQ(WickedPostfixValidate(&eval, 0), WickedEvalStatus_StackUnderflow);
 }
 
 TEST(EvalTest, Sub) {
@@ -358,9 +389,9 @@ TEST(EvalTest, Sub) {
   auto buffer = writer.Write();
 
   TestEval eval(4, {0, 1, 2});
-  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval.eval));
-  EXPECT_EQ(WickedPostfixValidate(&eval.eval, 2), WickedEvalStatus_Ok);
-WickedPostfixEvaluate(&eval.eval);
+  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval));
+  EXPECT_EQ(WickedPostfixValidate(&eval, 2), WickedEvalStatus_Ok);
+WickedPostfixEvaluate(&eval);
   EXPECT_THAT(eval.stack(), ElementsAre(0, -1));
 }
 
@@ -370,8 +401,8 @@ TEST(EvalTest, SubStackUnderflow) {
   auto buffer = writer.Write();
 
   TestEval eval(4, {1});
-  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval.eval));
-  EXPECT_EQ(WickedPostfixValidate(&eval.eval, 0), WickedEvalStatus_StackUnderflow);
+  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval));
+  EXPECT_EQ(WickedPostfixValidate(&eval, 0), WickedEvalStatus_StackUnderflow);
 }
 
 TEST(EvalTest, Mul) {
@@ -380,9 +411,9 @@ TEST(EvalTest, Mul) {
   auto buffer = writer.Write();
 
   TestEval eval(4, {0, 2, 3});
-  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval.eval));
-  EXPECT_EQ(WickedPostfixValidate(&eval.eval, 2), WickedEvalStatus_Ok);
-WickedPostfixEvaluate(&eval.eval);
+  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval));
+  EXPECT_EQ(WickedPostfixValidate(&eval, 2), WickedEvalStatus_Ok);
+WickedPostfixEvaluate(&eval);
   EXPECT_THAT(eval.stack(), ElementsAre(0, 6));
 }
 
@@ -392,8 +423,8 @@ TEST(EvalTest, MulStackUnderflow) {
   auto buffer = writer.Write();
 
   TestEval eval(4, {1});
-  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval.eval));
-  EXPECT_EQ(WickedPostfixValidate(&eval.eval, 0), WickedEvalStatus_StackUnderflow);
+  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval));
+  EXPECT_EQ(WickedPostfixValidate(&eval, 0), WickedEvalStatus_StackUnderflow);
 }
 
 TEST(EvalTest, MulAdd) {
@@ -402,9 +433,9 @@ TEST(EvalTest, MulAdd) {
   auto buffer = writer.Write();
 
   TestEval eval(4, {0, 3, 2, 1});
-  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval.eval));
-  EXPECT_EQ(WickedPostfixValidate(&eval.eval, 2), WickedEvalStatus_Ok);
-WickedPostfixEvaluate(&eval.eval);
+  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval));
+  EXPECT_EQ(WickedPostfixValidate(&eval, 2), WickedEvalStatus_Ok);
+WickedPostfixEvaluate(&eval);
   EXPECT_THAT(eval.stack(), ElementsAre(0, 7));
 }
 
@@ -414,8 +445,8 @@ TEST(EvalTest, MulAddStackUnderflow) {
   auto buffer = writer.Write();
 
   TestEval eval(4, {1, 2});
-  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval.eval));
-  EXPECT_EQ(WickedPostfixValidate(&eval.eval, 0), WickedEvalStatus_StackUnderflow);
+  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval));
+  EXPECT_EQ(WickedPostfixValidate(&eval, 0), WickedEvalStatus_StackUnderflow);
 }
 
 TEST(EvalTest, Div) {
@@ -424,9 +455,9 @@ TEST(EvalTest, Div) {
   auto buffer = writer.Write();
 
   TestEval eval(4, {0, 1, 2});
-  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval.eval));
-  EXPECT_EQ(WickedPostfixValidate(&eval.eval, 2), WickedEvalStatus_Ok);
-WickedPostfixEvaluate(&eval.eval);
+  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval));
+  EXPECT_EQ(WickedPostfixValidate(&eval, 2), WickedEvalStatus_Ok);
+WickedPostfixEvaluate(&eval);
   EXPECT_THAT(eval.stack(), ElementsAre(0, 0.5));
 }
 
@@ -436,8 +467,8 @@ TEST(EvalTest, DivStackUnderflow) {
   auto buffer = writer.Write();
 
   TestEval eval(4, {1});
-  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval.eval));
-  EXPECT_EQ(WickedPostfixValidate(&eval.eval, 0), WickedEvalStatus_StackUnderflow);
+  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval));
+  EXPECT_EQ(WickedPostfixValidate(&eval, 0), WickedEvalStatus_StackUnderflow);
 }
 
 TEST(EvalTest, Mod) {
@@ -446,9 +477,9 @@ TEST(EvalTest, Mod) {
   auto buffer = writer.Write();
 
   TestEval eval(4, {0, 8, 3});
-  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval.eval));
-  EXPECT_EQ(WickedPostfixValidate(&eval.eval, 2), WickedEvalStatus_Ok);
-WickedPostfixEvaluate(&eval.eval);
+  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval));
+  EXPECT_EQ(WickedPostfixValidate(&eval, 2), WickedEvalStatus_Ok);
+WickedPostfixEvaluate(&eval);
   EXPECT_THAT(eval.stack(), ElementsAre(0, 2));
 }
 
@@ -458,8 +489,8 @@ TEST(EvalTest, ModStackUnderflow) {
   auto buffer = writer.Write();
 
   TestEval eval(4, {1});
-  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval.eval));
-  EXPECT_EQ(WickedPostfixValidate(&eval.eval, 0), WickedEvalStatus_StackUnderflow);
+  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval));
+  EXPECT_EQ(WickedPostfixValidate(&eval, 0), WickedEvalStatus_StackUnderflow);
 }
 
 TEST(EvalTest, Neg) {
@@ -468,9 +499,9 @@ TEST(EvalTest, Neg) {
   auto buffer = writer.Write();
 
   TestEval eval(4, {0, 2});
-  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval.eval));
-  EXPECT_EQ(WickedPostfixValidate(&eval.eval, 2), WickedEvalStatus_Ok);
-WickedPostfixEvaluate(&eval.eval);
+  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval));
+  EXPECT_EQ(WickedPostfixValidate(&eval, 2), WickedEvalStatus_Ok);
+WickedPostfixEvaluate(&eval);
   EXPECT_THAT(eval.stack(), ElementsAre(0, -2));
 }
 
@@ -480,8 +511,8 @@ TEST(EvalTest, NegStackUnderflow) {
   auto buffer = writer.Write();
 
   TestEval eval(4, {});
-  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval.eval));
-  EXPECT_EQ(WickedPostfixValidate(&eval.eval, 0), WickedEvalStatus_StackUnderflow);
+  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval));
+  EXPECT_EQ(WickedPostfixValidate(&eval, 0), WickedEvalStatus_StackUnderflow);
 }
 
 TEST(EvalTest, Abs) {
@@ -490,9 +521,9 @@ TEST(EvalTest, Abs) {
   auto buffer = writer.Write();
 
   TestEval eval(4, {0, -2});
-  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval.eval));
-  EXPECT_EQ(WickedPostfixValidate(&eval.eval, 2), WickedEvalStatus_Ok);
-WickedPostfixEvaluate(&eval.eval);
+  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval));
+  EXPECT_EQ(WickedPostfixValidate(&eval, 2), WickedEvalStatus_Ok);
+WickedPostfixEvaluate(&eval);
   EXPECT_THAT(eval.stack(), ElementsAre(0, 2));
 }
 
@@ -502,8 +533,8 @@ TEST(EvalTest, AbsStackUnderflow) {
   auto buffer = writer.Write();
 
   TestEval eval(4, {});
-  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval.eval));
-  EXPECT_EQ(WickedPostfixValidate(&eval.eval, 0), WickedEvalStatus_StackUnderflow);
+  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval));
+  EXPECT_EQ(WickedPostfixValidate(&eval, 0), WickedEvalStatus_StackUnderflow);
 }
 
 TEST(EvalTest, Inv) {
@@ -512,9 +543,9 @@ TEST(EvalTest, Inv) {
   auto buffer = writer.Write();
 
   TestEval eval(4, {0, 2});
-  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval.eval));
-  EXPECT_EQ(WickedPostfixValidate(&eval.eval, 2), WickedEvalStatus_Ok);
-WickedPostfixEvaluate(&eval.eval);
+  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval));
+  EXPECT_EQ(WickedPostfixValidate(&eval, 2), WickedEvalStatus_Ok);
+WickedPostfixEvaluate(&eval);
   EXPECT_THAT(eval.stack(), ElementsAre(0, 0.5));
 }
 
@@ -524,8 +555,8 @@ TEST(EvalTest, InvStackUnderflow) {
   auto buffer = writer.Write();
 
   TestEval eval(4, {});
-  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval.eval));
-  EXPECT_EQ(WickedPostfixValidate(&eval.eval, 0), WickedEvalStatus_StackUnderflow);
+  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval));
+  EXPECT_EQ(WickedPostfixValidate(&eval, 0), WickedEvalStatus_StackUnderflow);
 }
 
 TEST(EvalTest, Pow) {
@@ -534,9 +565,9 @@ TEST(EvalTest, Pow) {
   auto buffer = writer.Write();
 
   TestEval eval(4, {0, 2, 3});
-  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval.eval));
-  EXPECT_EQ(WickedPostfixValidate(&eval.eval, 2), WickedEvalStatus_Ok);
-WickedPostfixEvaluate(&eval.eval);
+  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval));
+  EXPECT_EQ(WickedPostfixValidate(&eval, 2), WickedEvalStatus_Ok);
+WickedPostfixEvaluate(&eval);
   EXPECT_THAT(eval.stack(), ElementsAre(0, 8));
 }
 
@@ -546,8 +577,8 @@ TEST(EvalTest, PowStackUnderflow) {
   auto buffer = writer.Write();
 
   TestEval eval(4, {1});
-  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval.eval));
-  EXPECT_EQ(WickedPostfixValidate(&eval.eval, 0), WickedEvalStatus_StackUnderflow);
+  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval));
+  EXPECT_EQ(WickedPostfixValidate(&eval, 0), WickedEvalStatus_StackUnderflow);
 }
 
 TEST(EvalTest, Sqrt) {
@@ -556,9 +587,9 @@ TEST(EvalTest, Sqrt) {
   auto buffer = writer.Write();
 
   TestEval eval(4, {0, 7});
-  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval.eval));
-  EXPECT_EQ(WickedPostfixValidate(&eval.eval, 2), WickedEvalStatus_Ok);
-WickedPostfixEvaluate(&eval.eval);
+  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval));
+  EXPECT_EQ(WickedPostfixValidate(&eval, 2), WickedEvalStatus_Ok);
+WickedPostfixEvaluate(&eval);
   EXPECT_THAT(eval.stack(), ElementsAre(0, std::sqrt(7)));
 }
 
@@ -568,8 +599,8 @@ TEST(EvalTest, SqrtStackUnderflow) {
   auto buffer = writer.Write();
 
   TestEval eval(4, {});
-  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval.eval));
-  EXPECT_EQ(WickedPostfixValidate(&eval.eval, 0), WickedEvalStatus_StackUnderflow);
+  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval));
+  EXPECT_EQ(WickedPostfixValidate(&eval, 0), WickedEvalStatus_StackUnderflow);
 }
 
 TEST(EvalTest, Exp) {
@@ -578,9 +609,9 @@ TEST(EvalTest, Exp) {
   auto buffer = writer.Write();
 
   TestEval eval(4, {0, 4});
-  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval.eval));
-  EXPECT_EQ(WickedPostfixValidate(&eval.eval, 2), WickedEvalStatus_Ok);
-WickedPostfixEvaluate(&eval.eval);
+  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval));
+  EXPECT_EQ(WickedPostfixValidate(&eval, 2), WickedEvalStatus_Ok);
+WickedPostfixEvaluate(&eval);
   EXPECT_THAT(eval.stack(), ElementsAre(0, std::exp(4)));
 }
 
@@ -590,8 +621,8 @@ TEST(EvalTest, ExpStackUnderflow) {
   auto buffer = writer.Write();
 
   TestEval eval(4, {});
-  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval.eval));
-  EXPECT_EQ(WickedPostfixValidate(&eval.eval, 0), WickedEvalStatus_StackUnderflow);
+  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval));
+  EXPECT_EQ(WickedPostfixValidate(&eval, 0), WickedEvalStatus_StackUnderflow);
 }
 
 TEST(EvalTest, Ln) {
@@ -600,9 +631,9 @@ TEST(EvalTest, Ln) {
   auto buffer = writer.Write();
 
   TestEval eval(4, {0, 5});
-  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval.eval));
-  EXPECT_EQ(WickedPostfixValidate(&eval.eval, 2), WickedEvalStatus_Ok);
-WickedPostfixEvaluate(&eval.eval);
+  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval));
+  EXPECT_EQ(WickedPostfixValidate(&eval, 2), WickedEvalStatus_Ok);
+WickedPostfixEvaluate(&eval);
   EXPECT_THAT(eval.stack(), ElementsAre(0, std::log(5)));
 }
 
@@ -612,8 +643,8 @@ TEST(EvalTest, LnStackUnderflow) {
   auto buffer = writer.Write();
 
   TestEval eval(4, {});
-  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval.eval));
-  EXPECT_EQ(WickedPostfixValidate(&eval.eval, 0), WickedEvalStatus_StackUnderflow);
+  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval));
+  EXPECT_EQ(WickedPostfixValidate(&eval, 0), WickedEvalStatus_StackUnderflow);
 }
 
 TEST(EvalTest, Sin) {
@@ -622,9 +653,9 @@ TEST(EvalTest, Sin) {
   auto buffer = writer.Write();
 
   TestEval eval(4, {0, 5});
-  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval.eval));
-  EXPECT_EQ(WickedPostfixValidate(&eval.eval, 2), WickedEvalStatus_Ok);
-WickedPostfixEvaluate(&eval.eval);
+  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval));
+  EXPECT_EQ(WickedPostfixValidate(&eval, 2), WickedEvalStatus_Ok);
+WickedPostfixEvaluate(&eval);
   EXPECT_THAT(eval.stack(), ElementsAre(0, std::sin(5)));
 }
 
@@ -634,8 +665,8 @@ TEST(EvalTest, SinStackUnderflow) {
   auto buffer = writer.Write();
 
   TestEval eval(4, {});
-  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval.eval));
-  EXPECT_EQ(WickedPostfixValidate(&eval.eval, 0), WickedEvalStatus_StackUnderflow);
+  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval));
+  EXPECT_EQ(WickedPostfixValidate(&eval, 0), WickedEvalStatus_StackUnderflow);
 }
 
 TEST(EvalTest, Cos) {
@@ -644,9 +675,9 @@ TEST(EvalTest, Cos) {
   auto buffer = writer.Write();
 
   TestEval eval(4, {0, 5});
-  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval.eval));
-  EXPECT_EQ(WickedPostfixValidate(&eval.eval, 2), WickedEvalStatus_Ok);
-WickedPostfixEvaluate(&eval.eval);
+  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval));
+  EXPECT_EQ(WickedPostfixValidate(&eval, 2), WickedEvalStatus_Ok);
+WickedPostfixEvaluate(&eval);
   EXPECT_THAT(eval.stack(), ElementsAre(0, std::cos(5)));
 }
 
@@ -656,8 +687,8 @@ TEST(EvalTest, CosStackUnderflow) {
   auto buffer = writer.Write();
 
   TestEval eval(4, {});
-  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval.eval));
-  EXPECT_EQ(WickedPostfixValidate(&eval.eval, 0), WickedEvalStatus_StackUnderflow);
+  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval));
+  EXPECT_EQ(WickedPostfixValidate(&eval, 0), WickedEvalStatus_StackUnderflow);
 }
 
 TEST(EvalTest, Tan) {
@@ -666,9 +697,9 @@ TEST(EvalTest, Tan) {
   auto buffer = writer.Write();
 
   TestEval eval(4, {0, 5});
-  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval.eval));
-  EXPECT_EQ(WickedPostfixValidate(&eval.eval, 2), WickedEvalStatus_Ok);
-WickedPostfixEvaluate(&eval.eval);
+  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval));
+  EXPECT_EQ(WickedPostfixValidate(&eval, 2), WickedEvalStatus_Ok);
+WickedPostfixEvaluate(&eval);
   EXPECT_THAT(eval.stack(), ElementsAre(0, std::tan(5)));
 }
 
@@ -678,8 +709,8 @@ TEST(EvalTest, TanStackUnderflow) {
   auto buffer = writer.Write();
 
   TestEval eval(4, {});
-  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval.eval));
-  EXPECT_EQ(WickedPostfixValidate(&eval.eval, 0), WickedEvalStatus_StackUnderflow);
+  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval));
+  EXPECT_EQ(WickedPostfixValidate(&eval, 0), WickedEvalStatus_StackUnderflow);
 }
 
 TEST(EvalTest, Asin) {
@@ -688,9 +719,9 @@ TEST(EvalTest, Asin) {
   auto buffer = writer.Write();
 
   TestEval eval(4, {0, 0.5});
-  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval.eval));
-  EXPECT_EQ(WickedPostfixValidate(&eval.eval, 2), WickedEvalStatus_Ok);
-WickedPostfixEvaluate(&eval.eval);
+  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval));
+  EXPECT_EQ(WickedPostfixValidate(&eval, 2), WickedEvalStatus_Ok);
+WickedPostfixEvaluate(&eval);
   EXPECT_THAT(eval.stack(), ElementsAre(0, std::asin(0.5)));
 }
 
@@ -700,8 +731,8 @@ TEST(EvalTest, AsinStackUnderflow) {
   auto buffer = writer.Write();
 
   TestEval eval(4, {});
-  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval.eval));
-  EXPECT_EQ(WickedPostfixValidate(&eval.eval, 0), WickedEvalStatus_StackUnderflow);
+  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval));
+  EXPECT_EQ(WickedPostfixValidate(&eval, 0), WickedEvalStatus_StackUnderflow);
 }
 
 TEST(EvalTest, Acos) {
@@ -710,9 +741,9 @@ TEST(EvalTest, Acos) {
   auto buffer = writer.Write();
 
   TestEval eval(4, {0, 0.5});
-  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval.eval));
-  EXPECT_EQ(WickedPostfixValidate(&eval.eval, 2), WickedEvalStatus_Ok);
-WickedPostfixEvaluate(&eval.eval);
+  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval));
+  EXPECT_EQ(WickedPostfixValidate(&eval, 2), WickedEvalStatus_Ok);
+WickedPostfixEvaluate(&eval);
   EXPECT_THAT(eval.stack(), ElementsAre(0, std::acos(0.5)));
 }
 
@@ -722,8 +753,8 @@ TEST(EvalTest, AcosStackUnderflow) {
   auto buffer = writer.Write();
 
   TestEval eval(4, {});
-  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval.eval));
-  EXPECT_EQ(WickedPostfixValidate(&eval.eval, 0), WickedEvalStatus_StackUnderflow);
+  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval));
+  EXPECT_EQ(WickedPostfixValidate(&eval, 0), WickedEvalStatus_StackUnderflow);
 }
 
 TEST(EvalTest, Atan2) {
@@ -732,9 +763,9 @@ TEST(EvalTest, Atan2) {
   auto buffer = writer.Write();
 
   TestEval eval(4, {0, 5, 4});
-  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval.eval));
-  EXPECT_EQ(WickedPostfixValidate(&eval.eval, 2), WickedEvalStatus_Ok);
-WickedPostfixEvaluate(&eval.eval);
+  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval));
+  EXPECT_EQ(WickedPostfixValidate(&eval, 2), WickedEvalStatus_Ok);
+WickedPostfixEvaluate(&eval);
   EXPECT_THAT(eval.stack(), ElementsAre(0, std::atan2(5, 4)));
 }
 
@@ -744,8 +775,8 @@ TEST(EvalTest, Atan2StackUnderflow) {
   auto buffer = writer.Write();
 
   TestEval eval(4, {5});
-  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval.eval));
-  EXPECT_EQ(WickedPostfixValidate(&eval.eval, 0), WickedEvalStatus_StackUnderflow);
+  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval));
+  EXPECT_EQ(WickedPostfixValidate(&eval, 0), WickedEvalStatus_StackUnderflow);
 }
 
 TEST(EvalTest, PolyVec) {
@@ -755,9 +786,9 @@ TEST(EvalTest, PolyVec) {
   auto buffer = writer.Write();
 
   TestEval eval(6, {0, 2, 3, 4, 5, 6});
-  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval.eval));
-  EXPECT_EQ(WickedPostfixValidate(&eval.eval, 2), WickedEvalStatus_Ok);
-WickedPostfixEvaluate(&eval.eval);
+  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval));
+  EXPECT_EQ(WickedPostfixValidate(&eval, 2), WickedEvalStatus_Ok);
+WickedPostfixEvaluate(&eval);
   EXPECT_THAT(eval.stack(), ElementsAre(0, 79));
 }
 
@@ -768,8 +799,8 @@ TEST(EvalTest, PolyVecStackUnderflow) {
   auto buffer = writer.Write();
 
   TestEval eval(6, {2, 3, 4});
-  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval.eval));
-  EXPECT_EQ(WickedPostfixValidate(&eval.eval, 0), WickedEvalStatus_StackUnderflow);
+  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval));
+  EXPECT_EQ(WickedPostfixValidate(&eval, 0), WickedEvalStatus_StackUnderflow);
 }
 
 TEST(EvalTest, PolyVecIntUnderflow) {
@@ -778,8 +809,8 @@ TEST(EvalTest, PolyVecIntUnderflow) {
   auto buffer = writer.Write();
 
   TestEval eval(6, {0, 2, 3, 4, 5});
-  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval.eval));
-  EXPECT_EQ(WickedPostfixValidate(&eval.eval, 0), WickedEvalStatus_IllegalOperation);
+  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval));
+  EXPECT_EQ(WickedPostfixValidate(&eval, 0), WickedEvalStatus_IllegalOperation);
 }
 
 
@@ -792,9 +823,9 @@ TEST(EvalTest, PolyMat) {
   auto buffer = writer.Write();
 
   TestEval eval(12, {0, 2, 3, 4, 5, 6, 7, 8, 9, 10});
-  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval.eval));
-  EXPECT_EQ(WickedPostfixValidate(&eval.eval, 3), WickedEvalStatus_Ok);
-WickedPostfixEvaluate(&eval.eval);
+  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval));
+  EXPECT_EQ(WickedPostfixValidate(&eval, 3), WickedEvalStatus_Ok);
+WickedPostfixEvaluate(&eval);
   EXPECT_THAT(eval.stack(), ElementsAre(0, 3 + 2*5 + 4*7 + 8*9, 4 + 2*6 + 4*8 + 8*10));
 }
 
@@ -806,8 +837,8 @@ TEST(EvalTest, PolyMatStackUnderflow) {
   auto buffer = writer.Write();
 
   TestEval eval(12, {2, 3, 4, 5, 6, 7, 8, 9});
-  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval.eval));
-  EXPECT_EQ(WickedPostfixValidate(&eval.eval, 0), WickedEvalStatus_StackUnderflow);
+  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval));
+  EXPECT_EQ(WickedPostfixValidate(&eval, 0), WickedEvalStatus_StackUnderflow);
 }
 
 TEST(EvalTest, PolyMatIntUnderflow) {
@@ -817,8 +848,8 @@ TEST(EvalTest, PolyMatIntUnderflow) {
   auto buffer = writer.Write();
 
   TestEval eval(12, {0, 2, 3, 4, 5, 6, 7, 8, 9, 10});
-  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval.eval));
-  EXPECT_EQ(WickedPostfixValidate(&eval.eval, 0), WickedEvalStatus_IllegalOperation);
+  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval));
+  EXPECT_EQ(WickedPostfixValidate(&eval, 0), WickedEvalStatus_IllegalOperation);
 }
 
 
@@ -830,9 +861,9 @@ TEST(EvalTest, AddVec) {
   auto buffer = writer.Write();
 
   TestEval eval(8, {0, 1, 2, 3, 4, 5, 6});
-  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval.eval));
-  EXPECT_EQ(WickedPostfixValidate(&eval.eval, 4), WickedEvalStatus_Ok);
-WickedPostfixEvaluate(&eval.eval);
+  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval));
+  EXPECT_EQ(WickedPostfixValidate(&eval, 4), WickedEvalStatus_Ok);
+WickedPostfixEvaluate(&eval);
   EXPECT_THAT(eval.stack(), ElementsAre(0, 5, 7, 9));
 }
 
@@ -843,8 +874,8 @@ TEST(EvalTest, AddVecStackUnderflow) {
   auto buffer = writer.Write();
 
   TestEval eval(8, {1, 2, 3, 4, 5});
-  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval.eval));
-  EXPECT_EQ(WickedPostfixValidate(&eval.eval, 0), WickedEvalStatus_StackUnderflow);
+  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval));
+  EXPECT_EQ(WickedPostfixValidate(&eval, 0), WickedEvalStatus_StackUnderflow);
 }
 
 TEST(EvalTest, AddVecIntUnderflow) {
@@ -853,8 +884,8 @@ TEST(EvalTest, AddVecIntUnderflow) {
   auto buffer = writer.Write();
 
   TestEval eval(8, {0, 1, 2, 3, 4, 5, 6});
-  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval.eval));
-  EXPECT_EQ(WickedPostfixValidate(&eval.eval, 0), WickedEvalStatus_IllegalOperation);
+  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval));
+  EXPECT_EQ(WickedPostfixValidate(&eval, 0), WickedEvalStatus_IllegalOperation);
 }
 
 
@@ -866,9 +897,9 @@ TEST(EvalTest, SubVec) {
   auto buffer = writer.Write();
 
   TestEval eval(8, {0, 1, 2, 3, 4, 2, 1});
-  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval.eval));
-  EXPECT_EQ(WickedPostfixValidate(&eval.eval, 4), WickedEvalStatus_Ok);
-WickedPostfixEvaluate(&eval.eval);
+  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval));
+  EXPECT_EQ(WickedPostfixValidate(&eval, 4), WickedEvalStatus_Ok);
+WickedPostfixEvaluate(&eval);
   EXPECT_THAT(eval.stack(), ElementsAre(0, -3, 0, 2));
 }
 
@@ -879,8 +910,8 @@ TEST(EvalTest, SubVecStackUnderflow) {
   auto buffer = writer.Write();
 
   TestEval eval(8, {1, 2, 3, 4, 5});
-  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval.eval));
-  EXPECT_EQ(WickedPostfixValidate(&eval.eval, 0), WickedEvalStatus_StackUnderflow);
+  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval));
+  EXPECT_EQ(WickedPostfixValidate(&eval, 0), WickedEvalStatus_StackUnderflow);
 }
 
 TEST(EvalTest, SubVecIntUnderflow) {
@@ -889,8 +920,8 @@ TEST(EvalTest, SubVecIntUnderflow) {
   auto buffer = writer.Write();
 
   TestEval eval(8, {0, 1, 2, 3, 4, 5, 6});
-  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval.eval));
-  EXPECT_EQ(WickedPostfixValidate(&eval.eval, 0), WickedEvalStatus_IllegalOperation);
+  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval));
+  EXPECT_EQ(WickedPostfixValidate(&eval, 0), WickedEvalStatus_IllegalOperation);
 }
 
 
@@ -902,9 +933,9 @@ TEST(EvalTest, MulVec) {
   auto buffer = writer.Write();
 
   TestEval eval(8, {0, 1, 2, 3, 4, 3, -1});
-  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval.eval));
-  EXPECT_EQ(WickedPostfixValidate(&eval.eval, 4), WickedEvalStatus_Ok);
-WickedPostfixEvaluate(&eval.eval);
+  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval));
+  EXPECT_EQ(WickedPostfixValidate(&eval, 4), WickedEvalStatus_Ok);
+WickedPostfixEvaluate(&eval);
   EXPECT_THAT(eval.stack(), ElementsAre(0, 4, 6, -3));
 }
 
@@ -915,8 +946,8 @@ TEST(EvalTest, MulVecStackUnderflow) {
   auto buffer = writer.Write();
 
   TestEval eval(8, {1, 2, 3, 4, 5});
-  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval.eval));
-  EXPECT_EQ(WickedPostfixValidate(&eval.eval, 0), WickedEvalStatus_StackUnderflow);
+  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval));
+  EXPECT_EQ(WickedPostfixValidate(&eval, 0), WickedEvalStatus_StackUnderflow);
 }
 
 TEST(EvalTest, MulVecIntUnderflow) {
@@ -925,8 +956,8 @@ TEST(EvalTest, MulVecIntUnderflow) {
   auto buffer = writer.Write();
 
   TestEval eval(8, {0, 1, 2, 3, 4, 5, 6});
-  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval.eval));
-  EXPECT_EQ(WickedPostfixValidate(&eval.eval, 0), WickedEvalStatus_IllegalOperation);
+  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval));
+  EXPECT_EQ(WickedPostfixValidate(&eval, 0), WickedEvalStatus_IllegalOperation);
 }
 
 
@@ -938,9 +969,9 @@ TEST(EvalTest, MulAddVec) {
   auto buffer = writer.Write();
 
   TestEval eval(12, {0, 1, 2, 3, 4, 3, -1, 0, 1, 2});
-  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval.eval));
-  EXPECT_EQ(WickedPostfixValidate(&eval.eval, 4), WickedEvalStatus_Ok);
-WickedPostfixEvaluate(&eval.eval);
+  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval));
+  EXPECT_EQ(WickedPostfixValidate(&eval, 4), WickedEvalStatus_Ok);
+WickedPostfixEvaluate(&eval);
   EXPECT_THAT(eval.stack(), ElementsAre(0, 1 * 4 + 0, 2 * 3 + 1, 3 * -1 + 2));
 }
 
@@ -951,8 +982,8 @@ TEST(EvalTest, MulAddVecStackUnderflow) {
   auto buffer = writer.Write();
 
   TestEval eval(12, {1, 2, 3, 4, 5, 6, 7, 8});
-  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval.eval));
-  EXPECT_EQ(WickedPostfixValidate(&eval.eval, 0), WickedEvalStatus_StackUnderflow);
+  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval));
+  EXPECT_EQ(WickedPostfixValidate(&eval, 0), WickedEvalStatus_StackUnderflow);
 }
 
 TEST(EvalTest, MulAddVecIntUnderflow) {
@@ -961,8 +992,8 @@ TEST(EvalTest, MulAddVecIntUnderflow) {
   auto buffer = writer.Write();
 
   TestEval eval(12, {0, 1, 2, 3, 4, 5, 6, 7, 8});
-  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval.eval));
-  EXPECT_EQ(WickedPostfixValidate(&eval.eval, 0), WickedEvalStatus_IllegalOperation);
+  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval));
+  EXPECT_EQ(WickedPostfixValidate(&eval, 0), WickedEvalStatus_IllegalOperation);
 }
 
 
@@ -975,9 +1006,9 @@ TEST(EvalTest, ScaleVec) {
   auto buffer = writer.Write();
 
   TestEval eval(8, {0, 2, 3, 4, -2});
-  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval.eval));
-  EXPECT_EQ(WickedPostfixValidate(&eval.eval, 4), WickedEvalStatus_Ok);
-WickedPostfixEvaluate(&eval.eval);
+  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval));
+  EXPECT_EQ(WickedPostfixValidate(&eval, 4), WickedEvalStatus_Ok);
+WickedPostfixEvaluate(&eval);
   EXPECT_THAT(eval.stack(), ElementsAre(0, 6, 8, -4));
 }
 
@@ -988,8 +1019,8 @@ TEST(EvalTest, ScaleVecStackUnderflow) {
   auto buffer = writer.Write();
 
   TestEval eval(8, {1, 2, 3});
-  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval.eval));
-  EXPECT_EQ(WickedPostfixValidate(&eval.eval, 0), WickedEvalStatus_StackUnderflow);
+  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval));
+  EXPECT_EQ(WickedPostfixValidate(&eval, 0), WickedEvalStatus_StackUnderflow);
 }
 
 TEST(EvalTest, ScaleVecIntUnderflow) {
@@ -998,8 +1029,8 @@ TEST(EvalTest, ScaleVecIntUnderflow) {
   auto buffer = writer.Write();
 
   TestEval eval(8, {0, 1, 2, 3, 4});
-  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval.eval));
-  EXPECT_EQ(WickedPostfixValidate(&eval.eval, 0), WickedEvalStatus_IllegalOperation);
+  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval));
+  EXPECT_EQ(WickedPostfixValidate(&eval, 0), WickedEvalStatus_IllegalOperation);
 }
 
 
@@ -1011,9 +1042,9 @@ TEST(EvalTest, NegVec) {
   auto buffer = writer.Write();
 
   TestEval eval(8, {0, 3, 4, -2});
-  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval.eval));
-  EXPECT_EQ(WickedPostfixValidate(&eval.eval, 4), WickedEvalStatus_Ok);
-WickedPostfixEvaluate(&eval.eval);
+  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval));
+  EXPECT_EQ(WickedPostfixValidate(&eval, 4), WickedEvalStatus_Ok);
+WickedPostfixEvaluate(&eval);
   EXPECT_THAT(eval.stack(), ElementsAre(0, -3, -4, 2));
 }
 
@@ -1024,8 +1055,8 @@ TEST(EvalTest, NegVecStackUnderflow) {
   auto buffer = writer.Write();
 
   TestEval eval(8, {1, 2});
-  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval.eval));
-  EXPECT_EQ(WickedPostfixValidate(&eval.eval, 0), WickedEvalStatus_StackUnderflow);
+  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval));
+  EXPECT_EQ(WickedPostfixValidate(&eval, 0), WickedEvalStatus_StackUnderflow);
 }
 
 TEST(EvalTest, NegVecIntUnderflow) {
@@ -1034,8 +1065,8 @@ TEST(EvalTest, NegVecIntUnderflow) {
   auto buffer = writer.Write();
 
   TestEval eval(8, {0, 1, 2, 3});
-  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval.eval));
-  EXPECT_EQ(WickedPostfixValidate(&eval.eval, 0), WickedEvalStatus_IllegalOperation);
+  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval));
+  EXPECT_EQ(WickedPostfixValidate(&eval, 0), WickedEvalStatus_IllegalOperation);
 }
 
 
@@ -1047,9 +1078,9 @@ TEST(EvalTest, NormVec) {
   auto buffer = writer.Write();
 
   TestEval eval(8, {0, 2, 3, 4});
-  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval.eval));
-  EXPECT_EQ(WickedPostfixValidate(&eval.eval, 2), WickedEvalStatus_Ok);
-WickedPostfixEvaluate(&eval.eval);
+  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval));
+  EXPECT_EQ(WickedPostfixValidate(&eval, 2), WickedEvalStatus_Ok);
+WickedPostfixEvaluate(&eval);
   EXPECT_THAT(eval.stack(), ElementsAre(0, std::sqrt(2*2 + 3*3 + 4*4)));
 }
 
@@ -1060,8 +1091,8 @@ TEST(EvalTest, NormVecStackUnderflow) {
   auto buffer = writer.Write();
 
   TestEval eval(8, {1, 2});
-  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval.eval));
-  EXPECT_EQ(WickedPostfixValidate(&eval.eval, 0), WickedEvalStatus_StackUnderflow);
+  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval));
+  EXPECT_EQ(WickedPostfixValidate(&eval, 0), WickedEvalStatus_StackUnderflow);
 }
 
 TEST(EvalTest, NormVecIntUnderflow) {
@@ -1070,8 +1101,8 @@ TEST(EvalTest, NormVecIntUnderflow) {
   auto buffer = writer.Write();
 
   TestEval eval(8, {0, 2, 3, 4});
-  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval.eval));
-  EXPECT_EQ(WickedPostfixValidate(&eval.eval, 0), WickedEvalStatus_IllegalOperation);
+  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval));
+  EXPECT_EQ(WickedPostfixValidate(&eval, 0), WickedEvalStatus_IllegalOperation);
 }
 
 
@@ -1085,9 +1116,9 @@ TEST(EvalTest, MulMat) {
   auto buffer = writer.Write();
 
   TestEval eval(32, {0, 1, 2, 3, 4, 5, 6, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12});
-  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval.eval));
-  EXPECT_EQ(WickedPostfixValidate(&eval.eval, 9), WickedEvalStatus_Ok);
-WickedPostfixEvaluate(&eval.eval);
+  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval));
+  EXPECT_EQ(WickedPostfixValidate(&eval, 9), WickedEvalStatus_Ok);
+WickedPostfixEvaluate(&eval);
   EXPECT_THAT(eval.stack(), ElementsAre(
     0,
     1*1 + 2*5 + 3*9, 1*2 + 2*6 + 3*10, 1*3 + 2*7 + 3*11, 1*4 + 2*8 + 3*12,
@@ -1103,8 +1134,8 @@ TEST(EvalTest, MulMatStackOverflow) {
   auto buffer = writer.Write();
 
   TestEval eval(26, {0, 1, 2, 3, 4, 5, 6, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12});
-  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval.eval));
-  EXPECT_EQ(WickedPostfixValidate(&eval.eval, 0), WickedEvalStatus_StackOverflow);
+  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval));
+  EXPECT_EQ(WickedPostfixValidate(&eval, 0), WickedEvalStatus_StackOverflow);
 }
 
 TEST(EvalTest, MulMatStackUnderflow) {
@@ -1116,8 +1147,8 @@ TEST(EvalTest, MulMatStackUnderflow) {
   auto buffer = writer.Write();
 
   TestEval eval(32, {1, 2, 3, 4, 5, 6, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11});
-  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval.eval));
-  EXPECT_EQ(WickedPostfixValidate(&eval.eval, 0), WickedEvalStatus_StackUnderflow);
+  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval));
+  EXPECT_EQ(WickedPostfixValidate(&eval, 0), WickedEvalStatus_StackUnderflow);
 }
 
 TEST(EvalTest, MulMatIntUnderflow) {
@@ -1128,8 +1159,8 @@ TEST(EvalTest, MulMatIntUnderflow) {
   auto buffer = writer.Write();
 
   TestEval eval(32, {0, 1, 2, 3, 4, 5, 6, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12});
-  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval.eval));
-  EXPECT_EQ(WickedPostfixValidate(&eval.eval, 0), WickedEvalStatus_IllegalOperation);
+  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval));
+  EXPECT_EQ(WickedPostfixValidate(&eval, 0), WickedEvalStatus_IllegalOperation);
 }
 
 
@@ -1141,9 +1172,9 @@ TEST(EvalTest, LerpVec) {
   auto buffer = writer.Write();
 
   TestEval eval(8, {0, 0.25, 2, 3, 4, 6, 7, 8});
-  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval.eval));
-  EXPECT_EQ(WickedPostfixValidate(&eval.eval, 4), WickedEvalStatus_Ok);
-WickedPostfixEvaluate(&eval.eval);
+  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval));
+  EXPECT_EQ(WickedPostfixValidate(&eval, 4), WickedEvalStatus_Ok);
+WickedPostfixEvaluate(&eval);
   EXPECT_THAT(eval.stack(), ElementsAre(0, 3, 4, 5));
 }
 
@@ -1154,8 +1185,8 @@ TEST(EvalTest, LerpVecStackUnderflow) {
   auto buffer = writer.Write();
 
   TestEval eval(8, {0.25, 2, 3, 4, 6, 7});
-  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval.eval));
-  EXPECT_EQ(WickedPostfixValidate(&eval.eval, 0), WickedEvalStatus_StackUnderflow);
+  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval));
+  EXPECT_EQ(WickedPostfixValidate(&eval, 0), WickedEvalStatus_StackUnderflow);
 }
 
 TEST(EvalTest, LerpVecIntUnderflow) {
@@ -1164,8 +1195,8 @@ TEST(EvalTest, LerpVecIntUnderflow) {
   auto buffer = writer.Write();
 
   TestEval eval(12, {0, 0.25, 2, 3, 4, 5, 6, 7, 8});
-  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval.eval));
-  EXPECT_EQ(WickedPostfixValidate(&eval.eval, 0), WickedEvalStatus_IllegalOperation);
+  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval));
+  EXPECT_EQ(WickedPostfixValidate(&eval, 0), WickedEvalStatus_IllegalOperation);
 }
 
 
@@ -1179,9 +1210,9 @@ TEST(EvalTest, LerpTable_n1) {
   auto buffer = writer.Write();
 
   TestEval eval(16, {0, -1, 0, 1, 2, 3, 2, 4, 3, 7, 6, 8, 2, 0});
-  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval.eval));
-  EXPECT_EQ(WickedPostfixValidate(&eval.eval, 4), WickedEvalStatus_Ok);
-WickedPostfixEvaluate(&eval.eval);
+  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval));
+  EXPECT_EQ(WickedPostfixValidate(&eval, 4), WickedEvalStatus_Ok);
+WickedPostfixEvaluate(&eval);
   EXPECT_THAT(eval.stack(), ElementsAre(0, 1, 2, 3));
 }
 
@@ -1193,9 +1224,9 @@ TEST(EvalTest, LerpTable_0) {
   auto buffer = writer.Write();
 
   TestEval eval(16, {0, 0, 0, 1, 2, 3, 2, 4, 3, 7, 6, 8, 2, 0});
-  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval.eval));
-  EXPECT_EQ(WickedPostfixValidate(&eval.eval, 4), WickedEvalStatus_Ok);
-WickedPostfixEvaluate(&eval.eval);
+  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval));
+  EXPECT_EQ(WickedPostfixValidate(&eval, 4), WickedEvalStatus_Ok);
+WickedPostfixEvaluate(&eval);
   EXPECT_THAT(eval.stack(), ElementsAre(0, 1, 2, 3));
 }
 
@@ -1207,9 +1238,9 @@ TEST(EvalTest, LerpTable_0_5) {
   auto buffer = writer.Write();
 
   TestEval eval(16, {0, 0.5, 0, 1, 2, 3, 2, 4, 3, 7, 6, 8, 2, 0});
-  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval.eval));
-  EXPECT_EQ(WickedPostfixValidate(&eval.eval, 4), WickedEvalStatus_Ok);
-WickedPostfixEvaluate(&eval.eval);
+  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval));
+  EXPECT_EQ(WickedPostfixValidate(&eval, 4), WickedEvalStatus_Ok);
+WickedPostfixEvaluate(&eval);
   EXPECT_THAT(eval.stack(), ElementsAre(0, 1.75, 2.25, 4));
 }
 
@@ -1221,9 +1252,9 @@ TEST(EvalTest, LerpTable_2) {
   auto buffer = writer.Write();
 
   TestEval eval(16, {0, 2, 0, 1, 2, 3, 2, 4, 3, 7, 6, 8, 2, 0});
-  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval.eval));
-  EXPECT_EQ(WickedPostfixValidate(&eval.eval, 4), WickedEvalStatus_Ok);
-WickedPostfixEvaluate(&eval.eval);
+  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval));
+  EXPECT_EQ(WickedPostfixValidate(&eval, 4), WickedEvalStatus_Ok);
+WickedPostfixEvaluate(&eval);
   EXPECT_THAT(eval.stack(), ElementsAre(0, 4, 3, 7));
 }
 
@@ -1235,9 +1266,9 @@ TEST(EvalTest, LerpTable_4) {
   auto buffer = writer.Write();
 
   TestEval eval(16, {0, 4, 0, 1, 2, 3, 2, 4, 3, 7, 6, 8, 2, 0});
-  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval.eval));
-  EXPECT_EQ(WickedPostfixValidate(&eval.eval, 4), WickedEvalStatus_Ok);
-WickedPostfixEvaluate(&eval.eval);
+  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval));
+  EXPECT_EQ(WickedPostfixValidate(&eval, 4), WickedEvalStatus_Ok);
+WickedPostfixEvaluate(&eval);
   EXPECT_THAT(eval.stack(), ElementsAre(0, 6, 2.5, 3.5));
 }
 
@@ -1249,9 +1280,9 @@ TEST(EvalTest, LerpTable_6) {
   auto buffer = writer.Write();
 
   TestEval eval(16, {0, 6, 0, 1, 2, 3, 2, 4, 3, 7, 6, 8, 2, 0});
-  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval.eval));
-  EXPECT_EQ(WickedPostfixValidate(&eval.eval, 4), WickedEvalStatus_Ok);
-WickedPostfixEvaluate(&eval.eval);
+  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval));
+  EXPECT_EQ(WickedPostfixValidate(&eval, 4), WickedEvalStatus_Ok);
+WickedPostfixEvaluate(&eval);
   EXPECT_THAT(eval.stack(), ElementsAre(0, 8, 2, 0));
 }
 
@@ -1263,9 +1294,9 @@ TEST(EvalTest, LerpTable_7) {
   auto buffer = writer.Write();
 
   TestEval eval(16, {0, 7, 0, 1, 2, 3, 2, 4, 3, 7, 6, 8, 2, 0});
-  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval.eval));
-  EXPECT_EQ(WickedPostfixValidate(&eval.eval, 4), WickedEvalStatus_Ok);
-WickedPostfixEvaluate(&eval.eval);
+  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval));
+  EXPECT_EQ(WickedPostfixValidate(&eval, 4), WickedEvalStatus_Ok);
+WickedPostfixEvaluate(&eval);
   EXPECT_THAT(eval.stack(), ElementsAre(0, 8, 2, 0));
 }
 
@@ -1277,8 +1308,8 @@ TEST(EvalTest, LerpTableStackUnderflow) {
   auto buffer = writer.Write();
 
   TestEval eval(16, {0.5, 0, 1, 2, 2, 4, 3, 6, 8});
-  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval.eval));
-  EXPECT_EQ(WickedPostfixValidate(&eval.eval, 0), WickedEvalStatus_StackUnderflow);
+  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval));
+  EXPECT_EQ(WickedPostfixValidate(&eval, 0), WickedEvalStatus_StackUnderflow);
 }
 
 TEST(EvalTest, LerpTableIntUnderflow) {
@@ -1288,8 +1319,8 @@ TEST(EvalTest, LerpTableIntUnderflow) {
   auto buffer = writer.Write();
 
   TestEval eval(16, {0, 0.5, 0, 1, 2, 2, 4, 3, 6, 8, 2});
-  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval.eval));
-  EXPECT_EQ(WickedPostfixValidate(&eval.eval, 0), WickedEvalStatus_IllegalOperation);
+  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval));
+  EXPECT_EQ(WickedPostfixValidate(&eval, 0), WickedEvalStatus_IllegalOperation);
 }
 
 TEST(EvalTest, LerpTableIllegalOperation) {
@@ -1300,8 +1331,8 @@ TEST(EvalTest, LerpTableIllegalOperation) {
   auto buffer = writer.Write();
 
   TestEval eval(16, {0, 4});
-  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval.eval));
-  EXPECT_EQ(WickedPostfixValidate(&eval.eval, 0), WickedEvalStatus_IllegalOperation);
+  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval));
+  EXPECT_EQ(WickedPostfixValidate(&eval, 0), WickedEvalStatus_IllegalOperation);
   EXPECT_THAT(eval.stack(), ElementsAre(0, 4));
 }
 
@@ -1311,12 +1342,48 @@ TEST(EvalTest, UnexpectedStackSize) {
   auto buffer = writer.Write();
 
   TestEval eval(4, {42});
-  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval.eval));
+  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval));
   // Initial stack has 1 element, pushes 2 -> final size is 3.
-  EXPECT_EQ(WickedPostfixValidate(&eval.eval, 2), WickedEvalStatus_UnexpectedStackSize);
-  EXPECT_EQ(WickedPostfixValidate(&eval.eval, 3), WickedEvalStatus_Ok);
+  EXPECT_EQ(WickedPostfixValidate(&eval, 2), WickedEvalStatus_UnexpectedStackSize);
+  EXPECT_EQ(WickedPostfixValidate(&eval, 3), WickedEvalStatus_Ok);
 }
 
 
+
+TEST(EvalTest, DirectValidateAndEvaluate) {
+  WickedPostfixWriter writer;
+  writer.Push({1, 2});
+  auto buffer = writer.Write();
+
+  const uint8_t* prog_data = nullptr;
+  uint16_t prog_size = 0;
+  EXPECT_TRUE(::WickedPostfixRead(buffer.data(), buffer.size(), &prog_data, &prog_size));
+
+  uint16_t min_capacity = 0;
+  uint16_t final_stack_size = 0;
+  EXPECT_EQ(::WickedPostfixValidate(prog_data, prog_size, 1, &min_capacity, &final_stack_size), WickedEvalStatus_Ok);
+  EXPECT_EQ(min_capacity, 3);
+  EXPECT_EQ(final_stack_size, 3);
+
+  float stack[4] = {42, 0, 0, 0};
+  ::WickedPostfixEvaluate(prog_data, prog_size, 1, stack);
+  EXPECT_THAT(std::span<float>(stack, final_stack_size), ElementsAre(42, 1, 2));
+}
+
+TEST(EvalTest, StackCapacityExceedsUint16) {
+  WickedPostfixWriter writer;
+  writer.add_i(WickedPostfixOp_Transpose);
+  writer.add_i(255);
+  writer.add_i(254);
+  auto buffer = writer.Write();
+
+  const uint8_t* prog_data = nullptr;
+  uint16_t prog_size = 0;
+  EXPECT_TRUE(::WickedPostfixRead(buffer.data(), buffer.size(), &prog_data, &prog_size));
+
+  uint16_t min_capacity = 0;
+  uint16_t final_stack_size = 0;
+  EXPECT_EQ(::WickedPostfixValidate(prog_data, prog_size, 64770, &min_capacity, &final_stack_size), WickedEvalStatus_StackOverflow);
+}
 
 }

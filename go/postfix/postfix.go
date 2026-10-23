@@ -16,6 +16,7 @@ var (
 	ErrUndefinedOperation     = errors.New("undefined operation")
 	ErrIllegalOperation       = errors.New("illegal operation")
 	ErrStackUnderflow         = errors.New("stack underflow")
+	ErrStackOverflow          = errors.New("stack overflow")
 	ErrFloatLiteralsUnderflow = errors.New("floats underflow")
 	ErrUnexpectedStackSize    = errors.New("unexpected stack size")
 )
@@ -407,10 +408,16 @@ func (b *Builder) LerpTable(rows, cols int) *Builder {
 	return b
 }
 
-func (expr *Expression) Validate(initialStackLen, expectedFinalStackLen int) error {
+func (expr *Expression) Validate(initialStackLen int) (minCapacity, finalStackLen int, err error) {
 	pc := 0
 	stackLen := initialStackLen
+	maxStackLen := initialStackLen
 
+	updateMax := func(depth int) {
+		if depth > maxStackLen {
+			maxStackLen = depth
+		}
+	}
 	avail := func() int {
 		return len(expr.Prog) - pc
 	}
@@ -424,114 +431,124 @@ func (expr *Expression) Validate(initialStackLen, expectedFinalStackLen int) err
 		op := Operation(fetchByte())
 		switch op {
 		case Operation_Undefined:
-			return ErrUndefinedOperation
+			return 0, 0, ErrUndefinedOperation
 		case Operation_Push:
 			if avail() < 1 {
-				return ErrIllegalOperation
+				return 0, 0, ErrIllegalOperation
 			}
 			n := fetchByte()
 			if avail() < n*4 {
-				return ErrIllegalOperation
+				return 0, 0, ErrIllegalOperation
 			}
 			pc += n * 4
 			stackLen += n
+			updateMax(stackLen)
 		case Operation_Pop:
 			if avail() < 1 {
-				return ErrIllegalOperation
+				return 0, 0, ErrIllegalOperation
 			}
 			n := fetchByte()
 			if stackLen < n {
-				return ErrStackUnderflow
+				return 0, 0, ErrStackUnderflow
 			}
 			stackLen -= n
 		case Operation_Dup:
 			if avail() < 1 {
-				return ErrIllegalOperation
+				return 0, 0, ErrIllegalOperation
 			}
 			n := fetchByte()
 			if stackLen < n+1 {
-				return ErrStackUnderflow
+				return 0, 0, ErrStackUnderflow
 			}
 			stackLen += 1
+			updateMax(stackLen)
 		case Operation_RotL, Operation_RotR, Operation_Rev:
 			if avail() < 1 {
-				return ErrIllegalOperation
+				return 0, 0, ErrIllegalOperation
 			}
 			n := fetchByte()
 			if stackLen < n {
-				return ErrStackUnderflow
+				return 0, 0, ErrStackUnderflow
 			}
 		case Operation_Transpose:
 			if avail() < 2 {
-				return ErrIllegalOperation
+				return 0, 0, ErrIllegalOperation
 			}
 			rows := fetchByte()
 			cols := fetchByte()
 			size := rows * cols
 			if stackLen < size {
-				return ErrStackUnderflow
+				return 0, 0, ErrStackUnderflow
+			}
+			if rows > 1 && cols > 1 && rows != cols {
+				updateMax(stackLen + size)
 			}
 		case Operation_Add, Operation_Sub, Operation_Mul, Operation_Div, Operation_Mod, Operation_Pow, Operation_Atan2:
 			if stackLen < 2 {
-				return ErrStackUnderflow
+				return 0, 0, ErrStackUnderflow
 			}
 			stackLen -= 1
 		case Operation_MulAdd:
 			if stackLen < 3 {
-				return ErrStackUnderflow
+				return 0, 0, ErrStackUnderflow
 			}
 			stackLen -= 2
 		case Operation_Neg, Operation_Abs, Operation_Inv, Operation_Sqrt, Operation_Exp, Operation_Ln, Operation_Sin, Operation_Cos, Operation_Tan, Operation_Asin, Operation_Acos:
 			if stackLen < 1 {
-				return ErrStackUnderflow
+				return 0, 0, ErrStackUnderflow
 			}
 		case Operation_AddVec, Operation_SubVec, Operation_MulVec:
 			if avail() < 1 {
-				return ErrIllegalOperation
+				return 0, 0, ErrIllegalOperation
 			}
 			size := fetchByte()
 			if stackLen < size*2 {
-				return ErrStackUnderflow
+				return 0, 0, ErrStackUnderflow
 			}
 			stackLen -= size
 		case Operation_MulAddVec:
 			if avail() < 1 {
-				return ErrIllegalOperation
+				return 0, 0, ErrIllegalOperation
 			}
 			size := fetchByte()
 			if stackLen < size*3 {
-				return ErrStackUnderflow
+				return 0, 0, ErrStackUnderflow
 			}
 			stackLen -= size * 2
 		case Operation_ScaleVec:
 			if avail() < 1 {
-				return ErrIllegalOperation
+				return 0, 0, ErrIllegalOperation
 			}
 			size := fetchByte()
 			if stackLen < size+1 {
-				return ErrStackUnderflow
+				return 0, 0, ErrStackUnderflow
 			}
 			stackLen -= 1
 		case Operation_NegVec:
 			if avail() < 1 {
-				return ErrIllegalOperation
+				return 0, 0, ErrIllegalOperation
 			}
 			size := fetchByte()
 			if stackLen < size {
-				return ErrStackUnderflow
+				return 0, 0, ErrStackUnderflow
 			}
 		case Operation_NormVec:
 			if avail() < 1 {
-				return ErrIllegalOperation
+				return 0, 0, ErrIllegalOperation
 			}
 			size := fetchByte()
 			if stackLen < size {
-				return ErrStackUnderflow
+				return 0, 0, ErrStackUnderflow
 			}
-			stackLen = stackLen - size + 1
+			if size == 0 {
+				stackLen += 1
+				updateMax(stackLen)
+			} else {
+				stackLen = stackLen - size + 1
+			}
 		case Operation_MulMat:
 			if avail() < 3 {
-				return ErrIllegalOperation
+				return 0, 0, ErrIllegalOperation
 			}
 			arows := fetchByte()
 			brows := fetchByte()
@@ -540,66 +557,69 @@ func (expr *Expression) Validate(initialStackLen, expectedFinalStackLen int) err
 			bsize := brows * bcols
 			csize := arows * bcols
 			if stackLen < asize+bsize {
-				return ErrStackUnderflow
+				return 0, 0, ErrStackUnderflow
 			}
+			updateMax(stackLen + csize)
 			stackLen = stackLen - (asize + bsize) + csize
 		case Operation_PolyVec:
 			if avail() < 1 {
-				return ErrIllegalOperation
+				return 0, 0, ErrIllegalOperation
 			}
 			size := fetchByte()
 			if stackLen < size+1 {
-				return ErrStackUnderflow
+				return 0, 0, ErrStackUnderflow
 			}
 			stackLen -= size
 		case Operation_PolyMat:
 			if avail() < 2 {
-				return ErrIllegalOperation
+				return 0, 0, ErrIllegalOperation
 			}
 			rows := fetchByte()
 			cols := fetchByte()
 			coeffSize := rows * cols
 			if stackLen < coeffSize+1 {
-				return ErrStackUnderflow
+				return 0, 0, ErrStackUnderflow
 			}
 			stackLen = stackLen - (coeffSize + 1) + cols
+			updateMax(stackLen)
 		case Operation_LerpVec:
 			if avail() < 1 {
-				return ErrIllegalOperation
+				return 0, 0, ErrIllegalOperation
 			}
 			size := fetchByte()
 			if stackLen < size*2+1 {
-				return ErrStackUnderflow
+				return 0, 0, ErrStackUnderflow
 			}
 			stackLen -= size + 1
 		case Operation_LerpTable:
 			if avail() < 2 {
-				return ErrIllegalOperation
+				return 0, 0, ErrIllegalOperation
 			}
 			rows := fetchByte()
 			cols := fetchByte()
 			if rows < 1 || cols < 1 {
-				return ErrIllegalOperation
+				return 0, 0, ErrIllegalOperation
 			}
 			lutSize := rows * cols
 			if stackLen < lutSize+1 {
-				return ErrStackUnderflow
+				return 0, 0, ErrStackUnderflow
 			}
 			stackLen = stackLen - (lutSize + 1) + (cols - 1)
+			updateMax(stackLen)
 		default:
-			return ErrUndefinedOperation
+			return 0, 0, ErrUndefinedOperation
 		}
 	}
 
-	if expectedFinalStackLen >= 0 && stackLen != expectedFinalStackLen {
-		return ErrUnexpectedStackSize
+	if maxStackLen > math.MaxUint16 {
+		return 0, 0, ErrStackOverflow
 	}
 
-	return nil
+	return maxStackLen, stackLen, nil
 }
 
-func Validate(expr *Expression, initialStackLen, expectedFinalStackLen int) error {
-	return expr.Validate(initialStackLen, expectedFinalStackLen)
+func Validate(expr *Expression, initialStackLen int) (minCapacity, finalStackLen int, err error) {
+	return expr.Validate(initialStackLen)
 }
 
 func (expr *Expression) Evaluate(stack []float64) []float64 {
@@ -882,7 +902,7 @@ func Evaluate(expr *Expression, stack []float64) []float64 {
 }
 
 func (expr *Expression) Eval(stack []float64) ([]float64, error) {
-	if err := expr.Validate(len(stack), -1); err != nil {
+	if _, _, err := expr.Validate(len(stack)); err != nil {
 		return nil, err
 	}
 	return expr.Evaluate(stack), nil

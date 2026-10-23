@@ -778,31 +778,51 @@ func TestEvalPostfixExpression(t *testing.T) {
 		})
 	}
 }
-
 func TestValidateAndEvaluate(t *testing.T) {
 	// Push 1, 2 to an initial stack of [42]. Initial length = 1.
-	// Expected final stack is [42, 1, 2], final length = 3.
+	// Expected final stack is [42, 1, 2], final length = 3, minCapacity = 3.
 	expr := postfix.MakeBuilder().Push(1, 2).Build()
 
-	// Validation with matching expected final stack length
-	if err := postfix.Validate(expr, 1, 3); err != nil {
+	minCapacity, finalStackLen, err := postfix.Validate(expr, 1)
+	if err != nil {
 		t.Fatalf("unexpected validation error: %v", err)
 	}
-	if err := expr.Validate(1, 3); err != nil {
+	if minCapacity != 3 {
+		t.Errorf("got minCapacity %d, want 3", minCapacity)
+	}
+	if finalStackLen != 3 {
+		t.Errorf("got finalStackLen %d, want 3", finalStackLen)
+	}
+
+	minCapExpr, finalLenExpr, err := expr.Validate(1)
+	if err != nil {
 		t.Fatalf("unexpected validation error: %v", err)
+	}
+	if minCapExpr != 3 || finalLenExpr != 3 {
+		t.Errorf("got minCapacity %d, finalStackLen %d; want 3, 3", minCapExpr, finalLenExpr)
+	}
+
+	// Caller checking expected final stack length
+	checkExpectedFinalLen := func(expected int) error {
+		_, finalLen, err := expr.Validate(1)
+		if err != nil {
+			return err
+		}
+		if finalLen != expected {
+			return postfix.ErrUnexpectedStackSize
+		}
+		return nil
 	}
 
 	// Validation with mismatched expected final stack length
-	if err := postfix.Validate(expr, 1, 2); !errors.Is(err, postfix.ErrUnexpectedStackSize) {
+	if err := checkExpectedFinalLen(2); !errors.Is(err, postfix.ErrUnexpectedStackSize) {
 		t.Errorf("got %v, want %v", err, postfix.ErrUnexpectedStackSize)
 	}
-	if err := postfix.Validate(expr, 1, 4); !errors.Is(err, postfix.ErrUnexpectedStackSize) {
+	if err := checkExpectedFinalLen(4); !errors.Is(err, postfix.ErrUnexpectedStackSize) {
 		t.Errorf("got %v, want %v", err, postfix.ErrUnexpectedStackSize)
 	}
-
-	// Validation without enforcing final stack length (-1)
-	if err := postfix.Validate(expr, 1, -1); err != nil {
-		t.Errorf("unexpected validation error with -1: %v", err)
+	if err := checkExpectedFinalLen(3); err != nil {
+		t.Errorf("unexpected error: %v", err)
 	}
 
 	// Direct evaluation
@@ -816,5 +836,13 @@ func TestValidateAndEvaluate(t *testing.T) {
 	gotPkg := postfix.Evaluate(expr, []float64{42})
 	if !equalSlices(gotPkg, want) {
 		t.Errorf("got %v, want %v", gotPkg, want)
+	}
+}
+
+func TestValidateStackOverflow(t *testing.T) {
+	expr := postfix.MakeBuilder().Transpose(255, 254).Build()
+	_, _, err := expr.Validate(64770)
+	if !errors.Is(err, postfix.ErrStackOverflow) {
+		t.Errorf("got %v, want %v", err, postfix.ErrStackOverflow)
 	}
 }

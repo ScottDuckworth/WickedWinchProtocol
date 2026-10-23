@@ -65,54 +65,21 @@ extern "C" const char* WickedPostfixOpToString(WickedPostfixOp_t op) {
   return "UNKNOWN";
 }
 
-extern "C" bool WickedPostfixRead(const uint8_t* data, size_t size, WickedPostfixEval_t* eval) {
+extern "C" bool WickedPostfixRead(const uint8_t* data, size_t size, const uint8_t** prog_data, uint16_t* prog_size) {
   if (size < sizeof(WickedPostfixHeader)) return false;
 
   const auto* header = reinterpret_cast<const WickedPostfixHeader*>(data);
-  uint16_t prog_size = header->prog_size;
+  uint16_t p_size = header->prog_size;
   constexpr size_t prog_offset = sizeof(WickedPostfixHeader);
-  size_t total_size = prog_offset + prog_size;
+  size_t total_size = prog_offset + p_size;
   if (size != total_size) return false;
 
-  if (eval) {
-    eval->prog_data = data + prog_offset;
-    eval->prog_size = prog_size;
-    eval->pc = 0;
-  }
+  if (prog_data) *prog_data = data + prog_offset;
+  if (prog_size) *prog_size = p_size;
   return true;
 }
 
-extern "C" void WickedPostfixEval_reset(WickedPostfixEval_t* eval) {
-  eval->stack_size = 0;
-  eval->pc = 0;
-}
 
-extern "C" WickedEvalStatus_t WickedPostfixEval_push(WickedPostfixEval_t* eval, float v) {
-  if (eval->stack_capacity - eval->stack_size < 1) return WickedEvalStatus_StackOverflow;
-  eval->stack_data[eval->stack_size++] = v;
-  return WickedEvalStatus_Ok;
-}
-
-extern "C" WickedEvalStatus_t WickedPostfixEval_pushv(WickedPostfixEval_t* eval, const float* v, size_t size) {
-  if (eval->stack_capacity - eval->stack_size < size) return WickedEvalStatus_StackOverflow;
-  memcpy(&eval->stack_data[eval->stack_size], v, size * sizeof(float));
-  eval->stack_size += static_cast<uint8_t>(size);
-  return WickedEvalStatus_Ok;
-}
-
-extern "C" WickedEvalStatus_t WickedPostfixEval_pop(WickedPostfixEval_t* eval, float* v) {
-  if (eval->stack_size < 1) return WickedEvalStatus_StackUnderflow;
-  *v = eval->stack_data[--eval->stack_size];
-  return WickedEvalStatus_Ok;
-}
-
-extern "C" WickedEvalStatus_t WickedPostfixEval_popv(WickedPostfixEval_t* eval, float* v, size_t n) {
-  if (eval->stack_size < n) return WickedEvalStatus_StackUnderflow;
-  eval->stack_size -= static_cast<uint8_t>(n);
-  const float* src = &eval->stack_data[eval->stack_size];
-  for (size_t i = 0; i < n; ++i) v[i] = src[i];
-  return WickedEvalStatus_Ok;
-}
 
 namespace {
 
@@ -120,7 +87,13 @@ struct ValidationContext {
   const uint8_t* pc;
   const uint8_t* const pc_end;
   int32_t stack_depth;
-  const uint8_t stack_capacity;
+  int32_t max_stack_depth;
+
+  WICKED_ALWAYS_INLINE void update_max(int32_t depth) {
+    if (depth > max_stack_depth) {
+      max_stack_depth = depth;
+    }
+  }
 
   WICKED_ALWAYS_INLINE bool has_bytes(uint16_t n) const {
     return static_cast<size_t>(pc_end - pc) >= n;
@@ -143,8 +116,8 @@ WICKED_ALWAYS_INLINE WickedEvalStatus_t Push(ValidationContext& ctx) {
   uint16_t byte_count = uint16_t(n) * sizeof(float);
   if (!ctx.has_bytes(byte_count)) return WickedEvalStatus_IllegalOperation;
   ctx.skip(byte_count);
-  if (ctx.stack_depth + n > ctx.stack_capacity) return WickedEvalStatus_StackOverflow;
   ctx.stack_depth += n;
+  ctx.update_max(ctx.stack_depth);
   return WickedEvalStatus_Ok;
 }
 
@@ -160,8 +133,8 @@ WICKED_ALWAYS_INLINE WickedEvalStatus_t Dup(ValidationContext& ctx) {
   if (!ctx.has_bytes(1)) return WickedEvalStatus_IllegalOperation;
   uint8_t n = ctx.fetch_byte();
   if (ctx.stack_depth < int32_t(n) + 1) return WickedEvalStatus_StackUnderflow;
-  if (ctx.stack_depth + 1 > ctx.stack_capacity) return WickedEvalStatus_StackOverflow;
   ctx.stack_depth += 1;
+  ctx.update_max(ctx.stack_depth);
   return WickedEvalStatus_Ok;
 }
 
@@ -179,7 +152,7 @@ WICKED_ALWAYS_INLINE WickedEvalStatus_t Transpose(ValidationContext& ctx) {
   uint16_t size = uint16_t(rows) * cols;
   if (ctx.stack_depth < size) return WickedEvalStatus_StackUnderflow;
   if (rows > 1 && cols > 1 && rows != cols) {
-    if (ctx.stack_depth + size > ctx.stack_capacity) return WickedEvalStatus_StackOverflow;
+    ctx.update_max(ctx.stack_depth + size);
   }
   return WickedEvalStatus_Ok;
 }
@@ -237,8 +210,8 @@ WICKED_ALWAYS_INLINE WickedEvalStatus_t NormVec(ValidationContext& ctx) {
   uint8_t size = ctx.fetch_byte();
   if (ctx.stack_depth < size) return WickedEvalStatus_StackUnderflow;
   if (size == 0) {
-    if (ctx.stack_depth + 1 > ctx.stack_capacity) return WickedEvalStatus_StackOverflow;
     ctx.stack_depth += 1;
+    ctx.update_max(ctx.stack_depth);
   } else {
     ctx.stack_depth -= (size - 1);
   }
@@ -254,7 +227,7 @@ WICKED_ALWAYS_INLINE WickedEvalStatus_t MulMat(ValidationContext& ctx) {
   uint16_t bsize = uint16_t(brows) * bcols;
   uint16_t csize = uint16_t(arows) * bcols;
   if (ctx.stack_depth < asize + bsize) return WickedEvalStatus_StackUnderflow;
-  if (ctx.stack_depth + csize > ctx.stack_capacity) return WickedEvalStatus_StackOverflow;
+  ctx.update_max(ctx.stack_depth + csize);
   ctx.stack_depth = ctx.stack_depth - asize - bsize + csize;
   return WickedEvalStatus_Ok;
 }
@@ -273,8 +246,8 @@ WICKED_ALWAYS_INLINE WickedEvalStatus_t PolyMat(ValidationContext& ctx) {
   uint8_t cols = ctx.fetch_byte();
   uint16_t coeff_size = uint16_t(rows) * cols;
   if (ctx.stack_depth < int32_t(coeff_size) + 1) return WickedEvalStatus_StackUnderflow;
-  if (ctx.stack_depth - (int32_t(coeff_size) + 1) + cols > ctx.stack_capacity) return WickedEvalStatus_StackOverflow;
   ctx.stack_depth = ctx.stack_depth - (int32_t(coeff_size) + 1) + cols;
+  ctx.update_max(ctx.stack_depth);
   return WickedEvalStatus_Ok;
 }
 
@@ -293,24 +266,20 @@ WICKED_ALWAYS_INLINE WickedEvalStatus_t LerpTable(ValidationContext& ctx) {
   if (rows < 1 || cols < 1) return WickedEvalStatus_IllegalOperation;
   uint16_t lut_size = uint16_t(rows) * cols;
   if (ctx.stack_depth < int32_t(lut_size) + 1) return WickedEvalStatus_StackUnderflow;
-  if (ctx.stack_depth - (int32_t(lut_size) + 1) + (cols - 1) > ctx.stack_capacity) return WickedEvalStatus_StackOverflow;
   ctx.stack_depth = ctx.stack_depth - (int32_t(lut_size) + 1) + (cols - 1);
+  ctx.update_max(ctx.stack_depth);
   return WickedEvalStatus_Ok;
 }
 
 } // namespace validate
 } // namespace
 
-extern "C" WickedEvalStatus_t WickedPostfixValidateProgram(const uint8_t* prog_data, uint16_t prog_size, uint8_t initial_stack_size, uint8_t stack_capacity, uint8_t expected_final_stack_size) {
-  if (initial_stack_size > stack_capacity) {
-    return WickedEvalStatus_StackOverflow;
-  }
-
+extern "C" WickedEvalStatus_t WickedPostfixValidate(const uint8_t* prog_data, uint16_t prog_size, uint16_t initial_stack_size, uint16_t* minimum_stack_capacity, uint16_t* final_stack_size) {
   ValidationContext ctx{
     .pc = prog_data,
     .pc_end = prog_data + prog_size,
     .stack_depth = initial_stack_size,
-    .stack_capacity = stack_capacity,
+    .max_stack_depth = initial_stack_size,
   };
 
   while (ctx.pc < ctx.pc_end) {
@@ -365,15 +334,17 @@ extern "C" WickedEvalStatus_t WickedPostfixValidateProgram(const uint8_t* prog_d
     }
   }
 
-  if (ctx.stack_depth != expected_final_stack_size) {
-    return WickedEvalStatus_UnexpectedStackSize;
+  if (ctx.max_stack_depth > UINT16_MAX) {
+    return WickedEvalStatus_StackOverflow;
+  }
+
+  if (minimum_stack_capacity) {
+    *minimum_stack_capacity = static_cast<uint16_t>(ctx.max_stack_depth);
+  }
+  if (final_stack_size) {
+    *final_stack_size = static_cast<uint16_t>(ctx.stack_depth);
   }
   return WickedEvalStatus_Ok;
-}
-
-extern "C" WickedEvalStatus_t WickedPostfixValidate(const WickedPostfixEval_t* eval, uint8_t expected_final_stack_size) {
-  if (!eval) return WickedEvalStatus_IllegalOperation;
-  return WickedPostfixValidateProgram(eval->prog_data, eval->prog_size, eval->stack_size, eval->stack_capacity, expected_final_stack_size);
 }
 
 namespace {
@@ -744,12 +715,12 @@ WICKED_ALWAYS_INLINE void LerpTable(EvalContext& ctx) {
 } // namespace ops
 } // namespace
 
-extern "C" void WickedPostfixEvaluate(WickedPostfixEval_t* eval) {
+extern "C" void WickedPostfixEvaluate(const uint8_t* prog_data, uint16_t prog_size, uint16_t initial_stack_size, float* stack_data) {
   EvalContext ctx{
-    .pc = eval->prog_data,
-    .sp = eval->stack_data + eval->stack_size,
+    .pc = prog_data,
+    .sp = stack_data + initial_stack_size,
   };
-  const uint8_t* const pc_end = eval->prog_data + eval->prog_size;
+  const uint8_t* const pc_end = prog_data + prog_size;
 
   while (ctx.pc < pc_end) {
     const uint8_t op = ctx.fetch_byte();
@@ -796,9 +767,6 @@ extern "C" void WickedPostfixEvaluate(WickedPostfixEval_t* eval) {
         break;
     }
   }
-
-  eval->pc = static_cast<uint16_t>(ctx.pc - eval->prog_data);
-  eval->stack_size = static_cast<uint8_t>(ctx.sp - eval->stack_data);
 }
 
 bool WickedPostfixWriter::Write(uint8_t* data, size_t size) const {

@@ -57,26 +57,9 @@ typedef enum WickedPostfixOp {
 
 const char* WickedPostfixOpToString(WickedPostfixOp_t op);
 
-typedef struct WickedPostfixEval {
-  const uint8_t* prog_data;
-  uint16_t prog_size;
-  uint16_t pc;
-
-  float* stack_data;
-  uint8_t stack_size;
-  uint8_t stack_capacity;
-} WickedPostfixEval_t;
-
-void WickedPostfixEval_reset(WickedPostfixEval_t* eval);
-WickedEvalStatus_t WickedPostfixEval_push(WickedPostfixEval_t* eval, float v);
-WickedEvalStatus_t WickedPostfixEval_pushv(WickedPostfixEval_t* eval, const float* v, size_t size);
-WickedEvalStatus_t WickedPostfixEval_pop(WickedPostfixEval_t* eval, float* v);
-WickedEvalStatus_t WickedPostfixEval_popv(WickedPostfixEval_t* eval, float* v, size_t n);
-
-bool WickedPostfixRead(const uint8_t* data, size_t size, WickedPostfixEval_t* eval);
-WickedEvalStatus_t WickedPostfixValidate(const WickedPostfixEval_t* eval, uint8_t expected_final_stack_size);
-WickedEvalStatus_t WickedPostfixValidateProgram(const uint8_t* prog_data, uint16_t prog_size, uint8_t initial_stack_size, uint8_t stack_capacity, uint8_t expected_final_stack_size);
-void WickedPostfixEvaluate(WickedPostfixEval_t* eval);
+bool WickedPostfixRead(const uint8_t* data, size_t size, const uint8_t** prog_data, uint16_t* prog_size);
+WickedEvalStatus_t WickedPostfixValidate(const uint8_t* prog_data, uint16_t prog_size, uint16_t initial_stack_size, uint16_t* minimum_stack_capacity, uint16_t* final_stack_size);
+void WickedPostfixEvaluate(const uint8_t* prog_data, uint16_t prog_size, uint16_t initial_stack_size, float* stack_data);
 
 #ifdef __cplusplus
 }

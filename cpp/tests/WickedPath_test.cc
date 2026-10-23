@@ -13,16 +13,17 @@ using ::testing::Pointwise;
 namespace {
 
 struct TestEval {
-  WickedPostfixEval_t eval;
+  uint16_t stack_size = 1;
+  uint16_t stack_capacity = sizeof(stack_buffer) / sizeof(float);
   float stack_buffer[8];
 
-  TestEval() {
-    eval.stack_data = stack_buffer;
-    eval.stack_size = 0;
-    eval.stack_capacity = sizeof(stack_buffer) / sizeof(float);
-  }
 
-  std::span<float> stack() { return std::span<float>(eval.stack_data, eval.stack_size); }
+
+
+
+  std::span<float> stack() { return std::span<float>(stack_buffer, stack_size); }
+
+
 };
 
 TEST(PathEvalTest, Empty) {
@@ -33,7 +34,7 @@ TEST(PathEvalTest, Empty) {
   EXPECT_TRUE(WickedPathValidate(buffer.data(), buffer.size()));
 
   TestEval eval;
-  EXPECT_EQ(WickedPathEvaluate(buffer.data(), 0, &eval.eval), WickedEvalStatus_UndefinedOperation);
+  EXPECT_EQ(WickedPathEvaluate(buffer.data(), 0, eval.stack_buffer, eval.stack_capacity), WickedEvalStatus_UndefinedOperation);
 }
 
 TEST(PathEvalTest, NoStack) {
@@ -44,8 +45,8 @@ TEST(PathEvalTest, NoStack) {
   auto buffer = writer.Write();
   EXPECT_TRUE(WickedPathValidate(buffer.data(), buffer.size()));
 
-  WickedPostfixEval_t eval = {.stack_capacity = 0};
-  EXPECT_EQ(WickedPathEvaluate(buffer.data(), 0, &eval), WickedEvalStatus_StackOverflow);
+  float dummy = 0;
+  EXPECT_EQ(WickedPathEvaluate(buffer.data(), 0, &dummy, 0), WickedEvalStatus_StackOverflow);
 }
 
 TEST(PathEvalTest, Eval) {
@@ -62,16 +63,16 @@ TEST(PathEvalTest, Eval) {
 
   TestEval eval;
 
-  EXPECT_EQ(WickedPathEvaluate(buffer.data(), 1000, &eval.eval), WickedEvalStatus_Ok);
+  EXPECT_EQ(WickedPathEvaluate(buffer.data(), 1000, eval.stack_buffer, eval.stack_capacity), WickedEvalStatus_Ok);
   EXPECT_THAT(eval.stack(), Pointwise(FloatEq(), {0}));
 
-  EXPECT_EQ(WickedPathEvaluate(buffer.data(), 1750, &eval.eval), WickedEvalStatus_Ok);
+  EXPECT_EQ(WickedPathEvaluate(buffer.data(), 1750, eval.stack_buffer, eval.stack_capacity), WickedEvalStatus_Ok);
   EXPECT_THAT(eval.stack(), Pointwise(FloatEq(), {750}));
 
-  EXPECT_EQ(WickedPathEvaluate(buffer.data(), 2000, &eval.eval), WickedEvalStatus_Ok);
+  EXPECT_EQ(WickedPathEvaluate(buffer.data(), 2000, eval.stack_buffer, eval.stack_capacity), WickedEvalStatus_Ok);
   EXPECT_THAT(eval.stack(), Pointwise(FloatEq(), {99}));
 
-  EXPECT_EQ(WickedPathEvaluate(buffer.data(), 2100, &eval.eval), WickedEvalStatus_Ok);
+  EXPECT_EQ(WickedPathEvaluate(buffer.data(), 2100, eval.stack_buffer, eval.stack_capacity), WickedEvalStatus_Ok);
   EXPECT_THAT(eval.stack(), Pointwise(FloatEq(), {99}));
 }
 
@@ -88,22 +89,22 @@ TEST(PathEvalTest, Wraparound) {
 
   TestEval eval;
 
-  EXPECT_EQ(WickedPathEvaluate(buffer.data(), -1000, &eval.eval), WickedEvalStatus_Ok);
+  EXPECT_EQ(WickedPathEvaluate(buffer.data(), -1000, eval.stack_buffer, eval.stack_capacity), WickedEvalStatus_Ok);
   EXPECT_THAT(eval.stack(), Pointwise(FloatEq(), {0}));
 
-  EXPECT_EQ(WickedPathEvaluate(buffer.data(), -500, &eval.eval), WickedEvalStatus_Ok);
+  EXPECT_EQ(WickedPathEvaluate(buffer.data(), -500, eval.stack_buffer, eval.stack_capacity), WickedEvalStatus_Ok);
   EXPECT_THAT(eval.stack(), Pointwise(FloatEq(), {500}));
 
-  EXPECT_EQ(WickedPathEvaluate(buffer.data(), 0, &eval.eval), WickedEvalStatus_Ok);
+  EXPECT_EQ(WickedPathEvaluate(buffer.data(), 0, eval.stack_buffer, eval.stack_capacity), WickedEvalStatus_Ok);
   EXPECT_THAT(eval.stack(), Pointwise(FloatEq(), {1000}));
 
-  EXPECT_EQ(WickedPathEvaluate(buffer.data(), 500, &eval.eval), WickedEvalStatus_Ok);
+  EXPECT_EQ(WickedPathEvaluate(buffer.data(), 500, eval.stack_buffer, eval.stack_capacity), WickedEvalStatus_Ok);
   EXPECT_THAT(eval.stack(), Pointwise(FloatEq(), {1500}));
 
-  EXPECT_EQ(WickedPathEvaluate(buffer.data(), 1000, &eval.eval), WickedEvalStatus_Ok);
+  EXPECT_EQ(WickedPathEvaluate(buffer.data(), 1000, eval.stack_buffer, eval.stack_capacity), WickedEvalStatus_Ok);
   EXPECT_THAT(eval.stack(), Pointwise(FloatEq(), {0}));
 
-  EXPECT_EQ(WickedPathEvaluate(buffer.data(), 1500, &eval.eval), WickedEvalStatus_Ok);
+  EXPECT_EQ(WickedPathEvaluate(buffer.data(), 1500, eval.stack_buffer, eval.stack_capacity), WickedEvalStatus_Ok);
   EXPECT_THAT(eval.stack(), Pointwise(FloatEq(), {500}));
 }
 
