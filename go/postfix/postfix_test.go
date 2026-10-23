@@ -34,32 +34,17 @@ func TestJoin(t *testing.T) {
 		{
 			name: "one",
 			exprs: []*postfix.Expression{
-				{
-					I: []uint8{uint8(postfix.Operation_Push), 1},
-					D: []float32{10},
-				},
+				postfix.MakeBuilder().Push(10).Build(),
 			},
-			want: &postfix.Expression{
-				I: []uint8{uint8(postfix.Operation_Push), 1},
-				D: []float32{10},
-			},
+			want: postfix.MakeBuilder().Push(10).Build(),
 		},
 		{
 			name: "two",
 			exprs: []*postfix.Expression{
-				{
-					I: []uint8{uint8(postfix.Operation_Push), 1},
-					D: []float32{10},
-				},
-				{
-					I: []uint8{uint8(postfix.Operation_Pop), 2},
-					D: []float32{20},
-				},
+				postfix.MakeBuilder().Push(10).Build(),
+				postfix.MakeBuilder().Pop(2).Build(),
 			},
-			want: &postfix.Expression{
-				I: []uint8{uint8(postfix.Operation_Push), 1, uint8(postfix.Operation_Pop), 2},
-				D: []float32{10, 20},
-			},
+			want: postfix.MakeBuilder().Push(10).Pop(2).Build(),
 		},
 	} {
 		t.Run(test.name, func(t *testing.T) {
@@ -82,7 +67,7 @@ func TestEvalPostfixExpression(t *testing.T) {
 		{
 			name: "undefined",
 			expr: &postfix.Expression{
-				I: []uint8{uint8(postfix.Operation_Undefined)},
+				Prog: []uint8{uint8(postfix.Operation_Undefined)},
 			},
 			wantErr: postfix.ErrUndefinedOperation,
 		},
@@ -106,18 +91,17 @@ func TestEvalPostfixExpression(t *testing.T) {
 		},
 		{
 			name: "push int literals underflow",
-			expr: &postfix.Expression{
-				I: []uint8{uint8(postfix.Operation_Push)},
-				D: []float32{1},
-			},
+		expr: &postfix.Expression{
+			Prog: []uint8{uint8(postfix.Operation_Push)},
+		},
 			wantErr: postfix.ErrIllegalOperation,
 		},
 		{
 			name: "push float literals underflow",
-			expr: &postfix.Expression{
-				I: []uint8{uint8(postfix.Operation_Push), 1},
-			},
-			wantErr: postfix.ErrFloatLiteralsUnderflow,
+		expr: &postfix.Expression{
+			Prog: []uint8{uint8(postfix.Operation_Push), 1},
+		},
+		wantErr: postfix.ErrIllegalOperation,
 		},
 		{
 			name:      "pop 0",
@@ -140,14 +124,14 @@ func TestEvalPostfixExpression(t *testing.T) {
 		{
 			name: "pop int literals underflow",
 			expr: &postfix.Expression{
-				I: []uint8{uint8(postfix.Operation_Pop)},
+				Prog: []uint8{uint8(postfix.Operation_Pop)},
 			},
 			wantErr: postfix.ErrIllegalOperation,
 		},
 		{
 			name: "pop stack underflow",
 			expr: &postfix.Expression{
-				I: []uint8{uint8(postfix.Operation_Pop), 1},
+				Prog: []uint8{uint8(postfix.Operation_Pop), 1},
 			},
 			wantErr: postfix.ErrStackUnderflow,
 		},
@@ -172,14 +156,14 @@ func TestEvalPostfixExpression(t *testing.T) {
 		{
 			name: "dup int literals underflow",
 			expr: &postfix.Expression{
-				I: []uint8{uint8(postfix.Operation_Dup)},
+				Prog: []uint8{uint8(postfix.Operation_Dup)},
 			},
 			wantErr: postfix.ErrIllegalOperation,
 		},
 		{
 			name: "dup stack underflow",
 			expr: &postfix.Expression{
-				I: []uint8{uint8(postfix.Operation_Dup), 0},
+				Prog: []uint8{uint8(postfix.Operation_Dup), 0},
 			},
 			wantErr: postfix.ErrStackUnderflow,
 		},
@@ -210,14 +194,14 @@ func TestEvalPostfixExpression(t *testing.T) {
 		{
 			name: "rotl int literals underflow",
 			expr: &postfix.Expression{
-				I: []uint8{uint8(postfix.Operation_RotL)},
+				Prog: []uint8{uint8(postfix.Operation_RotL)},
 			},
 			wantErr: postfix.ErrIllegalOperation,
 		},
 		{
 			name: "rotl stack underflow",
 			expr: &postfix.Expression{
-				I: []uint8{uint8(postfix.Operation_RotL), 2},
+				Prog: []uint8{uint8(postfix.Operation_RotL), 2},
 			},
 			wantErr: postfix.ErrStackUnderflow,
 		},
@@ -248,14 +232,14 @@ func TestEvalPostfixExpression(t *testing.T) {
 		{
 			name: "rotr int literals underflow",
 			expr: &postfix.Expression{
-				I: []uint8{uint8(postfix.Operation_RotR)},
+				Prog: []uint8{uint8(postfix.Operation_RotR)},
 			},
 			wantErr: postfix.ErrIllegalOperation,
 		},
 		{
 			name: "rotr stack underflow",
 			expr: &postfix.Expression{
-				I: []uint8{uint8(postfix.Operation_RotR), 2},
+				Prog: []uint8{uint8(postfix.Operation_RotR), 2},
 			},
 			wantErr: postfix.ErrStackUnderflow,
 		},
@@ -591,13 +575,13 @@ func TestEvalPostfixExpression(t *testing.T) {
 		},
 		{
 			name:      "push 1 multiply add vector 3 implicit",
-			expr:      postfix.MakeBuilder().PushMulAddVec(3, []float64{7, 8, 9}).Build(),
+			expr:      postfix.MakeBuilder().Push(7, 8, 9).MulAddVec(3).Build(),
 			stack:     []float64{1, 2, 3, 4, 5, 6},
 			wantStack: []float64{1*4 + 7, 2*5 + 8, 3*6 + 9},
 		},
 		{
 			name:      "push 2 multiply add vector 3 implicit",
-			expr:      postfix.MakeBuilder().PushMulAddVec(3, []float64{4, 5, 6}, []float64{7, 8, 9}).Build(),
+			expr:      postfix.MakeBuilder().Push(4, 5, 6, 7, 8, 9).MulAddVec(3).Build(),
 			stack:     []float64{1, 2, 3},
 			wantStack: []float64{1*4 + 7, 2*5 + 8, 3*6 + 9},
 		},
@@ -654,7 +638,7 @@ func TestEvalPostfixExpression(t *testing.T) {
 		},
 		{
 			name:  "push multiply matrix 2 3 4",
-			expr:  postfix.MakeBuilder().PushMulMat(2, 3, 4, []float64{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12}).Build(),
+			expr:  postfix.MakeBuilder().Push(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12).MulMat(2, 3, 4).Build(),
 			stack: []float64{1, 2, 3, 4, 5, 6},
 			wantStack: []float64{
 				1*1 + 2*5 + 3*9, 1*2 + 2*6 + 3*10, 1*3 + 2*7 + 3*11, 1*4 + 2*8 + 3*12,
@@ -729,13 +713,13 @@ func TestEvalPostfixExpression(t *testing.T) {
 		},
 		{
 			name:      "push 1 lerp 3d 0.5",
-			expr:      postfix.MakeBuilder().PushLerp(3, []float64{4, 5, 6}).Build(),
+			expr:      postfix.MakeBuilder().Push(4, 5, 6).Lerp(3).Build(),
 			stack:     []float64{0.5, 1, 2, 3},
 			wantStack: []float64{2.5, 3.5, 4.5},
 		},
 		{
 			name:      "push 2 lerp 3d 0.5",
-			expr:      postfix.MakeBuilder().PushLerp(3, []float64{1, 2, 3}, []float64{4, 5, 6}).Build(),
+			expr:      postfix.MakeBuilder().Push(1, 2, 3, 4, 5, 6).Lerp(3).Build(),
 			stack:     []float64{0.5},
 			wantStack: []float64{2.5, 3.5, 4.5},
 		},
