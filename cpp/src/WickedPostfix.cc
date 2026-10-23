@@ -390,11 +390,6 @@ struct EvalContext {
     *sp++ = v;
   }
 
-  WICKED_ALWAYS_INLINE void push(std::span<const float> v) {
-    std::memcpy(sp, v.data(), v.size_bytes());
-    sp += v.size();
-  }
-
   WICKED_ALWAYS_INLINE float pop() {
     return *--sp;
   }
@@ -423,8 +418,10 @@ namespace ops {
 
 WICKED_ALWAYS_INLINE void Push(EvalContext& ctx) {
   uint8_t n = ctx.fetch_byte();
-  ctx.push({reinterpret_cast<const float*>(ctx.pc), n});
-  ctx.pc += uint16_t(n) * sizeof(float);
+  size_t bytes = n * sizeof(float);
+  std::memcpy(ctx.sp, ctx.pc, bytes);
+  ctx.sp += n;
+  ctx.pc += bytes;
 }
 
 WICKED_ALWAYS_INLINE void Pop(EvalContext& ctx) {
