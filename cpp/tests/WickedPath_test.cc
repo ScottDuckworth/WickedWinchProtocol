@@ -193,7 +193,7 @@ TEST(PathEvalTest, PostfixErrors) {
     WickedPathWriter writer;
     WickedPathSegmentWriter* segment = writer.add_segments();
     segment->start_time = 0;
-    segment->expr.add_b(255); // Undefined opcode
+    segment->expr.EmitByte(255); // Undefined opcode
     auto buffer = writer.Write();
     EXPECT_EQ(WickedPathValidate(buffer.data(), buffer.size(), 8), WickedEvalStatus_UndefinedOperation);
   }

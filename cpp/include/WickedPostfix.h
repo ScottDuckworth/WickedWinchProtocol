@@ -84,7 +84,11 @@ inline std::ostream& operator<<(std::ostream& out, WickedPostfixOp_t op) {
 
 class WickedPostfixWriter {
 public:
+	uint8_t* prog_data() { return prog_.data(); }
+	const uint8_t* prog_data() const { return prog_.data(); }
+	uint16_t prog_size() const { return static_cast<uint16_t>(prog_.size()); }
 	uint16_t data_size() const { return prog_offset() + prog_size(); }
+
 	bool Write(uint8_t* data, size_t size) const;
   std::vector<uint8_t> Write() const {
     std::vector<uint8_t> buffer(data_size());
@@ -96,22 +100,26 @@ public:
 		prog_.clear();
 	}
 
-	void add_b(uint8_t b) { prog_.push_back(b); }
-	void add_i(uint8_t b) { add_b(b); }
-	uint8_t* prog_data() { return prog_.data(); }
-	const uint8_t* prog_data() const { return prog_.data(); }
-	uint16_t prog_size() const { return static_cast<uint16_t>(prog_.size()); }
+  void EmitByte(uint8_t b) { prog_.push_back(b); }
 
-	void add_f(float f) {
-		uint8_t bytes[sizeof(float)];
-		memcpy(bytes, &f, sizeof(float));
-		for (uint8_t b : bytes) prog_.push_back(b);
-	}
+  void EmitOp(WickedPostfixOp_t op) { EmitByte(static_cast<uint8_t>(op)); }
+
+  void EmitFloat(float f) {
+    uint8_t bytes[sizeof(float)];
+    memcpy(bytes, &f, sizeof(float));
+    for (uint8_t b : bytes) prog_.push_back(b);
+  }
+
+  void Push(float value) {
+    EmitOp(WickedPostfixOp_Push);
+    EmitByte(1);
+    EmitFloat(value);
+  }
 
   void Push(std::span<const float> values) {
-    add_b(WickedPostfixOp_Push);
-    add_b(static_cast<uint8_t>(values.size()));
-    for (float value : values) add_f(value);
+    EmitOp(WickedPostfixOp_Push);
+    EmitByte(static_cast<uint8_t>(values.size()));
+    for (float value : values) EmitFloat(value);
   }
 
   void Push(std::initializer_list<float> values) {
@@ -119,8 +127,112 @@ public:
   }
 
   void Pop(uint8_t n) {
-    add_b(WickedPostfixOp_Pop);
-    add_b(n);
+    EmitOp(WickedPostfixOp_Pop);
+    EmitByte(n);
+  }
+
+  void Dup(uint8_t n) {
+    EmitOp(WickedPostfixOp_Dup);
+    EmitByte(n);
+  }
+
+  void RotL(uint8_t n) {
+    EmitOp(WickedPostfixOp_RotL);
+    EmitByte(n);
+  }
+
+  void RotR(uint8_t n) {
+    EmitOp(WickedPostfixOp_RotR);
+    EmitByte(n);
+  }
+
+  void Rev(uint8_t n) {
+    EmitOp(WickedPostfixOp_Rev);
+    EmitByte(n);
+  }
+
+  void Transpose(uint8_t rows, uint8_t cols) {
+    EmitOp(WickedPostfixOp_Transpose);
+    EmitByte(rows);
+    EmitByte(cols);
+  }
+
+  void Add() { EmitOp(WickedPostfixOp_Add); }
+  void Sub() { EmitOp(WickedPostfixOp_Sub); }
+  void Mul() { EmitOp(WickedPostfixOp_Mul); }
+  void MulAdd() { EmitOp(WickedPostfixOp_MulAdd); }
+  void Div() { EmitOp(WickedPostfixOp_Div); }
+  void Mod() { EmitOp(WickedPostfixOp_Mod); }
+  void Neg() { EmitOp(WickedPostfixOp_Neg); }
+  void Abs() { EmitOp(WickedPostfixOp_Abs); }
+  void Inv() { EmitOp(WickedPostfixOp_Inv); }
+  void Pow() { EmitOp(WickedPostfixOp_Pow); }
+  void Sqrt() { EmitOp(WickedPostfixOp_Sqrt); }
+  void Exp() { EmitOp(WickedPostfixOp_Exp); }
+  void Ln() { EmitOp(WickedPostfixOp_Ln); }
+  void Sin() { EmitOp(WickedPostfixOp_Sin); }
+  void Cos() { EmitOp(WickedPostfixOp_Cos); }
+  void Tan() { EmitOp(WickedPostfixOp_Tan); }
+  void Asin() { EmitOp(WickedPostfixOp_Asin); }
+  void Acos() { EmitOp(WickedPostfixOp_Acos); }
+  void Atan2() { EmitOp(WickedPostfixOp_Atan2); }
+
+  void PolyVec(uint8_t coeffs) {
+    EmitOp(WickedPostfixOp_PolyVec);
+    EmitByte(coeffs);
+  }
+
+  void PolyMat(uint8_t rows, uint8_t cols) {
+    EmitOp(WickedPostfixOp_PolyMat);
+    EmitByte(rows);
+    EmitByte(cols);
+  }
+
+  void AddVec(uint8_t size) {
+    EmitOp(WickedPostfixOp_AddVec);
+    EmitByte(size);
+  }
+
+  void SubVec(uint8_t size) {
+    EmitOp(WickedPostfixOp_SubVec);
+    EmitByte(size);
+  }
+
+  void MulVec(uint8_t size) {
+    EmitOp(WickedPostfixOp_MulVec);
+    EmitByte(size);
+  }
+
+  void MulAddVec(uint8_t size) {
+    EmitOp(WickedPostfixOp_MulAddVec);
+    EmitByte(size);
+  }
+
+  void ScaleVec(uint8_t size) {
+    EmitOp(WickedPostfixOp_ScaleVec);
+    EmitByte(size);
+  }
+
+  void NegVec(uint8_t size) {
+    EmitOp(WickedPostfixOp_NegVec);
+    EmitByte(size);
+  }
+
+  void NormVec(uint8_t size) {
+    EmitOp(WickedPostfixOp_NormVec);
+    EmitByte(size);
+  }
+
+  void MulMat(uint8_t arows, uint8_t brows, uint8_t bcols) {
+    EmitOp(WickedPostfixOp_MulMat);
+    EmitByte(arows);
+    EmitByte(brows);
+    EmitByte(bcols);
+  }
+
+  void LerpVec(uint8_t size) {
+    EmitOp(WickedPostfixOp_LerpVec);
+    EmitByte(size);
   }
 
 private:
