@@ -10,6 +10,7 @@
 static_assert(std::endian::native == std::endian::little);
 static_assert(sizeof(float) == 4);
 static_assert(sizeof(WickedPostfixHeader) == 2);
+static_assert(alignof(WickedPostfixHeader) == 1);
 
 #if defined(_MSC_VER)
 #define WICKED_ALWAYS_INLINE __forceinline

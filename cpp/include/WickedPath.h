@@ -10,17 +10,38 @@
 extern "C" {
 #endif
 
-typedef struct WickedPathHeader {
+#ifndef WICKED_PACKED
+#if defined(__GNUC__) || defined(__clang__)
+#define WICKED_PACKED __attribute__((__packed__))
+#else
+#define WICKED_PACKED
+#endif
+#endif
+
+#pragma pack(push, 1)
+typedef struct WICKED_PACKED WickedPathHeader {
   uint16_t segment_size;
-  uint8_t flags;
-  uint8_t padding;
+  uint16_t flags;
 } WickedPathHeader_t;
 
-typedef struct WickedPathSegmentHeader {
+typedef struct WICKED_PACKED WickedPathSegmentHeader {
   uint32_t start_time;
   uint16_t offset;
   uint16_t size;
 } WickedPathSegmentHeader_t;
+#pragma pack(pop)
+
+#if defined(__cplusplus)
+static_assert(sizeof(WickedPathHeader_t) == 4, "WickedPathHeader_t must be 4 bytes");
+static_assert(alignof(WickedPathHeader_t) == 1, "WickedPathHeader_t must be packed");
+static_assert(sizeof(WickedPathSegmentHeader_t) == 8, "WickedPathSegmentHeader_t must be 8 bytes");
+static_assert(alignof(WickedPathSegmentHeader_t) == 1, "WickedPathSegmentHeader_t must be packed");
+#elif defined(__STDC_VERSION__) && __STDC_VERSION__ >= 201112L
+_Static_assert(sizeof(WickedPathHeader_t) == 4, "WickedPathHeader_t must be 4 bytes");
+_Static_assert(_Alignof(WickedPathHeader_t) == 1, "WickedPathHeader_t must be packed");
+_Static_assert(sizeof(WickedPathSegmentHeader_t) == 8, "WickedPathSegmentHeader_t must be 8 bytes");
+_Static_assert(_Alignof(WickedPathSegmentHeader_t) == 1, "WickedPathSegmentHeader_t must be packed");
+#endif
 
 typedef struct WickedPathSegmentDescriptor {
   uint32_t start_time;

@@ -1,6 +1,11 @@
 #include "WickedPath.h"
 #include "WickedUtil.hh"
 
+static_assert(sizeof(WickedPathHeader_t) == 4);
+static_assert(alignof(WickedPathHeader_t) == 1);
+static_assert(sizeof(WickedPathSegmentHeader_t) == 8);
+static_assert(alignof(WickedPathSegmentHeader_t) == 1);
+
 extern "C" WickedEvalStatus_t WickedPathValidate(const uint8_t* path_data, size_t path_size, uint16_t stack_capacity) {
   if (stack_capacity < 1) return WickedEvalStatus_StackOverflow;
   if (!path_data || path_size < sizeof(WickedPathHeader_t)) return WickedEvalStatus_IllegalOperation;

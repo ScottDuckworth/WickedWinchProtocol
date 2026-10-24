@@ -2,12 +2,22 @@ package postfix_test
 
 import (
 	"bytes"
+	"encoding/binary"
 	"errors"
 	"math"
 	"testing"
 
 	"github.com/ScottDuckworth/WickedWinchProtocol/go/postfix"
 )
+
+func TestPostfixHeaderSize(t *testing.T) {
+	var header postfix.PostfixHeader
+	var buf bytes.Buffer
+	binary.Write(&buf, binary.LittleEndian, &header)
+	if got, want := buf.Len(), 2; got != want {
+		t.Errorf("PostfixHeader size: got %v, want %v", got, want)
+	}
+}
 
 func equalSlices(got, want []float64) bool {
 	if len(got) != len(want) {

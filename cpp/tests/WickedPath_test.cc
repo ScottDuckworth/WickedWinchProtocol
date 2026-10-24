@@ -209,4 +209,11 @@ TEST(PathEvalTest, PostfixErrors) {
   }
 }
 
+TEST(PathEvalTest, HeadersPacked) {
+  EXPECT_EQ(sizeof(WickedPathHeader_t), 4);
+  EXPECT_EQ(alignof(WickedPathHeader_t), 1);
+  EXPECT_EQ(sizeof(WickedPathSegmentHeader_t), 8);
+  EXPECT_EQ(alignof(WickedPathSegmentHeader_t), 1);
+}
+
 }

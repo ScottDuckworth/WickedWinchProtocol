@@ -9,7 +9,7 @@ import (
 	"strings"
 )
 
-type PathFlag uint8
+type PathFlag uint16
 
 const (
 	Path_Overflow PathFlag = 1 << 0
@@ -21,14 +21,13 @@ type PathSegment struct {
 }
 
 type Path struct {
-	Flags    uint8
+	Flags    uint16
 	Segments []*PathSegment
 }
 
 type PathHeader struct {
 	SegmentSize uint16
-	Flags       uint8
-	Padding     uint8
+	Flags       uint16
 }
 
 type PathSegmentHeader struct {
@@ -54,7 +53,7 @@ func (path *Path) Write(w io.Writer) error {
 	flags := path.Flags
 	if len(path.Segments) > 0 {
 		if path.Segments[len(path.Segments)-1].StartTime > path.Segments[0].StartTime {
-			flags |= uint8(Path_Overflow)
+			flags |= uint16(Path_Overflow)
 		}
 	}
 	header := PathHeader{

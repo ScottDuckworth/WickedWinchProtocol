@@ -1226,4 +1226,9 @@ TEST(EvalTest, ReadUnaligned) {
   EXPECT_EQ(unsafe_prog_size, prog_size);
 }
 
+TEST(EvalTest, HeaderPacked) {
+  EXPECT_EQ(sizeof(WickedPostfixHeader_t), 2);
+  EXPECT_EQ(alignof(WickedPostfixHeader_t), 1);
+}
+
 }  // namespace

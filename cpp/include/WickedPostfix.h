@@ -10,9 +10,27 @@
 extern "C" {
 #endif
 
-typedef struct WickedPostfixHeader {
+#ifndef WICKED_PACKED
+#if defined(__GNUC__) || defined(__clang__)
+#define WICKED_PACKED __attribute__((__packed__))
+#else
+#define WICKED_PACKED
+#endif
+#endif
+
+#pragma pack(push, 1)
+typedef struct WICKED_PACKED WickedPostfixHeader {
 	uint16_t prog_size;
 } WickedPostfixHeader_t;
+#pragma pack(pop)
+
+#if defined(__cplusplus)
+static_assert(sizeof(WickedPostfixHeader_t) == 2, "WickedPostfixHeader_t must be 2 bytes");
+static_assert(alignof(WickedPostfixHeader_t) == 1, "WickedPostfixHeader_t must be packed");
+#elif defined(__STDC_VERSION__) && __STDC_VERSION__ >= 201112L
+_Static_assert(sizeof(WickedPostfixHeader_t) == 2, "WickedPostfixHeader_t must be 2 bytes");
+_Static_assert(_Alignof(WickedPostfixHeader_t) == 1, "WickedPostfixHeader_t must be packed");
+#endif
 
 typedef enum WickedPostfixOp {
   WickedPostfixOp_Undefined = 0,
