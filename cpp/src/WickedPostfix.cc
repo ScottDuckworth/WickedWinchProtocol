@@ -525,7 +525,7 @@ WICKED_ALWAYS_INLINE void MulAdd(EvalContext& ctx) {
   float c = ctx.pop();
   float b = ctx.pop();
   float& top = ctx.peek();
-  top = top * b + c;
+  top = std::fma(top, b, c);
 }
 
 WICKED_ALWAYS_INLINE void Div(EvalContext& ctx) {
