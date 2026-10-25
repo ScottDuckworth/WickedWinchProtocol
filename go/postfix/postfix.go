@@ -25,14 +25,14 @@ type Operation uint8
 const (
 	Operation_Undefined Operation = 0
 	Operation_Push      Operation = 1
-	Operation_Pop       Operation = 2
+	Operation_Drop      Operation = 2
 	Operation_Dup       Operation = 3
-	Operation_RotL      Operation = 4
-	Operation_RotR      Operation = 5
-	Operation_Rev       Operation = 6
-	Operation_Transpose Operation = 7
-	Operation_Store     Operation = 8
-	Operation_Load      Operation = 9
+	Operation_Swap      Operation = 4
+	Operation_Over      Operation = 5
+	Operation_Tuck      Operation = 6
+	Operation_Nip       Operation = 7
+	Operation_Rot       Operation = 8
+	Operation_Pick      Operation = 9
 	Operation_Add       Operation = 10
 	Operation_Sub       Operation = 11
 	Operation_Mul       Operation = 12
@@ -79,22 +79,22 @@ func (op Operation) String() string {
 		return "Undefined"
 	case Operation_Push:
 		return "Push"
-	case Operation_Pop:
-		return "Pop"
+	case Operation_Drop:
+		return "Drop"
 	case Operation_Dup:
 		return "Dup"
-	case Operation_RotL:
-		return "RotL"
-	case Operation_RotR:
-		return "RotR"
-	case Operation_Rev:
-		return "Rev"
-	case Operation_Transpose:
-		return "Transpose"
-	case Operation_Store:
-		return "Store"
-	case Operation_Load:
-		return "Load"
+	case Operation_Swap:
+		return "Swap"
+	case Operation_Over:
+		return "Over"
+	case Operation_Tuck:
+		return "Tuck"
+	case Operation_Nip:
+		return "Nip"
+	case Operation_Rot:
+		return "Rot"
+	case Operation_Pick:
+		return "Pick"
 	case Operation_Add:
 		return "Add"
 	case Operation_Sub:
@@ -225,49 +225,58 @@ func (b *Builder) Push(literals ...float64) *Builder {
 	return b
 }
 
-func (b *Builder) Pop(n int) *Builder {
-	b.expr.Prog = append(b.expr.Prog, uint8(Operation_Pop), uint8(n))
+func (b *Builder) Drop() *Builder {
+	b.expr.Prog = append(b.expr.Prog, uint8(Operation_Drop))
 	return b
 }
 
-func (b *Builder) Dup(n int) *Builder {
-	b.expr.Prog = append(b.expr.Prog, uint8(Operation_Dup), uint8(n))
+func (b *Builder) Dup() *Builder {
+	b.expr.Prog = append(b.expr.Prog, uint8(Operation_Dup))
 	return b
 }
 
-func (b *Builder) RotL(n int) *Builder {
-	b.expr.Prog = append(b.expr.Prog, uint8(Operation_RotL), uint8(n))
+func (b *Builder) Swap() *Builder {
+	b.expr.Prog = append(b.expr.Prog, uint8(Operation_Swap))
 	return b
 }
 
-func (b *Builder) RotR(n int) *Builder {
-	b.expr.Prog = append(b.expr.Prog, uint8(Operation_RotR), uint8(n))
+func (b *Builder) Over() *Builder {
+	b.expr.Prog = append(b.expr.Prog, uint8(Operation_Over))
 	return b
 }
 
-func (b *Builder) Rev(n int) *Builder {
-	b.expr.Prog = append(b.expr.Prog, uint8(Operation_Rev), uint8(n))
+func (b *Builder) Tuck() *Builder {
+	b.expr.Prog = append(b.expr.Prog, uint8(Operation_Tuck))
 	return b
 }
 
-func (b *Builder) Transpose(rows, cols int) *Builder {
-	b.expr.Prog = append(b.expr.Prog, uint8(Operation_Transpose), uint8(rows), uint8(cols))
+func (b *Builder) Nip() *Builder {
+	b.expr.Prog = append(b.expr.Prog, uint8(Operation_Nip))
 	return b
 }
 
-func (b *Builder) Store(slot, size int, pop bool) *Builder {
-	popBit := 0
-	if pop {
-		popBit = 1
+func (b *Builder) Rot() *Builder {
+	b.expr.Prog = append(b.expr.Prog, uint8(Operation_Rot))
+	return b
+}
+
+func (b *Builder) Pick(offset int, opts ...any) *Builder {
+	size := 1
+	move := false
+	for _, opt := range opts {
+		switch v := opt.(type) {
+		case int:
+			size = v
+		case bool:
+			move = v
+		}
 	}
-	arg := (slot & 0x03) | (popBit << 4) | (((size - 1) & 0x03) << 6)
-	b.expr.Prog = append(b.expr.Prog, uint8(Operation_Store), uint8(arg))
-	return b
-}
-
-func (b *Builder) Load(slot, size int) *Builder {
-	arg := (slot & 0x03) | (((size - 1) & 0x03) << 6)
-	b.expr.Prog = append(b.expr.Prog, uint8(Operation_Load), uint8(arg))
+	moveBit := 0
+	if move {
+		moveBit = 1
+	}
+	arg := (offset & 0x1F) | (moveBit << 5) | (((size - 1) & 0x03) << 6)
+	b.expr.Prog = append(b.expr.Prog, uint8(Operation_Pick), uint8(arg))
 	return b
 }
 
@@ -468,75 +477,57 @@ func (expr *Expression) Validate(initialStackLen int) (minCapacity, finalStackLe
 			pc += n * 4
 			stackLen += n
 			updateMax(stackLen)
-		case Operation_Pop:
-			if avail() < 1 {
-				return 0, 0, ErrIllegalOperation
-			}
-			n := fetchByte()
-			if stackLen < n {
+		case Operation_Drop:
+			if stackLen < 1 {
 				return 0, 0, ErrStackUnderflow
 			}
-			stackLen -= n
+			stackLen -= 1
 		case Operation_Dup:
-			if avail() < 1 {
-				return 0, 0, ErrIllegalOperation
-			}
-			n := fetchByte()
-			if stackLen < n+1 {
+			if stackLen < 1 {
 				return 0, 0, ErrStackUnderflow
 			}
 			stackLen += 1
 			updateMax(stackLen)
-		case Operation_RotL, Operation_RotR, Operation_Rev:
-			if avail() < 1 {
-				return 0, 0, ErrIllegalOperation
-			}
-			n := fetchByte()
-			if stackLen < n {
+		case Operation_Swap:
+			if stackLen < 2 {
 				return 0, 0, ErrStackUnderflow
 			}
-		case Operation_Transpose:
-			if avail() < 2 {
-				return 0, 0, ErrIllegalOperation
-			}
-			rows := fetchByte()
-			cols := fetchByte()
-			size := rows * cols
-			if stackLen < size {
+		case Operation_Over:
+			if stackLen < 2 {
 				return 0, 0, ErrStackUnderflow
 			}
-			if rows > 1 && cols > 1 && rows != cols {
-				updateMax(stackLen + size)
-			}
-		case Operation_Store:
-			if avail() < 1 {
-				return 0, 0, ErrIllegalOperation
-			}
-			arg := fetchByte()
-			slot := arg & 0x03
-			pop := (arg & 0x10) != 0
-			size := ((arg >> 6) & 0x03) + 1
-			if slot+size > 4 {
-				return 0, 0, ErrIllegalOperation
-			}
-			if stackLen < size {
-				return 0, 0, ErrStackUnderflow
-			}
-			if pop {
-				stackLen -= size
-			}
-		case Operation_Load:
-			if avail() < 1 {
-				return 0, 0, ErrIllegalOperation
-			}
-			arg := fetchByte()
-			slot := arg & 0x03
-			size := ((arg >> 6) & 0x03) + 1
-			if slot+size > 4 {
-				return 0, 0, ErrIllegalOperation
-			}
-			stackLen += size
+			stackLen += 1
 			updateMax(stackLen)
+		case Operation_Tuck:
+			if stackLen < 2 {
+				return 0, 0, ErrStackUnderflow
+			}
+			stackLen += 1
+			updateMax(stackLen)
+		case Operation_Nip:
+			if stackLen < 2 {
+				return 0, 0, ErrStackUnderflow
+			}
+			stackLen -= 1
+		case Operation_Rot:
+			if stackLen < 3 {
+				return 0, 0, ErrStackUnderflow
+			}
+		case Operation_Pick:
+			if avail() < 1 {
+				return 0, 0, ErrIllegalOperation
+			}
+			arg := fetchByte()
+			offset := arg & 0x1F
+			move := (arg & 0x20) != 0
+			size := ((arg >> 6) & 0x03) + 1
+			if stackLen < offset+size {
+				return 0, 0, ErrStackUnderflow
+			}
+			if !move {
+				stackLen += size
+				updateMax(stackLen)
+			}
 		case Operation_Add, Operation_Sub, Operation_Mul, Operation_Div, Operation_Mod, Operation_Pow, Operation_Atan2:
 			if stackLen < 2 {
 				return 0, 0, ErrStackUnderflow
@@ -670,7 +661,6 @@ func Validate(expr *Expression, initialStackLen int) (minCapacity, finalStackLen
 
 func (expr *Expression) Evaluate(stack []float64) []float64 {
 	pc := 0
-	scratch := [4]float64{}
 
 	pop := func() float64 {
 		i := len(stack) - 1
@@ -703,63 +693,47 @@ func (expr *Expression) Evaluate(stack []float64) []float64 {
 			for range n {
 				stack = append(stack, fetchFloat())
 			}
-		case Operation_Pop:
-			n := fetchByte()
-			stack = stack[:len(stack)-n]
+		case Operation_Drop:
+			stack = stack[:len(stack)-1]
 		case Operation_Dup:
-			n := fetchByte()
-			stack = append(stack, stack[len(stack)-n-1])
-		case Operation_RotL:
-			n := fetchByte()
-			if n > 1 {
-				values := popv(n)
-				result := append(values[1:], values[0])
-				stack = append(stack, result...)
-			}
-		case Operation_RotR:
-			n := fetchByte()
-			if n > 1 {
-				values := popv(n)
-				result := append([]float64{values[len(values)-1]}, values[0:len(values)-1]...)
-				stack = append(stack, result...)
-			}
-		case Operation_Rev:
-			n := fetchByte()
-			if n > 1 {
-				values := stack[len(stack)-n:]
-				for i, j := 0, n-1; i < j; i, j = i+1, j-1 {
-					values[i], values[j] = values[j], values[i]
-				}
-			}
-		case Operation_Transpose:
-			rows := fetchByte()
-			cols := fetchByte()
-			size := rows * cols
-			m := popv(size)
-			t := make([]float64, size)
-			for i := range rows {
-				for j := range cols {
-					t[rows*j+i] = m[cols*i+j]
-				}
-			}
-			stack = append(stack, t...)
-		case Operation_Store:
+			stack = append(stack, stack[len(stack)-1])
+		case Operation_Swap:
+			i := len(stack) - 1
+			stack[i], stack[i-1] = stack[i-1], stack[i]
+		case Operation_Over:
+			stack = append(stack, stack[len(stack)-2])
+		case Operation_Tuck:
+			top := stack[len(stack)-1]
+			stack[len(stack)-1] = stack[len(stack)-2]
+			stack[len(stack)-2] = top
+			stack = append(stack, top)
+		case Operation_Nip:
+			stack[len(stack)-2] = stack[len(stack)-1]
+			stack = stack[:len(stack)-1]
+		case Operation_Rot:
+			i := len(stack) - 1
+			b := stack[i-2]
+			stack[i-2] = stack[i-1]
+			stack[i-1] = stack[i]
+			stack[i] = b
+		case Operation_Pick:
 			arg := fetchByte()
-			slot := arg & 0x03
-			pop := (arg & 0x10) != 0
+			offset := arg & 0x1F
+			move := (arg & 0x20) != 0
 			size := ((arg >> 6) & 0x03) + 1
-			var vals []float64
-			if pop {
-				vals = popv(size)
+			if move {
+				if offset > 0 {
+					start := len(stack) - offset - size
+					mid := start + size
+					var tmp [4]float64
+					copy(tmp[:size], stack[start:mid])
+					copy(stack[start:], stack[mid:])
+					copy(stack[len(stack)-size:], tmp[:size])
+				}
 			} else {
-				vals = stack[len(stack)-size:]
+				start := len(stack) - offset - size
+				stack = append(stack, stack[start:start+size]...)
 			}
-			copy(scratch[slot:slot+size], vals)
-		case Operation_Load:
-			arg := fetchByte()
-			slot := arg & 0x03
-			size := ((arg >> 6) & 0x03) + 1
-			stack = append(stack, scratch[slot:slot+size]...)
 		case Operation_Add:
 			rhs := pop()
 			lhs := pop()

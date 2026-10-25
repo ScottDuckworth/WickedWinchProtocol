@@ -24,14 +24,14 @@ extern "C" const char* WickedPostfixOpToString(WickedPostfixOp_t op) {
   switch (op) {
     case WickedPostfixOp_Undefined: return "Undefined";
     case WickedPostfixOp_Push:      return "Push";
-    case WickedPostfixOp_Pop:       return "Pop";
+    case WickedPostfixOp_Drop:      return "Drop";
     case WickedPostfixOp_Dup:       return "Dup";
-    case WickedPostfixOp_RotL:      return "RotL";
-    case WickedPostfixOp_RotR:      return "RotR";
-    case WickedPostfixOp_Rev:       return "Rev";
-    case WickedPostfixOp_Transpose: return "Transpose";
-    case WickedPostfixOp_Store:     return "Store";
-    case WickedPostfixOp_Load:      return "Load";
+    case WickedPostfixOp_Swap:      return "Swap";
+    case WickedPostfixOp_Over:      return "Over";
+    case WickedPostfixOp_Tuck:      return "Tuck";
+    case WickedPostfixOp_Nip:       return "Nip";
+    case WickedPostfixOp_Rot:       return "Rot";
+    case WickedPostfixOp_Pick:      return "Pick";
     case WickedPostfixOp_Add:       return "Add";
     case WickedPostfixOp_Sub:       return "Sub";
     case WickedPostfixOp_Mul:       return "Mul";
@@ -125,64 +125,60 @@ WICKED_ALWAYS_INLINE WickedEvalStatus_t Push(ValidationContext& ctx) {
   return WickedEvalStatus_Ok;
 }
 
-WICKED_ALWAYS_INLINE WickedEvalStatus_t Pop(ValidationContext& ctx) {
-  if (!ctx.has_bytes(1)) return WickedEvalStatus_IllegalOperation;
-  uint8_t n = ctx.fetch_byte();
-  if (ctx.stack_depth < n) return WickedEvalStatus_StackUnderflow;
-  ctx.stack_depth -= n;
+WICKED_ALWAYS_INLINE WickedEvalStatus_t Drop(ValidationContext& ctx) {
+  if (ctx.stack_depth < 1) return WickedEvalStatus_StackUnderflow;
+  ctx.stack_depth -= 1;
   return WickedEvalStatus_Ok;
 }
 
 WICKED_ALWAYS_INLINE WickedEvalStatus_t Dup(ValidationContext& ctx) {
-  if (!ctx.has_bytes(1)) return WickedEvalStatus_IllegalOperation;
-  uint8_t n = ctx.fetch_byte();
-  if (ctx.stack_depth < int32_t(n) + 1) return WickedEvalStatus_StackUnderflow;
+  if (ctx.stack_depth < 1) return WickedEvalStatus_StackUnderflow;
   ctx.stack_depth += 1;
   ctx.update_max(ctx.stack_depth);
   return WickedEvalStatus_Ok;
 }
 
-WICKED_ALWAYS_INLINE WickedEvalStatus_t RotOrRev(ValidationContext& ctx) {
-  if (!ctx.has_bytes(1)) return WickedEvalStatus_IllegalOperation;
-  uint8_t n = ctx.fetch_byte();
-  if (ctx.stack_depth < n) return WickedEvalStatus_StackUnderflow;
+WICKED_ALWAYS_INLINE WickedEvalStatus_t Swap(ValidationContext& ctx) {
+  if (ctx.stack_depth < 2) return WickedEvalStatus_StackUnderflow;
   return WickedEvalStatus_Ok;
 }
 
-WICKED_ALWAYS_INLINE WickedEvalStatus_t Transpose(ValidationContext& ctx) {
-  if (!ctx.has_bytes(2)) return WickedEvalStatus_IllegalOperation;
-  uint8_t rows = ctx.fetch_byte();
-  uint8_t cols = ctx.fetch_byte();
-  uint16_t size = uint16_t(rows) * cols;
-  if (ctx.stack_depth < size) return WickedEvalStatus_StackUnderflow;
-  if (rows > 1 && cols > 1 && rows != cols) {
-    ctx.update_max(ctx.stack_depth + size);
-  }
-  return WickedEvalStatus_Ok;
-}
-
-WICKED_ALWAYS_INLINE WickedEvalStatus_t Store(ValidationContext& ctx) {
-  if (!ctx.has_bytes(1)) return WickedEvalStatus_IllegalOperation;
-  uint8_t arg = ctx.fetch_byte();
-  uint8_t slot = arg & 0x03;
-  bool pop = (arg & 0x10) != 0;
-  uint8_t size = ((arg >> 6) & 0x03) + 1;
-  if (slot + size > 4) return WickedEvalStatus_IllegalOperation;
-  if (ctx.stack_depth < size) return WickedEvalStatus_StackUnderflow;
-  if (pop) {
-    ctx.stack_depth -= size;
-  }
-  return WickedEvalStatus_Ok;
-}
-
-WICKED_ALWAYS_INLINE WickedEvalStatus_t Load(ValidationContext& ctx) {
-  if (!ctx.has_bytes(1)) return WickedEvalStatus_IllegalOperation;
-  uint8_t arg = ctx.fetch_byte();
-  uint8_t slot = arg & 0x03;
-  uint8_t size = ((arg >> 6) & 0x03) + 1;
-  if (slot + size > 4) return WickedEvalStatus_IllegalOperation;
-  ctx.stack_depth += size;
+WICKED_ALWAYS_INLINE WickedEvalStatus_t Over(ValidationContext& ctx) {
+  if (ctx.stack_depth < 2) return WickedEvalStatus_StackUnderflow;
+  ctx.stack_depth += 1;
   ctx.update_max(ctx.stack_depth);
+  return WickedEvalStatus_Ok;
+}
+
+WICKED_ALWAYS_INLINE WickedEvalStatus_t Tuck(ValidationContext& ctx) {
+  if (ctx.stack_depth < 2) return WickedEvalStatus_StackUnderflow;
+  ctx.stack_depth += 1;
+  ctx.update_max(ctx.stack_depth);
+  return WickedEvalStatus_Ok;
+}
+
+WICKED_ALWAYS_INLINE WickedEvalStatus_t Nip(ValidationContext& ctx) {
+  if (ctx.stack_depth < 2) return WickedEvalStatus_StackUnderflow;
+  ctx.stack_depth -= 1;
+  return WickedEvalStatus_Ok;
+}
+
+WICKED_ALWAYS_INLINE WickedEvalStatus_t Rot(ValidationContext& ctx) {
+  if (ctx.stack_depth < 3) return WickedEvalStatus_StackUnderflow;
+  return WickedEvalStatus_Ok;
+}
+
+WICKED_ALWAYS_INLINE WickedEvalStatus_t Pick(ValidationContext& ctx) {
+  if (!ctx.has_bytes(1)) return WickedEvalStatus_IllegalOperation;
+  uint8_t arg = ctx.fetch_byte();
+  uint8_t offset = arg & 0x1F;
+  bool move = (arg & 0x20) != 0;
+  uint8_t size = ((arg >> 6) & 0x03) + 1;
+  if (ctx.stack_depth < int32_t(offset) + size) return WickedEvalStatus_StackUnderflow;
+  if (!move) {
+    ctx.stack_depth += size;
+    ctx.update_max(ctx.stack_depth);
+  }
   return WickedEvalStatus_Ok;
 }
 
@@ -310,14 +306,14 @@ extern "C" WickedEvalStatus_t WickedPostfixValidate(const uint8_t* prog_data, ui
 
     switch (op) {
       case WickedPostfixOp_Push:      status = validate::Push(ctx); break;
-      case WickedPostfixOp_Pop:       status = validate::Pop(ctx); break;
+      case WickedPostfixOp_Drop:      status = validate::Drop(ctx); break;
       case WickedPostfixOp_Dup:       status = validate::Dup(ctx); break;
-      case WickedPostfixOp_RotL:
-      case WickedPostfixOp_RotR:
-      case WickedPostfixOp_Rev:       status = validate::RotOrRev(ctx); break;
-      case WickedPostfixOp_Transpose: status = validate::Transpose(ctx); break;
-      case WickedPostfixOp_Store:     status = validate::Store(ctx); break;
-      case WickedPostfixOp_Load:      status = validate::Load(ctx); break;
+      case WickedPostfixOp_Swap:      status = validate::Swap(ctx); break;
+      case WickedPostfixOp_Over:      status = validate::Over(ctx); break;
+      case WickedPostfixOp_Tuck:      status = validate::Tuck(ctx); break;
+      case WickedPostfixOp_Nip:       status = validate::Nip(ctx); break;
+      case WickedPostfixOp_Rot:       status = validate::Rot(ctx); break;
+      case WickedPostfixOp_Pick:      status = validate::Pick(ctx); break;
       case WickedPostfixOp_Add:
       case WickedPostfixOp_Sub:
       case WickedPostfixOp_Mul:
@@ -375,7 +371,6 @@ namespace {
 struct EvalContext {
   const uint8_t* pc;
   float* sp;
-  float scratch[4] = {};
 
   WICKED_ALWAYS_INLINE uint8_t fetch_byte() {
     return *pc++;
@@ -426,84 +421,52 @@ WICKED_ALWAYS_INLINE void Push(EvalContext& ctx) {
   ctx.pc += bytes;
 }
 
-WICKED_ALWAYS_INLINE void Pop(EvalContext& ctx) {
-  uint8_t n = ctx.fetch_byte();
-  ctx.sp -= n;
+WICKED_ALWAYS_INLINE void Drop(EvalContext& ctx) {
+  --ctx.sp;
 }
 
 WICKED_ALWAYS_INLINE void Dup(EvalContext& ctx) {
-  uint8_t n = ctx.fetch_byte();
-  float v = ctx.sp[-1 - n];
-  ctx.push(v);
+  ctx.push(ctx.peek());
 }
 
-WICKED_ALWAYS_INLINE void RotL(EvalContext& ctx) {
-  uint8_t n = ctx.fetch_byte();
-  if (n > 1) {
-    std::span<float> values = ctx.peekv(n);
-    float l = values[0];
-    std::copy(values.begin() + 1, values.end(), values.begin());
-    values.back() = l;
-  }
+WICKED_ALWAYS_INLINE void Swap(EvalContext& ctx) {
+  std::swap(ctx.sp[-1], ctx.sp[-2]);
 }
 
-WICKED_ALWAYS_INLINE void RotR(EvalContext& ctx) {
-  uint8_t n = ctx.fetch_byte();
-  if (n > 1) {
-    std::span<float> values = ctx.peekv(n);
-    float r = values.back();
-    std::copy_backward(values.begin(), values.end() - 1, values.end());
-    values.front() = r;
-  }
+WICKED_ALWAYS_INLINE void Over(EvalContext& ctx) {
+  ctx.push(ctx.sp[-2]);
 }
 
-WICKED_ALWAYS_INLINE void Rev(EvalContext& ctx) {
-  uint8_t n = ctx.fetch_byte();
-  if (n > 1) {
-    std::span<float> values = ctx.peekv(n);
-    std::reverse(values.begin(), values.end());
-  }
+WICKED_ALWAYS_INLINE void Tuck(EvalContext& ctx) {
+  float top = ctx.sp[-1];
+  ctx.sp[-1] = ctx.sp[-2];
+  ctx.sp[-2] = top;
+  ctx.push(top);
 }
 
-WICKED_ALWAYS_INLINE void Transpose(EvalContext& ctx) {
-  uint8_t rows = ctx.fetch_byte();
-  uint8_t cols = ctx.fetch_byte();
-  uint16_t size = uint16_t(rows) * cols;
-  std::span<float> m = ctx.peekv(size);
-  if (rows > 1 && cols > 1) {
-    if (rows == cols) {
-      for (uint8_t i = 0; i < rows; ++i) {
-        for (uint8_t j = i + 1; j < cols; ++j) {
-          std::swap(m[i * cols + j], m[j * cols + i]);
-        }
-      }
-    } else {
-      float* out = ctx.sp;
-      for (uint8_t i = 0; i < rows; ++i) {
-        for (uint8_t j = 0; j < cols; ++j) {
-          out[rows * j + i] = m[cols * i + j];
-        }
-      }
-      std::memcpy(m.data(), out, size * sizeof(float));
-    }
-  }
+WICKED_ALWAYS_INLINE void Nip(EvalContext& ctx) {
+  ctx.sp[-2] = ctx.sp[-1];
+  --ctx.sp;
 }
 
-WICKED_ALWAYS_INLINE void Store(EvalContext& ctx) {
+WICKED_ALWAYS_INLINE void Rot(EvalContext& ctx) {
+  float b = ctx.sp[-3];
+  ctx.sp[-3] = ctx.sp[-2];
+  ctx.sp[-2] = ctx.sp[-1];
+  ctx.sp[-1] = b;
+}
+
+WICKED_ALWAYS_INLINE void Pick(EvalContext& ctx) {
   uint8_t arg = ctx.fetch_byte();
-  uint8_t slot = arg & 0x03;
-  bool pop = (arg & 0x10) != 0;
+  uint8_t offset = arg & 0x1F;
+  bool move = (arg & 0x20) != 0;
   uint8_t size = ((arg >> 6) & 0x03) + 1;
-  std::span<float> src = pop ? ctx.popv(size) : ctx.peekv(size);
-  std::copy_n(src.data(), size, &ctx.scratch[slot]);
-}
-
-WICKED_ALWAYS_INLINE void Load(EvalContext& ctx) {
-  uint8_t arg = ctx.fetch_byte();
-  uint8_t slot = arg & 0x03;
-  uint8_t size = ((arg >> 6) & 0x03) + 1;
-  std::span<float> dest = ctx.allocv(size);
-  std::copy_n(&ctx.scratch[slot], size, dest.data());
+  if (move) {
+    std::rotate(ctx.sp - offset - size, ctx.sp - offset, ctx.sp);
+  } else {
+    std::copy_n(ctx.sp - offset - size, size, ctx.sp);
+    ctx.sp += size;
+  }
 }
 
 WICKED_ALWAYS_INLINE void Add(EvalContext& ctx) {
@@ -745,14 +708,14 @@ extern "C" void WickedPostfixEvaluate(const uint8_t* prog_data, uint16_t prog_si
     const uint8_t op = ctx.fetch_byte();
     switch (op) {
       case WickedPostfixOp_Push:      ops::Push(ctx); break;
-      case WickedPostfixOp_Pop:       ops::Pop(ctx); break;
+      case WickedPostfixOp_Drop:      ops::Drop(ctx); break;
       case WickedPostfixOp_Dup:       ops::Dup(ctx); break;
-      case WickedPostfixOp_RotL:      ops::RotL(ctx); break;
-      case WickedPostfixOp_RotR:      ops::RotR(ctx); break;
-      case WickedPostfixOp_Rev:       ops::Rev(ctx); break;
-      case WickedPostfixOp_Transpose: ops::Transpose(ctx); break;
-      case WickedPostfixOp_Store:     ops::Store(ctx); break;
-      case WickedPostfixOp_Load:      ops::Load(ctx); break;
+      case WickedPostfixOp_Swap:      ops::Swap(ctx); break;
+      case WickedPostfixOp_Over:      ops::Over(ctx); break;
+      case WickedPostfixOp_Tuck:      ops::Tuck(ctx); break;
+      case WickedPostfixOp_Nip:       ops::Nip(ctx); break;
+      case WickedPostfixOp_Rot:       ops::Rot(ctx); break;
+      case WickedPostfixOp_Pick:      ops::Pick(ctx); break;
       case WickedPostfixOp_Add:       ops::Add(ctx); break;
       case WickedPostfixOp_Sub:       ops::Sub(ctx); break;
       case WickedPostfixOp_Mul:       ops::Mul(ctx); break;

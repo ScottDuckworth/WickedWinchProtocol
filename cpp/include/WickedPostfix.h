@@ -35,14 +35,14 @@ _Static_assert(_Alignof(WickedPostfixHeader_t) == 1, "WickedPostfixHeader_t must
 typedef enum WickedPostfixOp {
   WickedPostfixOp_Undefined = 0,
   WickedPostfixOp_Push      = 1,
-  WickedPostfixOp_Pop       = 2,
+  WickedPostfixOp_Drop      = 2,
   WickedPostfixOp_Dup       = 3,
-  WickedPostfixOp_RotL      = 4,
-  WickedPostfixOp_RotR      = 5,
-  WickedPostfixOp_Rev       = 6,
-  WickedPostfixOp_Transpose = 7,
-  WickedPostfixOp_Store     = 8,
-  WickedPostfixOp_Load      = 9,
+  WickedPostfixOp_Swap      = 4,
+  WickedPostfixOp_Over      = 5,
+  WickedPostfixOp_Tuck      = 6,
+  WickedPostfixOp_Nip       = 7,
+  WickedPostfixOp_Rot       = 8,
+  WickedPostfixOp_Pick      = 9,
   WickedPostfixOp_Add       = 10,
   WickedPostfixOp_Sub       = 11,
   WickedPostfixOp_Mul       = 12,
@@ -146,46 +146,37 @@ class WickedPostfixWriter {
     Push(std::span<const float>(values));
   }
 
-  void Pop(uint8_t n) {
-    EmitOp(WickedPostfixOp_Pop);
-    EmitByte(n);
+  void Drop() {
+    EmitOp(WickedPostfixOp_Drop);
   }
 
-  void Dup(uint8_t n) {
+  void Dup() {
     EmitOp(WickedPostfixOp_Dup);
-    EmitByte(n);
   }
 
-  void RotL(uint8_t n) {
-    EmitOp(WickedPostfixOp_RotL);
-    EmitByte(n);
+  void Swap() {
+    EmitOp(WickedPostfixOp_Swap);
   }
 
-  void RotR(uint8_t n) {
-    EmitOp(WickedPostfixOp_RotR);
-    EmitByte(n);
+  void Over() {
+    EmitOp(WickedPostfixOp_Over);
   }
 
-  void Rev(uint8_t n) {
-    EmitOp(WickedPostfixOp_Rev);
-    EmitByte(n);
+  void Tuck() {
+    EmitOp(WickedPostfixOp_Tuck);
   }
 
-  void Transpose(uint8_t rows, uint8_t cols) {
-    EmitOp(WickedPostfixOp_Transpose);
-    EmitByte(rows);
-    EmitByte(cols);
+  void Nip() {
+    EmitOp(WickedPostfixOp_Nip);
   }
 
-  void Store(uint8_t slot, uint8_t size = 1, bool pop = false) {
-    EmitOp(WickedPostfixOp_Store);
-    uint8_t arg = (slot & 0x03) | ((pop ? 1 : 0) << 4) | (((size - 1) & 0x03) << 6);
-    EmitByte(arg);
+  void Rot() {
+    EmitOp(WickedPostfixOp_Rot);
   }
 
-  void Load(uint8_t slot, uint8_t size = 1) {
-    EmitOp(WickedPostfixOp_Load);
-    uint8_t arg = (slot & 0x03) | (((size - 1) & 0x03) << 6);
+  void Pick(uint8_t offset, uint8_t size = 1, bool move = false) {
+    EmitOp(WickedPostfixOp_Pick);
+    uint8_t arg = (offset & 0x1F) | ((move ? 1 : 0) << 5) | (((size - 1) & 0x03) << 6);
     EmitByte(arg);
   }
 

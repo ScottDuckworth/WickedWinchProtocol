@@ -52,7 +52,7 @@ TEST(PathEvalTest, Eval) {
   segment->start_time = 1000;
   segment = writer.add_segments();
   segment->start_time = 2000;
-  segment->expr.Pop(1);
+  segment->expr.Drop();
   segment->expr.Push(std::array<float, 1>{99});
   auto buffer = writer.Write();
 
@@ -120,9 +120,10 @@ TEST(PathEvalTest, InsufficientStackCapacity) {
   WickedPathWriter writer;
   WickedPathSegmentWriter* segment = writer.add_segments();
   segment->start_time = 0;
-  // Initial stack is 1, push 2 floats (depth 3), then pop 2 floats (depth back to 1)
+  // Initial stack is 1, push 2 floats (depth 3), then drop 2 floats (depth back to 1)
   segment->expr.Push(std::array<float, 2>{1, 2});
-  segment->expr.Pop(2);
+  segment->expr.Drop();
+  segment->expr.Drop();
   auto buffer = writer.Write();
 
   EXPECT_EQ(WickedPathValidate(buffer.data(), buffer.size(), 2), WickedEvalStatus_StackOverflow);
@@ -143,12 +144,12 @@ TEST(PathEvalTest, SegmentAt) {
   WickedPathSegmentWriter* segment;
   segment = writer.add_segments();
   segment->start_time = 1000;
-  segment->expr.Pop(1);
+  segment->expr.Drop();
   segment->expr.Push(std::array<float, 1>{42});
 
   segment = writer.add_segments();
   segment->start_time = 2000;
-  segment->expr.Pop(1);
+  segment->expr.Drop();
   segment->expr.Push(std::array<float, 1>{99});
 
   auto buffer = writer.Write();
@@ -183,7 +184,8 @@ TEST(PathEvalTest, PostfixErrors) {
     WickedPathWriter writer;
     WickedPathSegmentWriter* segment = writer.add_segments();
     segment->start_time = 0;
-    segment->expr.Pop(2); // Popping 2 from stack of 1
+    segment->expr.Drop(); // Dropping 2 from stack of 1
+    segment->expr.Drop();
     auto buffer = writer.Write();
     EXPECT_EQ(WickedPathValidate(buffer.data(), buffer.size(), 8), WickedEvalStatus_StackUnderflow);
   }

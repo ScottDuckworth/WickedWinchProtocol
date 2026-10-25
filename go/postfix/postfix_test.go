@@ -53,9 +53,9 @@ func TestJoin(t *testing.T) {
 			name: "two",
 			exprs: []*postfix.Expression{
 				postfix.MakeBuilder().Push(10).Build(),
-				postfix.MakeBuilder().Pop(2).Build(),
+				postfix.MakeBuilder().Drop().Build(),
 			},
-			want: postfix.MakeBuilder().Push(10).Pop(2).Build(),
+			want: postfix.MakeBuilder().Push(10).Drop().Build(),
 		},
 	} {
 		t.Run(test.name, func(t *testing.T) {
@@ -115,232 +115,124 @@ func TestEvalPostfixExpression(t *testing.T) {
 			wantErr: postfix.ErrIllegalOperation,
 		},
 		{
-			name:      "pop 0",
-			expr:      postfix.MakeBuilder().Pop(0).Build(),
-			stack:     []float64{0, 1, 2},
-			wantStack: []float64{0, 1, 2},
-		},
-		{
-			name:      "pop 1",
-			expr:      postfix.MakeBuilder().Pop(1).Build(),
+			name:      "drop",
+			expr:      postfix.MakeBuilder().Drop().Build(),
 			stack:     []float64{0, 1, 2},
 			wantStack: []float64{0, 1},
 		},
 		{
-			name:      "pop 2",
-			expr:      postfix.MakeBuilder().Pop(2).Build(),
-			stack:     []float64{0, 1, 2},
-			wantStack: []float64{0},
-		},
-		{
-			name: "pop int literals underflow",
-			expr: &postfix.Expression{
-				Prog: []uint8{uint8(postfix.Operation_Pop)},
-			},
-			wantErr: postfix.ErrIllegalOperation,
-		},
-		{
-			name: "pop stack underflow",
-			expr: &postfix.Expression{
-				Prog: []uint8{uint8(postfix.Operation_Pop), 1},
-			},
+			name:    "drop stack underflow",
+			expr:    postfix.MakeBuilder().Drop().Build(),
+			stack:   []float64{},
 			wantErr: postfix.ErrStackUnderflow,
 		},
 		{
-			name:      "dup 0",
-			expr:      postfix.MakeBuilder().Dup(0).Build(),
+			name:      "dup",
+			expr:      postfix.MakeBuilder().Dup().Build(),
 			stack:     []float64{0, 1, 2},
 			wantStack: []float64{0, 1, 2, 2},
 		},
 		{
-			name:      "dup 1",
-			expr:      postfix.MakeBuilder().Dup(1).Build(),
-			stack:     []float64{0, 1, 2},
-			wantStack: []float64{0, 1, 2, 1},
-		},
-		{
-			name:      "dup 2",
-			expr:      postfix.MakeBuilder().Dup(2).Build(),
-			stack:     []float64{0, 1, 2},
-			wantStack: []float64{0, 1, 2, 0},
-		},
-		{
-			name: "dup int literals underflow",
-			expr: &postfix.Expression{
-				Prog: []uint8{uint8(postfix.Operation_Dup)},
-			},
-			wantErr: postfix.ErrIllegalOperation,
-		},
-		{
-			name: "dup stack underflow",
-			expr: &postfix.Expression{
-				Prog: []uint8{uint8(postfix.Operation_Dup), 0},
-			},
+			name:    "dup stack underflow",
+			expr:    postfix.MakeBuilder().Dup().Build(),
+			stack:   []float64{},
 			wantErr: postfix.ErrStackUnderflow,
 		},
 		{
-			name:      "rotl 0",
-			expr:      postfix.MakeBuilder().RotL(0).Build(),
-			stack:     []float64{0, 1, 2},
-			wantStack: []float64{0, 1, 2},
-		},
-		{
-			name:      "rotl 1",
-			expr:      postfix.MakeBuilder().RotL(1).Build(),
-			stack:     []float64{0, 1, 2},
-			wantStack: []float64{0, 1, 2},
-		},
-		{
-			name:      "rotl 2",
-			expr:      postfix.MakeBuilder().RotL(2).Build(),
+			name:      "swap",
+			expr:      postfix.MakeBuilder().Swap().Build(),
 			stack:     []float64{0, 1, 2},
 			wantStack: []float64{0, 2, 1},
 		},
 		{
-			name:      "rotl 3",
-			expr:      postfix.MakeBuilder().RotL(3).Build(),
+			name:    "swap stack underflow",
+			expr:    postfix.MakeBuilder().Swap().Build(),
+			stack:   []float64{0},
+			wantErr: postfix.ErrStackUnderflow,
+		},
+		{
+			name:      "over",
+			expr:      postfix.MakeBuilder().Over().Build(),
+			stack:     []float64{0, 1},
+			wantStack: []float64{0, 1, 0},
+		},
+		{
+			name:    "over stack underflow",
+			expr:    postfix.MakeBuilder().Over().Build(),
+			stack:   []float64{0},
+			wantErr: postfix.ErrStackUnderflow,
+		},
+		{
+			name:      "tuck",
+			expr:      postfix.MakeBuilder().Tuck().Build(),
+			stack:     []float64{0, 1},
+			wantStack: []float64{1, 0, 1},
+		},
+		{
+			name:    "tuck stack underflow",
+			expr:    postfix.MakeBuilder().Tuck().Build(),
+			stack:   []float64{0},
+			wantErr: postfix.ErrStackUnderflow,
+		},
+		{
+			name:      "nip",
+			expr:      postfix.MakeBuilder().Nip().Build(),
+			stack:     []float64{0, 1, 2},
+			wantStack: []float64{0, 2},
+		},
+		{
+			name:    "nip stack underflow",
+			expr:    postfix.MakeBuilder().Nip().Build(),
+			stack:   []float64{0},
+			wantErr: postfix.ErrStackUnderflow,
+		},
+		{
+			name:      "rot",
+			expr:      postfix.MakeBuilder().Rot().Build(),
 			stack:     []float64{0, 1, 2},
 			wantStack: []float64{1, 2, 0},
 		},
 		{
-			name: "rotl int literals underflow",
+			name:    "rot stack underflow",
+			expr:    postfix.MakeBuilder().Rot().Build(),
+			stack:   []float64{0, 1},
+			wantErr: postfix.ErrStackUnderflow,
+		},
+		{
+			name:      "pick copy scalar",
+			expr:      postfix.MakeBuilder().Pick(1, 1, false).Build(),
+			stack:     []float64{10, 20, 30},
+			wantStack: []float64{10, 20, 30, 20},
+		},
+		{
+			name:      "pick copy vector",
+			expr:      postfix.MakeBuilder().Pick(1, 2, false).Build(),
+			stack:     []float64{10, 20, 30, 40},
+			wantStack: []float64{10, 20, 30, 40, 20, 30},
+		},
+		{
+			name:      "pick move scalar",
+			expr:      postfix.MakeBuilder().Pick(2, 1, true).Build(),
+			stack:     []float64{10, 20, 30, 40},
+			wantStack: []float64{10, 30, 40, 20},
+		},
+		{
+			name:      "pick move vector",
+			expr:      postfix.MakeBuilder().Pick(1, 2, true).Build(),
+			stack:     []float64{10, 20, 30, 40},
+			wantStack: []float64{10, 40, 20, 30},
+		},
+		{
+			name:    "pick stack underflow",
+			expr:    postfix.MakeBuilder().Pick(2, 2, false).Build(),
+			stack:   []float64{10, 20, 30},
+			wantErr: postfix.ErrStackUnderflow,
+		},
+		{
+			name: "pick int literals underflow",
 			expr: &postfix.Expression{
-				Prog: []uint8{uint8(postfix.Operation_RotL)},
+				Prog: []uint8{uint8(postfix.Operation_Pick)},
 			},
-			wantErr: postfix.ErrIllegalOperation,
-		},
-		{
-			name: "rotl stack underflow",
-			expr: &postfix.Expression{
-				Prog: []uint8{uint8(postfix.Operation_RotL), 2},
-			},
-			wantErr: postfix.ErrStackUnderflow,
-		},
-		{
-			name:      "rotr 0",
-			expr:      postfix.MakeBuilder().RotR(0).Build(),
-			stack:     []float64{0, 1, 2},
-			wantStack: []float64{0, 1, 2},
-		},
-		{
-			name:      "rotr 1",
-			expr:      postfix.MakeBuilder().RotR(1).Build(),
-			stack:     []float64{0, 1, 2},
-			wantStack: []float64{0, 1, 2},
-		},
-		{
-			name:      "rotr 2",
-			expr:      postfix.MakeBuilder().RotR(2).Build(),
-			stack:     []float64{0, 1, 2},
-			wantStack: []float64{0, 2, 1},
-		},
-		{
-			name:      "rotr 3",
-			expr:      postfix.MakeBuilder().RotR(3).Build(),
-			stack:     []float64{0, 1, 2},
-			wantStack: []float64{2, 0, 1},
-		},
-		{
-			name: "rotr int literals underflow",
-			expr: &postfix.Expression{
-				Prog: []uint8{uint8(postfix.Operation_RotR)},
-			},
-			wantErr: postfix.ErrIllegalOperation,
-		},
-		{
-			name: "rotr stack underflow",
-			expr: &postfix.Expression{
-				Prog: []uint8{uint8(postfix.Operation_RotR), 2},
-			},
-			wantErr: postfix.ErrStackUnderflow,
-		},
-		{
-			name:      "rev 0",
-			expr:      postfix.MakeBuilder().Rev(0).Build(),
-			stack:     []float64{},
-			wantStack: []float64{},
-		},
-		{
-			name:      "rev 1",
-			expr:      postfix.MakeBuilder().Rev(1).Build(),
-			stack:     []float64{1},
-			wantStack: []float64{1},
-		},
-		{
-			name:      "rev 2",
-			expr:      postfix.MakeBuilder().Rev(2).Build(),
-			stack:     []float64{1, 2},
-			wantStack: []float64{2, 1},
-		},
-		{
-			name:      "rev 3",
-			expr:      postfix.MakeBuilder().Rev(3).Build(),
-			stack:     []float64{1, 2, 3},
-			wantStack: []float64{3, 2, 1},
-		},
-		{
-			name:      "rev 4",
-			expr:      postfix.MakeBuilder().Rev(4).Build(),
-			stack:     []float64{1, 2, 3, 4},
-			wantStack: []float64{4, 3, 2, 1},
-		},
-		{
-			name:    "rev underflow",
-			expr:    postfix.MakeBuilder().Rev(3).Build(),
-			stack:   []float64{1, 2},
-			wantErr: postfix.ErrStackUnderflow,
-		},
-		{
-			name:      "transpose 2x3",
-			expr:      postfix.MakeBuilder().Transpose(2, 3).Build(),
-			stack:     []float64{1, 2, 3, 4, 5, 6},
-			wantStack: []float64{1, 4, 2, 5, 3, 6},
-		},
-		{
-			name:    "transpose underflow",
-			expr:    postfix.MakeBuilder().Transpose(2, 3).Build(),
-			stack:   []float64{1, 2, 3, 4, 5},
-			wantErr: postfix.ErrStackUnderflow,
-		},
-		{
-			name:      "store load scalar peek",
-			expr:      postfix.MakeBuilder().Store(0, 1, false).Push(10).Load(0, 1).Build(),
-			stack:     []float64{5},
-			wantStack: []float64{5, 10, 5},
-		},
-		{
-			name:      "store load scalar pop",
-			expr:      postfix.MakeBuilder().Store(1, 1, true).Push(10).Load(1, 1).Build(),
-			stack:     []float64{5},
-			wantStack: []float64{10, 5},
-		},
-		{
-			name:      "store load vector peek",
-			expr:      postfix.MakeBuilder().Store(0, 3, false).Push(99).Load(0, 3).Build(),
-			stack:     []float64{1, 2, 3},
-			wantStack: []float64{1, 2, 3, 99, 1, 2, 3},
-		},
-		{
-			name:      "store load vector pop",
-			expr:      postfix.MakeBuilder().Store(1, 3, true).Push(99).Load(1, 3).Build(),
-			stack:     []float64{0, 1, 2, 3},
-			wantStack: []float64{0, 99, 1, 2, 3},
-		},
-		{
-			name:    "store underflow",
-			expr:    postfix.MakeBuilder().Store(0, 2, false).Build(),
-			stack:   []float64{1},
-			wantErr: postfix.ErrStackUnderflow,
-		},
-		{
-			name:    "store out of bounds",
-			expr:    postfix.MakeBuilder().Store(3, 2, false).Build(),
-			stack:   []float64{1, 2, 3},
-			wantErr: postfix.ErrIllegalOperation,
-		},
-		{
-			name:    "load out of bounds",
-			expr:    postfix.MakeBuilder().Load(2, 3).Build(),
 			wantErr: postfix.ErrIllegalOperation,
 		},
 		{
@@ -861,8 +753,8 @@ func TestValidateAndEvaluate(t *testing.T) {
 }
 
 func TestValidateStackOverflow(t *testing.T) {
-	expr := postfix.MakeBuilder().Transpose(255, 254).Build()
-	_, _, err := expr.Validate(64770)
+	expr := postfix.MakeBuilder().Dup().Build()
+	_, _, err := expr.Validate(math.MaxUint16)
 	if !errors.Is(err, postfix.ErrStackOverflow) {
 		t.Errorf("got %v, want %v", err, postfix.ErrStackOverflow)
 	}
