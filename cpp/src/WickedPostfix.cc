@@ -266,14 +266,17 @@ WICKED_ALWAYS_INLINE WickedEvalStatus_t MulMat(ValidationContext& ctx) {
     uint16_t byte_count = bsize * sizeof(float);
     if (!ctx.has_bytes(byte_count)) return WickedEvalStatus_IllegalOperation;
     ctx.skip(byte_count);
-    if (ctx.stack_depth < asize) return WickedEvalStatus_StackUnderflow;
-    ctx.update_max(ctx.stack_depth + csize);
-    ctx.stack_depth = ctx.stack_depth - asize + csize;
-  } else {
-    if (ctx.stack_depth < asize + bsize) return WickedEvalStatus_StackUnderflow;
-    ctx.update_max(ctx.stack_depth + csize);
-    ctx.stack_depth = ctx.stack_depth - asize - bsize + csize;
+    bsize = 0;
   }
+
+  if (ctx.stack_depth < asize + bsize) return WickedEvalStatus_StackUnderflow;
+
+  bool is_fastpath = (arows == 1 && (brows >= 2 && brows <= 4));
+  if (!is_fastpath) {
+    ctx.update_max(ctx.stack_depth + csize);
+  }
+  ctx.stack_depth = ctx.stack_depth - asize - bsize + csize;
+  ctx.update_max(ctx.stack_depth);
   return WickedEvalStatus_Ok;
 }
 

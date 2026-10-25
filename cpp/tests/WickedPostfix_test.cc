@@ -1165,6 +1165,24 @@ TEST(EvalTest, MulMatImmediate) {
                                 2 * 3 + 3 * 6 + 4 * 9));
 }
 
+TEST(EvalTest, MulMatImmediateTightCapacity) {
+  WickedPostfixWriter writer;
+  writer.MulMatImmediate(1, 3, 3, {
+      1, 0, 0,
+      0, 1, 0,
+      0, 0, 1,
+  });
+  auto buffer = writer.Write();
+
+  // Tight capacity: exactly 3 stack slots for 3 elements.
+  // In-place evaluation never exceeds 3, so validation must pass without StackOverflow.
+  TestEval eval(3, {10, 20, 30});
+  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval));
+  EXPECT_EQ(WickedPostfixValidate(&eval, 3), WickedEvalStatus_Ok);
+  WickedPostfixEvaluate(&eval);
+  EXPECT_THAT(eval.stack(), ElementsAre(10, 20, 30));
+}
+
 TEST(EvalTest, MulMatImmediate2D) {
   WickedPostfixWriter writer;
   writer.MulMatImmediate(1, 2, 2, {
