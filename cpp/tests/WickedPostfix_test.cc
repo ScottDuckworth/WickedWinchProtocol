@@ -771,10 +771,10 @@ TEST(EvalTest, Atan2StackUnderflow) {
 
 TEST(EvalTest, PolyVec) {
   WickedPostfixWriter writer;
-  writer.PolyVec(4);
+  writer.PolyVec({3, 4, 5, 6});
   auto buffer = writer.Write();
 
-  TestEval eval(6, {0, 2, 3, 4, 5, 6});
+  TestEval eval(4, {0, 2});
   EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval));
   EXPECT_EQ(WickedPostfixValidate(&eval, 2), WickedEvalStatus_Ok);
   WickedPostfixEvaluate(&eval);
@@ -783,10 +783,10 @@ TEST(EvalTest, PolyVec) {
 
 TEST(EvalTest, PolyVecStackUnderflow) {
   WickedPostfixWriter writer;
-  writer.PolyVec(3);
+  writer.PolyVec({3, 4, 5});
   auto buffer = writer.Write();
 
-  TestEval eval(6, {2, 3, 4});
+  TestEval eval(4, {});
   EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval));
   EXPECT_EQ(WickedPostfixValidate(&eval, 0), WickedEvalStatus_StackUnderflow);
 }
@@ -796,17 +796,29 @@ TEST(EvalTest, PolyVecIntUnderflow) {
   writer.EmitOp(WickedPostfixOp_PolyVec);
   auto buffer = writer.Write();
 
-  TestEval eval(6, {0, 2, 3, 4, 5});
+  TestEval eval(4, {0, 2});
+  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval));
+  EXPECT_EQ(WickedPostfixValidate(&eval, 0), WickedEvalStatus_IllegalOperation);
+}
+
+TEST(EvalTest, PolyVecDataUnderflow) {
+  WickedPostfixWriter writer;
+  writer.EmitOp(WickedPostfixOp_PolyVec);
+  writer.EmitByte(3);
+  writer.EmitFloat(1.0f);
+  auto buffer = writer.Write();
+
+  TestEval eval(4, {0, 2});
   EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval));
   EXPECT_EQ(WickedPostfixValidate(&eval, 0), WickedEvalStatus_IllegalOperation);
 }
 
 TEST(EvalTest, PolyMat) {
   WickedPostfixWriter writer;
-  writer.PolyMat(4, 2);
+  writer.PolyMat(4, 2, {3, 4, 5, 6, 7, 8, 9, 10});
   auto buffer = writer.Write();
 
-  TestEval eval(12, {0, 2, 3, 4, 5, 6, 7, 8, 9, 10});
+  TestEval eval(4, {0, 2});
   EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval));
   EXPECT_EQ(WickedPostfixValidate(&eval, 3), WickedEvalStatus_Ok);
   WickedPostfixEvaluate(&eval);
@@ -815,10 +827,10 @@ TEST(EvalTest, PolyMat) {
 
 TEST(EvalTest, PolyMatStackUnderflow) {
   WickedPostfixWriter writer;
-  writer.PolyMat(4, 2);
+  writer.PolyMat(4, 2, {3, 4, 5, 6, 7, 8, 9, 10});
   auto buffer = writer.Write();
 
-  TestEval eval(12, {2, 3, 4, 5, 6, 7, 8, 9});
+  TestEval eval(4, {});
   EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval));
   EXPECT_EQ(WickedPostfixValidate(&eval, 0), WickedEvalStatus_StackUnderflow);
 }
@@ -829,7 +841,20 @@ TEST(EvalTest, PolyMatIntUnderflow) {
   writer.EmitByte(4);
   auto buffer = writer.Write();
 
-  TestEval eval(12, {0, 2, 3, 4, 5, 6, 7, 8, 9, 10});
+  TestEval eval(4, {0, 2});
+  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval));
+  EXPECT_EQ(WickedPostfixValidate(&eval, 0), WickedEvalStatus_IllegalOperation);
+}
+
+TEST(EvalTest, PolyMatDataUnderflow) {
+  WickedPostfixWriter writer;
+  writer.EmitOp(WickedPostfixOp_PolyMat);
+  writer.EmitByte(4);
+  writer.EmitByte(2);
+  writer.EmitFloat(1.0f);
+  auto buffer = writer.Write();
+
+  TestEval eval(4, {0, 2});
   EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval));
   EXPECT_EQ(WickedPostfixValidate(&eval, 0), WickedEvalStatus_IllegalOperation);
 }

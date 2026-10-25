@@ -344,13 +344,25 @@ func (b *Builder) Atan2() *Builder {
 	return b
 }
 
-func (b *Builder) PolyVec(coeffs int) *Builder {
-	b.expr.Prog = append(b.expr.Prog, uint8(Operation_PolyVec), uint8(coeffs))
+func (b *Builder) PolyVec(coeffs ...float64) *Builder {
+	b.expr.Prog = append(b.expr.Prog, uint8(Operation_PolyVec), uint8(len(coeffs)))
+	for i := len(coeffs) - 1; i >= 0; i-- {
+		b.expr.Prog = binary.LittleEndian.AppendUint32(b.expr.Prog, math.Float32bits(float32(coeffs[i])))
+	}
 	return b
 }
 
-func (b *Builder) PolyMat(rows, cols int) *Builder {
+func (b *Builder) PolyMat(rows, cols int, coeffs ...float64) *Builder {
+	if len(coeffs) != rows*cols {
+		panic("invalid number of coefficients for PolyMat")
+	}
 	b.expr.Prog = append(b.expr.Prog, uint8(Operation_PolyMat), uint8(rows), uint8(cols))
+	for i := rows - 1; i >= 0; i-- {
+		rowOffset := i * cols
+		for j := range cols {
+			b.expr.Prog = binary.LittleEndian.AppendUint32(b.expr.Prog, math.Float32bits(float32(coeffs[rowOffset+j])))
+		}
+	}
 	return b
 }
 
@@ -557,10 +569,13 @@ func (expr *Expression) Validate(initialStackLen int) (minCapacity, finalStackLe
 				return 0, 0, ErrIllegalOperation
 			}
 			size := fetchByte()
-			if stackLen < size+1 {
+			if avail() < size*4 {
+				return 0, 0, ErrIllegalOperation
+			}
+			pc += size * 4
+			if stackLen < 1 {
 				return 0, 0, ErrStackUnderflow
 			}
-			stackLen -= size
 		case Operation_PolyMat:
 			if avail() < 2 {
 				return 0, 0, ErrIllegalOperation
@@ -568,10 +583,14 @@ func (expr *Expression) Validate(initialStackLen int) (minCapacity, finalStackLe
 			rows := fetchByte()
 			cols := fetchByte()
 			coeffSize := rows * cols
-			if stackLen < coeffSize+1 {
+			if avail() < coeffSize*4 {
+				return 0, 0, ErrIllegalOperation
+			}
+			pc += coeffSize * 4
+			if stackLen < 1 {
 				return 0, 0, ErrStackUnderflow
 			}
-			stackLen = stackLen - (coeffSize + 1) + cols
+			stackLen = stackLen - 1 + cols
 			updateMax(stackLen)
 		case Operation_LerpVec:
 			if avail() < 1 {
@@ -618,6 +637,11 @@ func (expr *Expression) Evaluate(stack []float64) []float64 {
 		pc++
 		return int(v)
 	}
+	fetchFloat := func() float64 {
+		bits := binary.LittleEndian.Uint32(expr.Prog[pc : pc+4])
+		pc += 4
+		return float64(math.Float32frombits(bits))
+	}
 
 	for pc < len(expr.Prog) {
 		op := Operation(fetchByte())
@@ -625,9 +649,7 @@ func (expr *Expression) Evaluate(stack []float64) []float64 {
 		case Operation_Push:
 			n := fetchByte()
 			for range n {
-				bits := binary.LittleEndian.Uint32(expr.Prog[pc : pc+4])
-				pc += 4
-				stack = append(stack, float64(math.Float32frombits(bits)))
+				stack = append(stack, fetchFloat())
 			}
 		case Operation_Pop:
 			n := fetchByte()
@@ -807,30 +829,36 @@ func (expr *Expression) Evaluate(stack []float64) []float64 {
 			stack = append(stack, c...)
 		case Operation_PolyVec:
 			size := fetchByte()
-			coeff := popv(size)
 			t := pop()
-			var result float64
-			p := 1.0
-			for i := range size {
-				result += coeff[i] * p
-				p *= t
+			if size == 0 {
+				stack = append(stack, 0)
+				continue
+			}
+			result := fetchFloat()
+			for range size - 1 {
+				result = result*t + fetchFloat()
 			}
 			stack = append(stack, result)
 		case Operation_PolyMat:
 			rows := fetchByte()
 			cols := fetchByte()
-			coeff := popv(rows * cols)
 			t := pop()
-			for j := range cols {
-				var r float64
-				p := 1.0
-				for i := range rows {
-					cidx := cols*i + j
-					r += coeff[cidx] * p
-					p *= t
+			if rows == 0 {
+				for range cols {
+					stack = append(stack, 0)
 				}
-				stack = append(stack, r)
+				continue
 			}
+			result := make([]float64, cols)
+			for j := range cols {
+				result[j] = fetchFloat()
+			}
+			for range rows - 1 {
+				for j := range cols {
+					result[j] = result[j]*t + fetchFloat()
+				}
+			}
+			stack = append(stack, result...)
 		case Operation_LerpVec:
 			size := fetchByte()
 			v1 := popv(size)

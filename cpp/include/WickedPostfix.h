@@ -195,15 +195,32 @@ class WickedPostfixWriter {
   void Acos() { EmitOp(WickedPostfixOp_Acos); }
   void Atan2() { EmitOp(WickedPostfixOp_Atan2); }
 
-  void PolyVec(uint8_t coeffs) {
+  void PolyVec(std::span<const float> coeffs) {
     EmitOp(WickedPostfixOp_PolyVec);
-    EmitByte(coeffs);
+    EmitByte(static_cast<uint8_t>(coeffs.size()));
+    for (size_t i = coeffs.size(); i > 0; --i) {
+      EmitFloat(coeffs[i - 1]);
+    }
   }
 
-  void PolyMat(uint8_t rows, uint8_t cols) {
+  void PolyVec(std::initializer_list<float> coeffs) {
+    PolyVec(std::span<const float>(coeffs));
+  }
+
+  void PolyMat(uint8_t rows, uint8_t cols, std::span<const float> coeffs) {
     EmitOp(WickedPostfixOp_PolyMat);
     EmitByte(rows);
     EmitByte(cols);
+    for (size_t i = rows; i > 0; --i) {
+      size_t row_offset = (i - 1) * cols;
+      for (size_t j = 0; j < cols; ++j) {
+        EmitFloat(coeffs[row_offset + j]);
+      }
+    }
+  }
+
+  void PolyMat(uint8_t rows, uint8_t cols, std::initializer_list<float> coeffs) {
+    PolyMat(rows, cols, std::span<const float>(coeffs));
   }
 
   void AddVec(uint8_t size) {

@@ -98,6 +98,13 @@ struct ValidationContext {
     return *pc++;
   }
 
+  WICKED_ALWAYS_INLINE float fetch_float() {
+    float f;
+    std::memcpy(&f, pc, sizeof(float));
+    pc += sizeof(float);
+    return f;
+  }
+
   WICKED_ALWAYS_INLINE void skip(uint16_t n) {
     pc += n;
   }
@@ -230,8 +237,10 @@ WICKED_ALWAYS_INLINE WickedEvalStatus_t MulMat(ValidationContext& ctx) {
 WICKED_ALWAYS_INLINE WickedEvalStatus_t PolyVec(ValidationContext& ctx) {
   if (!ctx.has_bytes(1)) return WickedEvalStatus_IllegalOperation;
   uint8_t size = ctx.fetch_byte();
-  if (ctx.stack_depth < int32_t(size) + 1) return WickedEvalStatus_StackUnderflow;
-  ctx.stack_depth -= size;
+  uint16_t byte_count = uint16_t(size) * sizeof(float);
+  if (!ctx.has_bytes(byte_count)) return WickedEvalStatus_IllegalOperation;
+  ctx.skip(byte_count);
+  if (ctx.stack_depth < 1) return WickedEvalStatus_StackUnderflow;
   return WickedEvalStatus_Ok;
 }
 
@@ -240,8 +249,11 @@ WICKED_ALWAYS_INLINE WickedEvalStatus_t PolyMat(ValidationContext& ctx) {
   uint8_t rows = ctx.fetch_byte();
   uint8_t cols = ctx.fetch_byte();
   uint16_t coeff_size = uint16_t(rows) * cols;
-  if (ctx.stack_depth < int32_t(coeff_size) + 1) return WickedEvalStatus_StackUnderflow;
-  ctx.stack_depth = ctx.stack_depth - (int32_t(coeff_size) + 1) + cols;
+  uint16_t byte_count = coeff_size * sizeof(float);
+  if (!ctx.has_bytes(byte_count)) return WickedEvalStatus_IllegalOperation;
+  ctx.skip(byte_count);
+  if (ctx.stack_depth < 1) return WickedEvalStatus_StackUnderflow;
+  ctx.stack_depth = ctx.stack_depth - 1 + cols;
   ctx.update_max(ctx.stack_depth);
   return WickedEvalStatus_Ok;
 }
@@ -337,6 +349,13 @@ struct EvalContext {
 
   WICKED_ALWAYS_INLINE uint8_t fetch_byte() {
     return *pc++;
+  }
+
+  WICKED_ALWAYS_INLINE float fetch_float() {
+    float f;
+    std::memcpy(&f, pc, sizeof(float));
+    pc += sizeof(float);
+    return f;
   }
 
   WICKED_ALWAYS_INLINE void push(float v) {
@@ -528,13 +547,14 @@ WICKED_ALWAYS_INLINE void Atan2(EvalContext& ctx) {
 
 WICKED_ALWAYS_INLINE void PolyVec(EvalContext& ctx) {
   uint8_t size = ctx.fetch_byte();
-  std::span<float> coeff = ctx.popv(size);
   float t = ctx.pop();
-  float result = 0;
-  float p = 1;
-  for (uint8_t n = 0; n < size; ++n) {
-    result += coeff[n] * p;
-    p *= t;
+  if (size == 0) {
+    ctx.push(0.0f);
+    return;
+  }
+  float result = ctx.fetch_float();
+  for (uint8_t n = 1; n < size; ++n) {
+    result = std::fma(result, t, ctx.fetch_float());
   }
   ctx.push(result);
 }
@@ -542,18 +562,19 @@ WICKED_ALWAYS_INLINE void PolyVec(EvalContext& ctx) {
 WICKED_ALWAYS_INLINE void PolyMat(EvalContext& ctx) {
   uint8_t rows = ctx.fetch_byte();
   uint8_t cols = ctx.fetch_byte();
-  std::span<float> coeff = ctx.popv(rows * cols);
   float t = ctx.pop();
   std::span<float> result = ctx.allocv(cols);
+  if (rows == 0) {
+    std::fill(result.begin(), result.end(), 0.0f);
+    return;
+  }
   for (uint8_t j = 0; j < cols; ++j) {
-    float r = 0;
-    float p = 1;
-    for (uint8_t i = 0; i < rows; ++i) {
-      size_t cidx = cols * i + j;
-      r += coeff[cidx] * p;
-      p *= t;
+    result[j] = ctx.fetch_float();
+  }
+  for (uint8_t i = 1; i < rows; ++i) {
+    for (uint8_t j = 0; j < cols; ++j) {
+      result[j] = std::fma(result[j], t, ctx.fetch_float());
     }
-    result[j] = r;
   }
 }
 
