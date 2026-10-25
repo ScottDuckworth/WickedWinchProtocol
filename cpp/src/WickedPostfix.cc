@@ -605,7 +605,7 @@ WICKED_ALWAYS_INLINE void MulAddVec(EvalContext& ctx) {
   std::span<float> b = ctx.popv(size);
   std::span<float> a = ctx.peekv(size);
   for (uint8_t i = 0; i < size; ++i) {
-    a[i] = a[i] * b[i] + c[i];
+    a[i] = std::fma(a[i], b[i], c[i]);
   }
 }
 
@@ -632,7 +632,7 @@ WICKED_ALWAYS_INLINE void NormVec(EvalContext& ctx) {
   std::span<float> v = ctx.popv(size);
   float result = 0;
   for (uint8_t i = 0; i < size; ++i) {
-    result += v[i] * v[i];
+    result = std::fma(v[i], v[i], result);
   }
   ctx.push(std::sqrt(result));
 }
@@ -761,7 +761,7 @@ WICKED_ALWAYS_INLINE void LerpVec(EvalContext& ctx) {
   float t = ctx.pop();
   std::span<float> result = ctx.allocv(size);
   for (uint8_t i = 0; i < size; ++i) {
-    result[i] = (1.0f - t) * v0[i] + t * v1[i];
+    result[i] = std::fma(t, v1[i] - v0[i], v0[i]);
   }
 }
 
