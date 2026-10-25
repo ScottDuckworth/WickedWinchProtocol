@@ -569,30 +569,6 @@ WICKED_ALWAYS_INLINE void Atan2(EvalContext& ctx) {
   ctx.peek() = std::atan2(ctx.peek(), x);
 }
 
-WICKED_ALWAYS_INLINE void Polynomial(EvalContext& ctx) {
-  uint8_t arg = ctx.fetch_byte();
-  uint8_t rows = (arg & 0x0F) + 1;
-  uint8_t cols = ((arg >> 4) & 0x0F) + 1;
-  float t = ctx.pop();
-  std::span<float> result = ctx.allocv(cols);
-  if (cols == 1) {
-    float r = ctx.fetch_float();
-    for (uint8_t i = 1; i < rows; ++i) {
-      r = std::fma(r, t, ctx.fetch_float());
-    }
-    result[0] = r;
-    return;
-  }
-  for (uint8_t j = 0; j < cols; ++j) {
-    result[j] = ctx.fetch_float();
-  }
-  for (uint8_t i = 1; i < rows; ++i) {
-    for (uint8_t j = 0; j < cols; ++j) {
-      result[j] = std::fma(result[j], t, ctx.fetch_float());
-    }
-  }
-}
-
 WICKED_ALWAYS_INLINE void AddVec(EvalContext& ctx) {
   uint8_t size = ctx.fetch_byte();
   std::span<float> rhs = ctx.popv(size);
@@ -749,6 +725,30 @@ WICKED_ALWAYS_INLINE void MulMat(EvalContext& ctx) {
   float* dest = a.data();
   std::memmove(dest, c, csize * sizeof(float));
   ctx.sp += csize;
+}
+
+WICKED_ALWAYS_INLINE void Polynomial(EvalContext& ctx) {
+  uint8_t arg = ctx.fetch_byte();
+  uint8_t rows = (arg & 0x0F) + 1;
+  uint8_t cols = ((arg >> 4) & 0x0F) + 1;
+  float t = ctx.pop();
+  std::span<float> result = ctx.allocv(cols);
+  if (cols == 1) {
+    float r = ctx.fetch_float();
+    for (uint8_t i = 1; i < rows; ++i) {
+      r = std::fma(r, t, ctx.fetch_float());
+    }
+    result[0] = r;
+    return;
+  }
+  for (uint8_t j = 0; j < cols; ++j) {
+    result[j] = ctx.fetch_float();
+  }
+  for (uint8_t i = 1; i < rows; ++i) {
+    for (uint8_t j = 0; j < cols; ++j) {
+      result[j] = std::fma(result[j], t, ctx.fetch_float());
+    }
+  }
 }
 
 WICKED_ALWAYS_INLINE void LerpVec(EvalContext& ctx) {
