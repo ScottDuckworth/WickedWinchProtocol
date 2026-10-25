@@ -1093,6 +1093,34 @@ TEST(EvalTest, MulMatSquare) {
   EXPECT_THAT(eval.stack(), ElementsAre(0, 1, 2, 3));
 }
 
+TEST(EvalTest, MulMat2D) {
+  WickedPostfixWriter writer;
+  writer.MulMat(1, 2, 2);
+  auto buffer = writer.Write();
+
+  TestEval eval(16, {0, 3, 4, 1, 2, 3, 4});
+  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval));
+  EXPECT_EQ(WickedPostfixValidate(&eval, 3), WickedEvalStatus_Ok);
+  WickedPostfixEvaluate(&eval);
+  EXPECT_THAT(eval.stack(), ElementsAre(0, 3 * 1 + 4 * 3, 3 * 2 + 4 * 4));
+}
+
+TEST(EvalTest, MulMat4D) {
+  WickedPostfixWriter writer;
+  writer.MulMat(1, 4, 4);
+  auto buffer = writer.Write();
+
+  TestEval eval(32, {0, 1, 2, 3, 4,
+                     1, 0, 0, 0,
+                     0, 2, 0, 0,
+                     0, 0, 3, 0,
+                     0, 0, 0, 4});
+  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval));
+  EXPECT_EQ(WickedPostfixValidate(&eval, 5), WickedEvalStatus_Ok);
+  WickedPostfixEvaluate(&eval);
+  EXPECT_THAT(eval.stack(), ElementsAre(0, 1, 4, 9, 16));
+}
+
 TEST(EvalTest, MulMatProjectionDown) {
   WickedPostfixWriter writer;
   writer.MulMat(1, 3, 2);
@@ -1135,6 +1163,38 @@ TEST(EvalTest, MulMatImmediate) {
                                 2 * 1 + 3 * 4 + 4 * 7,
                                 2 * 2 + 3 * 5 + 4 * 8,
                                 2 * 3 + 3 * 6 + 4 * 9));
+}
+
+TEST(EvalTest, MulMatImmediate2D) {
+  WickedPostfixWriter writer;
+  writer.MulMatImmediate(1, 2, 2, {
+      1, 2,
+      3, 4,
+  });
+  auto buffer = writer.Write();
+
+  TestEval eval(16, {0, 5, 6});
+  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval));
+  EXPECT_EQ(WickedPostfixValidate(&eval, 3), WickedEvalStatus_Ok);
+  WickedPostfixEvaluate(&eval);
+  EXPECT_THAT(eval.stack(), ElementsAre(0, 5 * 1 + 6 * 3, 5 * 2 + 6 * 4));
+}
+
+TEST(EvalTest, MulMatImmediate4D) {
+  WickedPostfixWriter writer;
+  writer.MulMatImmediate(1, 4, 4, {
+      2, 0, 0, 0,
+      0, 3, 0, 0,
+      0, 0, 4, 0,
+      0, 0, 0, 5,
+  });
+  auto buffer = writer.Write();
+
+  TestEval eval(16, {0, 1, 2, 3, 4});
+  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval));
+  EXPECT_EQ(WickedPostfixValidate(&eval, 5), WickedEvalStatus_Ok);
+  WickedPostfixEvaluate(&eval);
+  EXPECT_THAT(eval.stack(), ElementsAre(0, 2, 6, 12, 20));
 }
 
 TEST(EvalTest, MulMatStackOverflow) {

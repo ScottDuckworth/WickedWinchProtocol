@@ -689,6 +689,48 @@ WICKED_ALWAYS_INLINE void MulMat(EvalContext& ctx) {
     a = ctx.popv(asize);
   }
 
+  // --- FAST PATH: arows == 1, brows in {2, 3, 4} (ZERO memmove, ZERO C stack) ---
+  if (arows == 1) {
+    switch (brows) {
+      case 2: {
+        float a0 = a[0], a1 = a[1];
+        std::span<float> c = ctx.allocv(bcols);
+        for (uint8_t j = 0; j < bcols; ++j) {
+          float b0, b1;
+          std::memcpy(&b0, b_ptr + j * sizeof(float), sizeof(float));
+          std::memcpy(&b1, b_ptr + (bcols + j) * sizeof(float), sizeof(float));
+          c[j] = std::fma(a0, b0, a1 * b1);
+        }
+        return;
+      }
+      case 3: {
+        float a0 = a[0], a1 = a[1], a2 = a[2];
+        std::span<float> c = ctx.allocv(bcols);
+        for (uint8_t j = 0; j < bcols; ++j) {
+          float b0, b1, b2;
+          std::memcpy(&b0, b_ptr + j * sizeof(float), sizeof(float));
+          std::memcpy(&b1, b_ptr + (bcols + j) * sizeof(float), sizeof(float));
+          std::memcpy(&b2, b_ptr + (2 * bcols + j) * sizeof(float), sizeof(float));
+          c[j] = std::fma(a0, b0, std::fma(a1, b1, a2 * b2));
+        }
+        return;
+      }
+      case 4: {
+        float a0 = a[0], a1 = a[1], a2 = a[2], a3 = a[3];
+        std::span<float> c = ctx.allocv(bcols);
+        for (uint8_t j = 0; j < bcols; ++j) {
+          float b0, b1, b2, b3;
+          std::memcpy(&b0, b_ptr + j * sizeof(float), sizeof(float));
+          std::memcpy(&b1, b_ptr + (bcols + j) * sizeof(float), sizeof(float));
+          std::memcpy(&b2, b_ptr + (2 * bcols + j) * sizeof(float), sizeof(float));
+          std::memcpy(&b3, b_ptr + (3 * bcols + j) * sizeof(float), sizeof(float));
+          c[j] = std::fma(a0, b0, std::fma(a1, b1, std::fma(a2, b2, a3 * b3)));
+        }
+        return;
+      }
+    }
+  }
+
   float* c = ctx.sp + (immediate ? asize : (asize + bsize));
 
   for (uint8_t i = 0; i < arows; ++i) {
