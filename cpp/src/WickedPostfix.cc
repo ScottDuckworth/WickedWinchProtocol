@@ -739,7 +739,7 @@ WICKED_ALWAYS_INLINE void MulMat(EvalContext& ctx) {
       for (uint8_t k = 0; k < brows; ++k) {
         float b_val;
         std::memcpy(&b_val, b_ptr + (bcols * k + j) * sizeof(float), sizeof(float));
-        r += a[brows * i + k] * b_val;
+        r = std::fma(a[brows * i + k], b_val, r);
       }
       size_t cidx = bcols * i + j;
       c[cidx] = r;
