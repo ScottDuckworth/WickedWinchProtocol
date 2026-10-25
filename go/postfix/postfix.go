@@ -31,36 +31,38 @@ const (
 	Operation_RotR      Operation = 5
 	Operation_Rev       Operation = 6
 	Operation_Transpose Operation = 7
-	Operation_Add       Operation = 8
-	Operation_Sub       Operation = 9
-	Operation_Mul       Operation = 10
-	Operation_MulAdd    Operation = 11
-	Operation_Div       Operation = 12
-	Operation_Mod       Operation = 13
-	Operation_Neg       Operation = 14
-	Operation_Abs       Operation = 15
-	Operation_Inv       Operation = 16
-	Operation_Pow       Operation = 17
-	Operation_Sqrt      Operation = 18
-	Operation_Exp       Operation = 19
-	Operation_Ln        Operation = 20
-	Operation_Sin       Operation = 21
-	Operation_Cos       Operation = 22
-	Operation_Tan       Operation = 23
-	Operation_Asin      Operation = 24
-	Operation_Acos      Operation = 25
-	Operation_Atan2     Operation = 26
-	Operation_AddVec    Operation = 27
-	Operation_SubVec    Operation = 28
-	Operation_MulVec    Operation = 29
-	Operation_MulAddVec Operation = 30
-	Operation_ScaleVec  Operation = 31
-	Operation_NegVec    Operation = 32
-	Operation_NormVec   Operation = 33
-	Operation_MulMat    Operation = 34
-	Operation_PolyVec   Operation = 35
-	Operation_PolyMat   Operation = 36
-	Operation_LerpVec   Operation = 37
+	Operation_Store     Operation = 8
+	Operation_Load      Operation = 9
+	Operation_Add       Operation = 10
+	Operation_Sub       Operation = 11
+	Operation_Mul       Operation = 12
+	Operation_MulAdd    Operation = 13
+	Operation_Div       Operation = 14
+	Operation_Mod       Operation = 15
+	Operation_Neg       Operation = 16
+	Operation_Abs       Operation = 17
+	Operation_Inv       Operation = 18
+	Operation_Pow       Operation = 19
+	Operation_Sqrt      Operation = 20
+	Operation_Exp       Operation = 21
+	Operation_Ln        Operation = 22
+	Operation_Sin       Operation = 23
+	Operation_Cos       Operation = 24
+	Operation_Tan       Operation = 25
+	Operation_Asin      Operation = 26
+	Operation_Acos      Operation = 27
+	Operation_Atan2     Operation = 28
+	Operation_AddVec    Operation = 29
+	Operation_SubVec    Operation = 30
+	Operation_MulVec    Operation = 31
+	Operation_MulAddVec Operation = 32
+	Operation_ScaleVec  Operation = 33
+	Operation_NegVec    Operation = 34
+	Operation_NormVec   Operation = 35
+	Operation_MulMat    Operation = 36
+	Operation_PolyVec   Operation = 37
+	Operation_PolyMat   Operation = 38
+	Operation_LerpVec   Operation = 39
 )
 
 type Expression struct {
@@ -89,6 +91,10 @@ func (op Operation) String() string {
 		return "Rev"
 	case Operation_Transpose:
 		return "Transpose"
+	case Operation_Store:
+		return "Store"
+	case Operation_Load:
+		return "Load"
 	case Operation_Add:
 		return "Add"
 	case Operation_Sub:
@@ -246,6 +252,22 @@ func (b *Builder) Rev(n int) *Builder {
 
 func (b *Builder) Transpose(rows, cols int) *Builder {
 	b.expr.Prog = append(b.expr.Prog, uint8(Operation_Transpose), uint8(rows), uint8(cols))
+	return b
+}
+
+func (b *Builder) Store(slot, size int, pop bool) *Builder {
+	popBit := 0
+	if pop {
+		popBit = 1
+	}
+	arg := (slot & 0x03) | (popBit << 4) | (((size - 1) & 0x03) << 6)
+	b.expr.Prog = append(b.expr.Prog, uint8(Operation_Store), uint8(arg))
+	return b
+}
+
+func (b *Builder) Load(slot, size int) *Builder {
+	arg := (slot & 0x03) | (((size - 1) & 0x03) << 6)
+	b.expr.Prog = append(b.expr.Prog, uint8(Operation_Load), uint8(arg))
 	return b
 }
 
@@ -486,6 +508,35 @@ func (expr *Expression) Validate(initialStackLen int) (minCapacity, finalStackLe
 			if rows > 1 && cols > 1 && rows != cols {
 				updateMax(stackLen + size)
 			}
+		case Operation_Store:
+			if avail() < 1 {
+				return 0, 0, ErrIllegalOperation
+			}
+			arg := fetchByte()
+			slot := arg & 0x03
+			pop := (arg & 0x10) != 0
+			size := ((arg >> 6) & 0x03) + 1
+			if slot+size > 4 {
+				return 0, 0, ErrIllegalOperation
+			}
+			if stackLen < size {
+				return 0, 0, ErrStackUnderflow
+			}
+			if pop {
+				stackLen -= size
+			}
+		case Operation_Load:
+			if avail() < 1 {
+				return 0, 0, ErrIllegalOperation
+			}
+			arg := fetchByte()
+			slot := arg & 0x03
+			size := ((arg >> 6) & 0x03) + 1
+			if slot+size > 4 {
+				return 0, 0, ErrIllegalOperation
+			}
+			stackLen += size
+			updateMax(stackLen)
 		case Operation_Add, Operation_Sub, Operation_Mul, Operation_Div, Operation_Mod, Operation_Pow, Operation_Atan2:
 			if stackLen < 2 {
 				return 0, 0, ErrStackUnderflow
@@ -619,6 +670,7 @@ func Validate(expr *Expression, initialStackLen int) (minCapacity, finalStackLen
 
 func (expr *Expression) Evaluate(stack []float64) []float64 {
 	pc := 0
+	scratch := [4]float64{}
 
 	pop := func() float64 {
 		i := len(stack) - 1
@@ -691,6 +743,23 @@ func (expr *Expression) Evaluate(stack []float64) []float64 {
 				}
 			}
 			stack = append(stack, t...)
+		case Operation_Store:
+			arg := fetchByte()
+			slot := arg & 0x03
+			pop := (arg & 0x10) != 0
+			size := ((arg >> 6) & 0x03) + 1
+			var vals []float64
+			if pop {
+				vals = popv(size)
+			} else {
+				vals = stack[len(stack)-size:]
+			}
+			copy(scratch[slot:slot+size], vals)
+		case Operation_Load:
+			arg := fetchByte()
+			slot := arg & 0x03
+			size := ((arg >> 6) & 0x03) + 1
+			stack = append(stack, scratch[slot:slot+size]...)
 		case Operation_Add:
 			rhs := pop()
 			lhs := pop()

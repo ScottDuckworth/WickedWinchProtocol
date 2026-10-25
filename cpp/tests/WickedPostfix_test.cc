@@ -351,6 +351,92 @@ TEST(EvalTest, TransposeIntUnderflow) {
   EXPECT_EQ(WickedPostfixValidate(&eval, 0), WickedEvalStatus_IllegalOperation);
 }
 
+TEST(EvalTest, StoreLoadScalarPeek) {
+  WickedPostfixWriter writer;
+  writer.Store(0, 1, /*pop=*/false);
+  writer.Push(10.0f);
+  writer.Load(0, 1);
+  auto buffer = writer.Write();
+
+  TestEval eval(4, {5.0f});
+  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval));
+  EXPECT_EQ(WickedPostfixValidate(&eval, 3), WickedEvalStatus_Ok);
+  WickedPostfixEvaluate(&eval);
+  EXPECT_THAT(eval.stack(), ElementsAre(5.0f, 10.0f, 5.0f));
+}
+
+TEST(EvalTest, StoreLoadScalarPop) {
+  WickedPostfixWriter writer;
+  writer.Store(1, 1, /*pop=*/true);
+  writer.Push(10.0f);
+  writer.Load(1, 1);
+  auto buffer = writer.Write();
+
+  TestEval eval(4, {5.0f});
+  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval));
+  EXPECT_EQ(WickedPostfixValidate(&eval, 2), WickedEvalStatus_Ok);
+  WickedPostfixEvaluate(&eval);
+  EXPECT_THAT(eval.stack(), ElementsAre(10.0f, 5.0f));
+}
+
+TEST(EvalTest, StoreLoadVectorPeek) {
+  WickedPostfixWriter writer;
+  writer.Store(0, 3, /*pop=*/false);
+  writer.Push(99.0f);
+  writer.Load(0, 3);
+  auto buffer = writer.Write();
+
+  TestEval eval(8, {1.0f, 2.0f, 3.0f});
+  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval));
+  EXPECT_EQ(WickedPostfixValidate(&eval, 7), WickedEvalStatus_Ok);
+  WickedPostfixEvaluate(&eval);
+  EXPECT_THAT(eval.stack(), ElementsAre(1.0f, 2.0f, 3.0f, 99.0f, 1.0f, 2.0f, 3.0f));
+}
+
+TEST(EvalTest, StoreLoadVectorPop) {
+  WickedPostfixWriter writer;
+  writer.Store(1, 3, /*pop=*/true);
+  writer.Push(99.0f);
+  writer.Load(1, 3);
+  auto buffer = writer.Write();
+
+  TestEval eval(8, {0.0f, 1.0f, 2.0f, 3.0f});
+  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval));
+  EXPECT_EQ(WickedPostfixValidate(&eval, 5), WickedEvalStatus_Ok);
+  WickedPostfixEvaluate(&eval);
+  EXPECT_THAT(eval.stack(), ElementsAre(0.0f, 99.0f, 1.0f, 2.0f, 3.0f));
+}
+
+TEST(EvalTest, StoreStackUnderflow) {
+  WickedPostfixWriter writer;
+  writer.Store(0, 2, /*pop=*/false);
+  auto buffer = writer.Write();
+
+  TestEval eval(4, {1.0f});
+  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval));
+  EXPECT_EQ(WickedPostfixValidate(&eval, 0), WickedEvalStatus_StackUnderflow);
+}
+
+TEST(EvalTest, StoreOutOfBounds) {
+  WickedPostfixWriter writer;
+  writer.Store(3, 2, /*pop=*/false);
+  auto buffer = writer.Write();
+
+  TestEval eval(4, {1.0f, 2.0f, 3.0f});
+  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval));
+  EXPECT_EQ(WickedPostfixValidate(&eval, 0), WickedEvalStatus_IllegalOperation);
+}
+
+TEST(EvalTest, LoadOutOfBounds) {
+  WickedPostfixWriter writer;
+  writer.Load(2, 3);
+  auto buffer = writer.Write();
+
+  TestEval eval(4, {});
+  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval));
+  EXPECT_EQ(WickedPostfixValidate(&eval, 0), WickedEvalStatus_IllegalOperation);
+}
+
 TEST(EvalTest, Add) {
   WickedPostfixWriter writer;
   writer.Add();

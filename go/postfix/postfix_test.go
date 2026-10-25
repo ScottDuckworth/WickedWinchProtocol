@@ -303,6 +303,47 @@ func TestEvalPostfixExpression(t *testing.T) {
 			wantErr: postfix.ErrStackUnderflow,
 		},
 		{
+			name:      "store load scalar peek",
+			expr:      postfix.MakeBuilder().Store(0, 1, false).Push(10).Load(0, 1).Build(),
+			stack:     []float64{5},
+			wantStack: []float64{5, 10, 5},
+		},
+		{
+			name:      "store load scalar pop",
+			expr:      postfix.MakeBuilder().Store(1, 1, true).Push(10).Load(1, 1).Build(),
+			stack:     []float64{5},
+			wantStack: []float64{10, 5},
+		},
+		{
+			name:      "store load vector peek",
+			expr:      postfix.MakeBuilder().Store(0, 3, false).Push(99).Load(0, 3).Build(),
+			stack:     []float64{1, 2, 3},
+			wantStack: []float64{1, 2, 3, 99, 1, 2, 3},
+		},
+		{
+			name:      "store load vector pop",
+			expr:      postfix.MakeBuilder().Store(1, 3, true).Push(99).Load(1, 3).Build(),
+			stack:     []float64{0, 1, 2, 3},
+			wantStack: []float64{0, 99, 1, 2, 3},
+		},
+		{
+			name:    "store underflow",
+			expr:    postfix.MakeBuilder().Store(0, 2, false).Build(),
+			stack:   []float64{1},
+			wantErr: postfix.ErrStackUnderflow,
+		},
+		{
+			name:    "store out of bounds",
+			expr:    postfix.MakeBuilder().Store(3, 2, false).Build(),
+			stack:   []float64{1, 2, 3},
+			wantErr: postfix.ErrIllegalOperation,
+		},
+		{
+			name:    "load out of bounds",
+			expr:    postfix.MakeBuilder().Load(2, 3).Build(),
+			wantErr: postfix.ErrIllegalOperation,
+		},
+		{
 			name:      "add",
 			expr:      postfix.MakeBuilder().Add().Build(),
 			stack:     []float64{0, 1, 2},

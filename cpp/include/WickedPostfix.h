@@ -41,36 +41,38 @@ typedef enum WickedPostfixOp {
   WickedPostfixOp_RotR      = 5,
   WickedPostfixOp_Rev       = 6,
   WickedPostfixOp_Transpose = 7,
-  WickedPostfixOp_Add       = 8,
-  WickedPostfixOp_Sub       = 9,
-  WickedPostfixOp_Mul       = 10,
-  WickedPostfixOp_MulAdd    = 11,
-  WickedPostfixOp_Div       = 12,
-  WickedPostfixOp_Mod       = 13,
-  WickedPostfixOp_Neg       = 14,
-  WickedPostfixOp_Abs       = 15,
-  WickedPostfixOp_Inv       = 16,
-  WickedPostfixOp_Pow       = 17,
-  WickedPostfixOp_Sqrt      = 18,
-  WickedPostfixOp_Exp       = 19,
-  WickedPostfixOp_Ln        = 20,
-  WickedPostfixOp_Sin       = 21,
-  WickedPostfixOp_Cos       = 22,
-  WickedPostfixOp_Tan       = 23,
-  WickedPostfixOp_Asin      = 24,
-  WickedPostfixOp_Acos      = 25,
-  WickedPostfixOp_Atan2     = 26,
-  WickedPostfixOp_AddVec    = 27,
-  WickedPostfixOp_SubVec    = 28,
-  WickedPostfixOp_MulVec    = 29,
-  WickedPostfixOp_MulAddVec = 30,
-  WickedPostfixOp_ScaleVec  = 31,
-  WickedPostfixOp_NegVec    = 32,
-  WickedPostfixOp_NormVec   = 33,
-  WickedPostfixOp_MulMat    = 34,
-  WickedPostfixOp_PolyVec   = 35,
-  WickedPostfixOp_PolyMat   = 36,
-  WickedPostfixOp_LerpVec   = 37,
+  WickedPostfixOp_Store     = 8,
+  WickedPostfixOp_Load      = 9,
+  WickedPostfixOp_Add       = 10,
+  WickedPostfixOp_Sub       = 11,
+  WickedPostfixOp_Mul       = 12,
+  WickedPostfixOp_MulAdd    = 13,
+  WickedPostfixOp_Div       = 14,
+  WickedPostfixOp_Mod       = 15,
+  WickedPostfixOp_Neg       = 16,
+  WickedPostfixOp_Abs       = 17,
+  WickedPostfixOp_Inv       = 18,
+  WickedPostfixOp_Pow       = 19,
+  WickedPostfixOp_Sqrt      = 20,
+  WickedPostfixOp_Exp       = 21,
+  WickedPostfixOp_Ln        = 22,
+  WickedPostfixOp_Sin       = 23,
+  WickedPostfixOp_Cos       = 24,
+  WickedPostfixOp_Tan       = 25,
+  WickedPostfixOp_Asin      = 26,
+  WickedPostfixOp_Acos      = 27,
+  WickedPostfixOp_Atan2     = 28,
+  WickedPostfixOp_AddVec    = 29,
+  WickedPostfixOp_SubVec    = 30,
+  WickedPostfixOp_MulVec    = 31,
+  WickedPostfixOp_MulAddVec = 32,
+  WickedPostfixOp_ScaleVec  = 33,
+  WickedPostfixOp_NegVec    = 34,
+  WickedPostfixOp_NormVec   = 35,
+  WickedPostfixOp_MulMat    = 36,
+  WickedPostfixOp_PolyVec   = 37,
+  WickedPostfixOp_PolyMat   = 38,
+  WickedPostfixOp_LerpVec   = 39,
 } WickedPostfixOp_t;
 
 const char* WickedPostfixOpToString(WickedPostfixOp_t op);
@@ -173,6 +175,18 @@ class WickedPostfixWriter {
     EmitOp(WickedPostfixOp_Transpose);
     EmitByte(rows);
     EmitByte(cols);
+  }
+
+  void Store(uint8_t slot, uint8_t size = 1, bool pop = false) {
+    EmitOp(WickedPostfixOp_Store);
+    uint8_t arg = (slot & 0x03) | ((pop ? 1 : 0) << 4) | (((size - 1) & 0x03) << 6);
+    EmitByte(arg);
+  }
+
+  void Load(uint8_t slot, uint8_t size = 1) {
+    EmitOp(WickedPostfixOp_Load);
+    uint8_t arg = (slot & 0x03) | (((size - 1) & 0x03) << 6);
+    EmitByte(arg);
   }
 
   void Add() { EmitOp(WickedPostfixOp_Add); }
