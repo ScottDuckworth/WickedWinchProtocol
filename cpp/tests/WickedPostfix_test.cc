@@ -810,6 +810,46 @@ TEST(EvalTest, PolynomialMatrix) {
   EXPECT_THAT(eval.stack(), ElementsAre(0, 3 + 2 * 5 + 4 * 7 + 8 * 9, 4 + 2 * 6 + 4 * 8 + 8 * 10));
 }
 
+TEST(EvalTest, Polynomial3D) {
+  WickedPostfixWriter writer;
+  writer.Polynomial(3, 3, {
+      1, 2, 3,
+      4, 5, 6,
+      7, 8, 9,
+  });
+  auto buffer = writer.Write();
+
+  TestEval eval(8, {0, 2.0f});
+  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval));
+  EXPECT_EQ(WickedPostfixValidate(&eval, 4), WickedEvalStatus_Ok);
+  WickedPostfixEvaluate(&eval);
+  // Writer emits highest-order (row 2) first, so for t=2:
+  // col 0: (7 * 2 + 4) * 2 + 1 = 37
+  // col 1: (8 * 2 + 5) * 2 + 2 = 44
+  // col 2: (9 * 2 + 6) * 2 + 3 = 51
+  EXPECT_THAT(eval.stack(), ElementsAre(0, 37.0f, 44.0f, 51.0f));
+}
+
+TEST(EvalTest, Polynomial4DGeneric) {
+  WickedPostfixWriter writer;
+  writer.Polynomial(2, 4, {
+      1, 2, 3, 4,
+      5, 6, 7, 8,
+  });
+  auto buffer = writer.Write();
+
+  TestEval eval(8, {0, 3.0f});
+  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval));
+  EXPECT_EQ(WickedPostfixValidate(&eval, 5), WickedEvalStatus_Ok);
+  WickedPostfixEvaluate(&eval);
+  // For t=3:
+  // col 0: 5 * 3 + 1 = 16
+  // col 1: 6 * 3 + 2 = 20
+  // col 2: 7 * 3 + 3 = 24
+  // col 3: 8 * 3 + 4 = 28
+  EXPECT_THAT(eval.stack(), ElementsAre(0, 16.0f, 20.0f, 24.0f, 28.0f));
+}
+
 TEST(EvalTest, PolynomialStackUnderflow) {
   WickedPostfixWriter writer;
   writer.Polynomial(4, 2, {3, 4, 5, 6, 7, 8, 9, 10});

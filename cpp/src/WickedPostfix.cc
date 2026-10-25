@@ -736,20 +736,50 @@ WICKED_ALWAYS_INLINE void Polynomial(EvalContext& ctx) {
   uint8_t cols = ((arg >> 4) & 0x0F) + 1;
   float t = ctx.pop();
   std::span<float> result = ctx.allocv(cols);
-  if (cols == 1) {
-    float r = ctx.fetch_float();
-    for (uint8_t i = 1; i < rows; ++i) {
-      r = std::fma(r, t, ctx.fetch_float());
+  switch (cols) {
+    case 1: {
+      float r = ctx.fetch_float();
+      for (uint8_t i = 1; i < rows; ++i) {
+        r = std::fma(r, t, ctx.fetch_float());
+      }
+      result[0] = r;
+      return;
     }
-    result[0] = r;
-    return;
-  }
-  for (uint8_t j = 0; j < cols; ++j) {
-    result[j] = ctx.fetch_float();
-  }
-  for (uint8_t i = 1; i < rows; ++i) {
-    for (uint8_t j = 0; j < cols; ++j) {
-      result[j] = std::fma(result[j], t, ctx.fetch_float());
+    case 2: {
+      float r0 = ctx.fetch_float();
+      float r1 = ctx.fetch_float();
+      for (uint8_t i = 1; i < rows; ++i) {
+        r0 = std::fma(r0, t, ctx.fetch_float());
+        r1 = std::fma(r1, t, ctx.fetch_float());
+      }
+      result[0] = r0;
+      result[1] = r1;
+      return;
+    }
+    case 3: {
+      float r0 = ctx.fetch_float();
+      float r1 = ctx.fetch_float();
+      float r2 = ctx.fetch_float();
+      for (uint8_t i = 1; i < rows; ++i) {
+        r0 = std::fma(r0, t, ctx.fetch_float());
+        r1 = std::fma(r1, t, ctx.fetch_float());
+        r2 = std::fma(r2, t, ctx.fetch_float());
+      }
+      result[0] = r0;
+      result[1] = r1;
+      result[2] = r2;
+      return;
+    }
+    default: {
+      for (uint8_t j = 0; j < cols; ++j) {
+        result[j] = ctx.fetch_float();
+      }
+      for (uint8_t i = 1; i < rows; ++i) {
+        for (uint8_t j = 0; j < cols; ++j) {
+          result[j] = std::fma(result[j], t, ctx.fetch_float());
+        }
+      }
+      return;
     }
   }
 }
