@@ -70,9 +70,8 @@ typedef enum WickedPostfixOp {
   WickedPostfixOp_NegVec    = 34,
   WickedPostfixOp_NormVec   = 35,
   WickedPostfixOp_MulMat    = 36,
-  WickedPostfixOp_PolyVec   = 37,
-  WickedPostfixOp_PolyMat   = 38,
-  WickedPostfixOp_LerpVec   = 39,
+  WickedPostfixOp_Polynomial = 37,
+  WickedPostfixOp_LerpVec   = 38,
 } WickedPostfixOp_t;
 
 const char* WickedPostfixOpToString(WickedPostfixOp_t op);
@@ -92,6 +91,7 @@ static inline void WickedPostfixReadUnsafe(const uint8_t* data, const uint8_t** 
 #ifdef __cplusplus
 }
 
+#include <cassert>
 #include <cstring>
 #include <initializer_list>
 #include <ostream>
@@ -200,22 +200,18 @@ class WickedPostfixWriter {
   void Acos() { EmitOp(WickedPostfixOp_Acos); }
   void Atan2() { EmitOp(WickedPostfixOp_Atan2); }
 
-  void PolyVec(std::span<const float> coeffs) {
-    EmitOp(WickedPostfixOp_PolyVec);
-    EmitByte(static_cast<uint8_t>(coeffs.size()));
-    for (size_t i = coeffs.size(); i > 0; --i) {
-      EmitFloat(coeffs[i - 1]);
-    }
-  }
-
-  void PolyVec(std::initializer_list<float> coeffs) {
-    PolyVec(std::span<const float>(coeffs));
-  }
-
-  void PolyMat(uint8_t rows, uint8_t cols, std::span<const float> coeffs) {
-    EmitOp(WickedPostfixOp_PolyMat);
-    EmitByte(rows);
-    EmitByte(cols);
+  // Evaluates a polynomial or matrix of polynomials using Horner's method.
+  // Operand constraints:
+  //   - rows: 1 to 16 (number of polynomial coefficients per column, i.e. degree + 1)
+  //   - cols: 1 to 16 (number of dimensions / columns)
+  //   - coeffs.size() == rows * cols
+  void Polynomial(uint8_t rows, uint8_t cols, std::span<const float> coeffs) {
+    assert(rows >= 1 && rows <= 16);
+    assert(cols >= 1 && cols <= 16);
+    assert(coeffs.size() == static_cast<size_t>(rows) * cols);
+    EmitOp(WickedPostfixOp_Polynomial);
+    uint8_t arg = ((rows - 1) & 0x0F) | (((cols - 1) & 0x0F) << 4);
+    EmitByte(arg);
     for (size_t i = rows; i > 0; --i) {
       size_t row_offset = (i - 1) * cols;
       for (size_t j = 0; j < cols; ++j) {
@@ -224,9 +220,23 @@ class WickedPostfixWriter {
     }
   }
 
-  void PolyMat(uint8_t rows, uint8_t cols, std::initializer_list<float> coeffs) {
-    PolyMat(rows, cols, std::span<const float>(coeffs));
+  void Polynomial(uint8_t rows, uint8_t cols, std::initializer_list<float> coeffs) {
+    Polynomial(rows, cols, std::span<const float>(coeffs));
   }
+
+  void Polynomial(std::span<const float> coeffs) {
+    Polynomial(static_cast<uint8_t>(coeffs.size()), 1, coeffs);
+  }
+
+  void Polynomial(std::initializer_list<float> coeffs) {
+    Polynomial(std::span<const float>(coeffs));
+  }
+
+  // Deprecated compatibility wrappers
+  void PolyVec(std::span<const float> coeffs) { Polynomial(coeffs); }
+  void PolyVec(std::initializer_list<float> coeffs) { Polynomial(coeffs); }
+  void PolyMat(uint8_t rows, uint8_t cols, std::span<const float> coeffs) { Polynomial(rows, cols, coeffs); }
+  void PolyMat(uint8_t rows, uint8_t cols, std::initializer_list<float> coeffs) { Polynomial(rows, cols, coeffs); }
 
   void AddVec(uint8_t size) {
     EmitOp(WickedPostfixOp_AddVec);
@@ -263,11 +273,70 @@ class WickedPostfixWriter {
     EmitByte(size);
   }
 
+  // Encodes a matrix multiplication C = A * B, where A is (arows x brows) and B is (brows x bcols).
+  // Operand constraints:
+  //   - arows: 1 to 4
+  //   - brows: 1 to 8
+  //   - bcols: must be brows (square), brows - 1 (projection down), brows + 1 (projection up), or 1 (reduction/dot product)
+  //   - Matrix B is popped from the evaluation stack.
   void MulMat(uint8_t arows, uint8_t brows, uint8_t bcols) {
+    assert(arows >= 1 && arows <= 4);
+    assert(brows >= 1 && brows <= 8);
+    uint8_t mode = 0;
+    if (bcols == brows) {
+      mode = 0;
+    } else if (bcols == brows - 1) {
+      mode = 1;
+    } else if (bcols == brows + 1) {
+      mode = 2;
+    } else if (bcols == 1) {
+      mode = 3;
+    } else {
+      assert(false && "Unsupported bcols dimension for MulMat: must be brows, brows-1, brows+1, or 1");
+    }
     EmitOp(WickedPostfixOp_MulMat);
-    EmitByte(arows);
-    EmitByte(brows);
-    EmitByte(bcols);
+    uint8_t arg = ((arows - 1) & 0x03) |
+                  (((brows - 1) & 0x07) << 2) |
+                  ((mode & 0x03) << 5);  // Imm = 0
+    EmitByte(arg);
+  }
+
+  // Encodes a matrix multiplication C = A * B with immediate matrix B, where A is on the stack (arows x brows)
+  // and B is supplied as immediate float literals in the program stream (brows x bcols).
+  // Operand constraints:
+  //   - arows: 1 to 4
+  //   - brows: 1 to 8
+  //   - bcols: must be brows (square), brows - 1 (projection down), brows + 1 (projection up), or 1 (reduction/dot product)
+  //   - b_matrix.size() == brows * bcols
+  void MulMatImmediate(uint8_t arows, uint8_t brows, uint8_t bcols, std::span<const float> b_matrix) {
+    assert(arows >= 1 && arows <= 4);
+    assert(brows >= 1 && brows <= 8);
+    assert(b_matrix.size() == static_cast<size_t>(brows) * bcols);
+    uint8_t mode = 0;
+    if (bcols == brows) {
+      mode = 0;
+    } else if (bcols == brows - 1) {
+      mode = 1;
+    } else if (bcols == brows + 1) {
+      mode = 2;
+    } else if (bcols == 1) {
+      mode = 3;
+    } else {
+      assert(false && "Unsupported bcols dimension for MulMat: must be brows, brows-1, brows+1, or 1");
+    }
+    EmitOp(WickedPostfixOp_MulMat);
+    uint8_t arg = ((arows - 1) & 0x03) |
+                  (((brows - 1) & 0x07) << 2) |
+                  ((mode & 0x03) << 5) |
+                  0x80;  // Imm = 1
+    EmitByte(arg);
+    for (float f : b_matrix) {
+      EmitFloat(f);
+    }
+  }
+
+  void MulMatImmediate(uint8_t arows, uint8_t brows, uint8_t bcols, std::initializer_list<float> b_matrix) {
+    MulMatImmediate(arows, brows, bcols, std::span<const float>(b_matrix));
   }
 
   void LerpVec(uint8_t size) {

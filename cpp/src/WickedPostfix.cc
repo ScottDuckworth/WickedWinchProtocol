@@ -57,11 +57,10 @@ extern "C" const char* WickedPostfixOpToString(WickedPostfixOp_t op) {
     case WickedPostfixOp_MulAddVec: return "MulAddVec";
     case WickedPostfixOp_ScaleVec:  return "ScaleVec";
     case WickedPostfixOp_NegVec:    return "NegVec";
-    case WickedPostfixOp_NormVec:   return "NormVec";
-    case WickedPostfixOp_MulMat:    return "MulMat";
-    case WickedPostfixOp_PolyVec:   return "PolyVec";
-    case WickedPostfixOp_PolyMat:   return "PolyMat";
-    case WickedPostfixOp_LerpVec:   return "LerpVec";
+    case WickedPostfixOp_NormVec:    return "NormVec";
+    case WickedPostfixOp_MulMat:     return "MulMat";
+    case WickedPostfixOp_Polynomial: return "Polynomial";
+    case WickedPostfixOp_LerpVec:    return "LerpVec";
   }
   return "UNKNOWN";
 }
@@ -244,33 +243,45 @@ WICKED_ALWAYS_INLINE WickedEvalStatus_t NormVec(ValidationContext& ctx) {
 }
 
 WICKED_ALWAYS_INLINE WickedEvalStatus_t MulMat(ValidationContext& ctx) {
-  if (!ctx.has_bytes(3)) return WickedEvalStatus_IllegalOperation;
-  uint8_t arows = ctx.fetch_byte();
-  uint8_t brows = ctx.fetch_byte();
-  uint8_t bcols = ctx.fetch_byte();
+  if (!ctx.has_bytes(1)) return WickedEvalStatus_IllegalOperation;
+  uint8_t arg = ctx.fetch_byte();
+  uint8_t arows = (arg & 0x03) + 1;
+  uint8_t brows = ((arg >> 2) & 0x07) + 1;
+  uint8_t mode = (arg >> 5) & 0x03;
+  bool immediate = (arg & 0x80) != 0;
+  uint8_t bcols = brows;
+  switch (mode) {
+    case 0: bcols = brows; break;
+    case 1: bcols = brows - 1; break;
+    case 2: bcols = brows + 1; break;
+    case 3: bcols = 1; break;
+  }
+  if (bcols == 0) return WickedEvalStatus_IllegalOperation;
+
   uint16_t asize = uint16_t(arows) * brows;
   uint16_t bsize = uint16_t(brows) * bcols;
   uint16_t csize = uint16_t(arows) * bcols;
-  if (ctx.stack_depth < asize + bsize) return WickedEvalStatus_StackUnderflow;
-  ctx.update_max(ctx.stack_depth + csize);
-  ctx.stack_depth = ctx.stack_depth - asize - bsize + csize;
+
+  if (immediate) {
+    uint16_t byte_count = bsize * sizeof(float);
+    if (!ctx.has_bytes(byte_count)) return WickedEvalStatus_IllegalOperation;
+    ctx.skip(byte_count);
+    if (ctx.stack_depth < asize) return WickedEvalStatus_StackUnderflow;
+    ctx.update_max(ctx.stack_depth + csize);
+    ctx.stack_depth = ctx.stack_depth - asize + csize;
+  } else {
+    if (ctx.stack_depth < asize + bsize) return WickedEvalStatus_StackUnderflow;
+    ctx.update_max(ctx.stack_depth + csize);
+    ctx.stack_depth = ctx.stack_depth - asize - bsize + csize;
+  }
   return WickedEvalStatus_Ok;
 }
 
-WICKED_ALWAYS_INLINE WickedEvalStatus_t PolyVec(ValidationContext& ctx) {
+WICKED_ALWAYS_INLINE WickedEvalStatus_t Polynomial(ValidationContext& ctx) {
   if (!ctx.has_bytes(1)) return WickedEvalStatus_IllegalOperation;
-  uint8_t size = ctx.fetch_byte();
-  uint16_t byte_count = uint16_t(size) * sizeof(float);
-  if (!ctx.has_bytes(byte_count)) return WickedEvalStatus_IllegalOperation;
-  ctx.skip(byte_count);
-  if (ctx.stack_depth < 1) return WickedEvalStatus_StackUnderflow;
-  return WickedEvalStatus_Ok;
-}
-
-WICKED_ALWAYS_INLINE WickedEvalStatus_t PolyMat(ValidationContext& ctx) {
-  if (!ctx.has_bytes(2)) return WickedEvalStatus_IllegalOperation;
-  uint8_t rows = ctx.fetch_byte();
-  uint8_t cols = ctx.fetch_byte();
+  uint8_t arg = ctx.fetch_byte();
+  uint8_t rows = (arg & 0x0F) + 1;
+  uint8_t cols = ((arg >> 4) & 0x0F) + 1;
   uint16_t coeff_size = uint16_t(rows) * cols;
   uint16_t byte_count = coeff_size * sizeof(float);
   if (!ctx.has_bytes(byte_count)) return WickedEvalStatus_IllegalOperation;
@@ -339,11 +350,10 @@ extern "C" WickedEvalStatus_t WickedPostfixValidate(const uint8_t* prog_data, ui
       case WickedPostfixOp_MulAddVec: status = validate::MulAddVec(ctx); break;
       case WickedPostfixOp_ScaleVec:  status = validate::ScaleVec(ctx); break;
       case WickedPostfixOp_NegVec:    status = validate::NegVec(ctx); break;
-      case WickedPostfixOp_NormVec:   status = validate::NormVec(ctx); break;
-      case WickedPostfixOp_MulMat:    status = validate::MulMat(ctx); break;
-      case WickedPostfixOp_PolyVec:   status = validate::PolyVec(ctx); break;
-      case WickedPostfixOp_PolyMat:   status = validate::PolyMat(ctx); break;
-      case WickedPostfixOp_LerpVec:   status = validate::LerpVec(ctx); break;
+      case WickedPostfixOp_NormVec:    status = validate::NormVec(ctx); break;
+      case WickedPostfixOp_MulMat:     status = validate::MulMat(ctx); break;
+      case WickedPostfixOp_Polynomial: status = validate::Polynomial(ctx); break;
+      case WickedPostfixOp_LerpVec:    status = validate::LerpVec(ctx); break;
       default:
         return WickedEvalStatus_UndefinedOperation;
     }
@@ -381,6 +391,10 @@ struct EvalContext {
     std::memcpy(&f, pc, sizeof(float));
     pc += sizeof(float);
     return f;
+  }
+
+  WICKED_ALWAYS_INLINE void skip(uint16_t n) {
+    pc += n;
   }
 
   WICKED_ALWAYS_INLINE void push(float v) {
@@ -555,27 +569,18 @@ WICKED_ALWAYS_INLINE void Atan2(EvalContext& ctx) {
   ctx.peek() = std::atan2(ctx.peek(), x);
 }
 
-WICKED_ALWAYS_INLINE void PolyVec(EvalContext& ctx) {
-  uint8_t size = ctx.fetch_byte();
-  float t = ctx.pop();
-  if (size == 0) {
-    ctx.push(0.0f);
-    return;
-  }
-  float result = ctx.fetch_float();
-  for (uint8_t n = 1; n < size; ++n) {
-    result = std::fma(result, t, ctx.fetch_float());
-  }
-  ctx.push(result);
-}
-
-WICKED_ALWAYS_INLINE void PolyMat(EvalContext& ctx) {
-  uint8_t rows = ctx.fetch_byte();
-  uint8_t cols = ctx.fetch_byte();
+WICKED_ALWAYS_INLINE void Polynomial(EvalContext& ctx) {
+  uint8_t arg = ctx.fetch_byte();
+  uint8_t rows = (arg & 0x0F) + 1;
+  uint8_t cols = ((arg >> 4) & 0x0F) + 1;
   float t = ctx.pop();
   std::span<float> result = ctx.allocv(cols);
-  if (rows == 0) {
-    std::fill(result.begin(), result.end(), 0.0f);
+  if (cols == 1) {
+    float r = ctx.fetch_float();
+    for (uint8_t i = 1; i < rows; ++i) {
+      r = std::fma(r, t, ctx.fetch_float());
+    }
+    result[0] = r;
     return;
   }
   for (uint8_t j = 0; j < cols; ++j) {
@@ -654,24 +659,45 @@ WICKED_ALWAYS_INLINE void NormVec(EvalContext& ctx) {
 }
 
 WICKED_ALWAYS_INLINE void MulMat(EvalContext& ctx) {
-  uint8_t arows = ctx.fetch_byte();
-  uint8_t brows = ctx.fetch_byte();
-  uint8_t bcols = ctx.fetch_byte();
+  uint8_t arg = ctx.fetch_byte();
+  uint8_t arows = (arg & 0x03) + 1;
+  uint8_t brows = ((arg >> 2) & 0x07) + 1;
+  uint8_t mode = (arg >> 5) & 0x03;
+  bool immediate = (arg & 0x80) != 0;
+  uint8_t bcols = brows;
+  switch (mode) {
+    case 0: bcols = brows; break;
+    case 1: bcols = brows - 1; break;
+    case 2: bcols = brows + 1; break;
+    case 3: bcols = 1; break;
+  }
 
   uint16_t asize = uint16_t(arows) * brows;
   uint16_t bsize = uint16_t(brows) * bcols;
   uint16_t csize = uint16_t(arows) * bcols;
 
-  std::span<float> b = ctx.popv(bsize);
-  std::span<float> a = ctx.popv(asize);
+  const uint8_t* b_ptr = nullptr;
+  std::span<float> a;
 
-  float* c = ctx.sp + asize + bsize;
+  if (immediate) {
+    b_ptr = ctx.pc;
+    ctx.skip(bsize * sizeof(float));
+    a = ctx.popv(asize);
+  } else {
+    std::span<float> b = ctx.popv(bsize);
+    b_ptr = reinterpret_cast<const uint8_t*>(b.data());
+    a = ctx.popv(asize);
+  }
+
+  float* c = ctx.sp + (immediate ? asize : (asize + bsize));
 
   for (uint8_t i = 0; i < arows; ++i) {
     for (uint8_t j = 0; j < bcols; ++j) {
       float r = 0;
       for (uint8_t k = 0; k < brows; ++k) {
-        r += a[brows * i + k] * b[bcols * k + j];
+        float b_val;
+        std::memcpy(&b_val, b_ptr + (bcols * k + j) * sizeof(float), sizeof(float));
+        r += a[brows * i + k] * b_val;
       }
       size_t cidx = bcols * i + j;
       c[cidx] = r;
@@ -735,17 +761,16 @@ extern "C" void WickedPostfixEvaluate(const uint8_t* prog_data, uint16_t prog_si
       case WickedPostfixOp_Asin:      ops::Asin(ctx); break;
       case WickedPostfixOp_Acos:      ops::Acos(ctx); break;
       case WickedPostfixOp_Atan2:     ops::Atan2(ctx); break;
-      case WickedPostfixOp_PolyVec:   ops::PolyVec(ctx); break;
-      case WickedPostfixOp_PolyMat:   ops::PolyMat(ctx); break;
-      case WickedPostfixOp_AddVec:    ops::AddVec(ctx); break;
-      case WickedPostfixOp_SubVec:    ops::SubVec(ctx); break;
-      case WickedPostfixOp_MulVec:    ops::MulVec(ctx); break;
-      case WickedPostfixOp_MulAddVec: ops::MulAddVec(ctx); break;
-      case WickedPostfixOp_ScaleVec:  ops::ScaleVec(ctx); break;
-      case WickedPostfixOp_NegVec:    ops::NegVec(ctx); break;
-      case WickedPostfixOp_NormVec:   ops::NormVec(ctx); break;
-      case WickedPostfixOp_MulMat:    ops::MulMat(ctx); break;
-      case WickedPostfixOp_LerpVec:   ops::LerpVec(ctx); break;
+      case WickedPostfixOp_AddVec:     ops::AddVec(ctx); break;
+      case WickedPostfixOp_SubVec:     ops::SubVec(ctx); break;
+      case WickedPostfixOp_MulVec:     ops::MulVec(ctx); break;
+      case WickedPostfixOp_MulAddVec:  ops::MulAddVec(ctx); break;
+      case WickedPostfixOp_ScaleVec:   ops::ScaleVec(ctx); break;
+      case WickedPostfixOp_NegVec:     ops::NegVec(ctx); break;
+      case WickedPostfixOp_NormVec:    ops::NormVec(ctx); break;
+      case WickedPostfixOp_MulMat:     ops::MulMat(ctx); break;
+      case WickedPostfixOp_Polynomial: ops::Polynomial(ctx); break;
+      case WickedPostfixOp_LerpVec:    ops::LerpVec(ctx); break;
       default:
         break;
     }

@@ -58,11 +58,11 @@ const (
 	Operation_MulAddVec Operation = 32
 	Operation_ScaleVec  Operation = 33
 	Operation_NegVec    Operation = 34
-	Operation_NormVec   Operation = 35
-	Operation_MulMat    Operation = 36
-	Operation_PolyVec   Operation = 37
-	Operation_PolyMat   Operation = 38
-	Operation_LerpVec   Operation = 39
+	Operation_NormVec    Operation = 35
+	Operation_MulMat     Operation = 36
+	Operation_Polynomial Operation = 37
+	Operation_LerpVec    Operation = 38
+	Operation_PolyMat    Operation = Operation_Polynomial // Deprecated alias
 )
 
 type Expression struct {
@@ -149,10 +149,8 @@ func (op Operation) String() string {
 		return "NormVec"
 	case Operation_MulMat:
 		return "MulMat"
-	case Operation_PolyVec:
-		return "PolyVec"
-	case Operation_PolyMat:
-		return "PolyMat"
+	case Operation_Polynomial:
+		return "Polynomial"
 	case Operation_LerpVec:
 		return "LerpVec"
 	default:
@@ -375,19 +373,20 @@ func (b *Builder) Atan2() *Builder {
 	return b
 }
 
-func (b *Builder) PolyVec(coeffs ...float64) *Builder {
-	b.expr.Prog = append(b.expr.Prog, uint8(Operation_PolyVec), uint8(len(coeffs)))
-	for i := len(coeffs) - 1; i >= 0; i-- {
-		b.expr.Prog = binary.LittleEndian.AppendUint32(b.expr.Prog, math.Float32bits(float32(coeffs[i])))
+// Polynomial evaluates a polynomial or matrix of polynomials using Horner's method.
+// Operand constraints:
+//   - rows: 1 to 16 (number of polynomial coefficients per column, i.e. degree + 1)
+//   - cols: 1 to 16 (number of dimensions / columns)
+//   - len(coeffs) == rows * cols
+func (b *Builder) Polynomial(rows, cols int, coeffs ...float64) *Builder {
+	if rows < 1 || rows > 16 || cols < 1 || cols > 16 {
+		panic(fmt.Sprintf("Polynomial rows (%d) and cols (%d) must be in range [1, 16]", rows, cols))
 	}
-	return b
-}
-
-func (b *Builder) PolyMat(rows, cols int, coeffs ...float64) *Builder {
 	if len(coeffs) != rows*cols {
-		panic("invalid number of coefficients for PolyMat")
+		panic("invalid number of coefficients for Polynomial")
 	}
-	b.expr.Prog = append(b.expr.Prog, uint8(Operation_PolyMat), uint8(rows), uint8(cols))
+	arg := uint8((rows-1)&0x0F) | (uint8((cols-1)&0x0F) << 4)
+	b.expr.Prog = append(b.expr.Prog, uint8(Operation_Polynomial), arg)
 	for i := rows - 1; i >= 0; i-- {
 		rowOffset := i * cols
 		for j := range cols {
@@ -395,6 +394,61 @@ func (b *Builder) PolyMat(rows, cols int, coeffs ...float64) *Builder {
 		}
 	}
 	return b
+}
+
+// PolyVec is a convenience method that evaluates a 1D polynomial via Operation_Polynomial.
+func (b *Builder) PolyVec(coeffs ...float64) *Builder {
+	return b.Polynomial(len(coeffs), 1, coeffs...)
+}
+
+// PolyMat is an alias for Polynomial.
+func (b *Builder) PolyMat(rows, cols int, coeffs ...float64) *Builder {
+	return b.Polynomial(rows, cols, coeffs...)
+}
+
+func packMulMat(arows, brows, bcols int, immediate bool) uint8 {
+	if arows < 1 || arows > 4 {
+		panic(fmt.Sprintf("MulMat arows (%d) must be in range [1, 4]", arows))
+	}
+	if brows < 1 || brows > 8 {
+		panic(fmt.Sprintf("MulMat brows (%d) must be in range [1, 8]", brows))
+	}
+	var mode uint8
+	switch {
+	case bcols == brows:
+		mode = 0
+	case bcols == brows-1:
+		mode = 1
+	case bcols == brows+1:
+		mode = 2
+	case bcols == 1:
+		mode = 3
+	default:
+		panic(fmt.Sprintf("Unsupported MulMat bcols (%d) for brows (%d): must be brows, brows-1, brows+1, or 1", bcols, brows))
+	}
+	arg := uint8((arows-1)&0x03) | (uint8((brows-1)&0x07) << 2) | (mode << 5)
+	if immediate {
+		arg |= 0x80
+	}
+	return arg
+}
+
+func unpackMulMat(arg uint8) (arows, brows, bcols int, immediate bool) {
+	arows = int(arg&0x03) + 1
+	brows = int((arg>>2)&0x07) + 1
+	mode := (arg >> 5) & 0x03
+	immediate = (arg & 0x80) != 0
+	switch mode {
+	case 0:
+		bcols = brows
+	case 1:
+		bcols = brows - 1
+	case 2:
+		bcols = brows + 1
+	case 3:
+		bcols = 1
+	}
+	return
 }
 
 func (b *Builder) AddVec(size int) *Builder {
@@ -432,8 +486,34 @@ func (b *Builder) NormVec(size int) *Builder {
 	return b
 }
 
+// MulMat encodes a matrix multiplication C = A * B, where A is (arows x brows) and B is (brows x bcols).
+// Operand constraints:
+//   - arows: 1 to 4
+//   - brows: 1 to 8
+//   - bcols: must be brows (square), brows - 1 (projection down), brows + 1 (projection up), or 1 (reduction/dot product)
+//   - Matrix B is popped from the evaluation stack.
 func (b *Builder) MulMat(arows, brows, bcols int) *Builder {
-	b.expr.Prog = append(b.expr.Prog, uint8(Operation_MulMat), uint8(arows), uint8(brows), uint8(bcols))
+	arg := packMulMat(arows, brows, bcols, false)
+	b.expr.Prog = append(b.expr.Prog, uint8(Operation_MulMat), arg)
+	return b
+}
+
+// MulMatImmediate encodes a matrix multiplication C = A * B with immediate matrix B, where A is on the stack (arows x brows)
+// and B is supplied as immediate float literals in the program stream (brows x bcols).
+// Operand constraints:
+//   - arows: 1 to 4
+//   - brows: 1 to 8
+//   - bcols: must be brows (square), brows - 1 (projection down), brows + 1 (projection up), or 1 (reduction/dot product)
+//   - len(bMatrix) == brows * bcols
+func (b *Builder) MulMatImmediate(arows, brows, bcols int, bMatrix ...float64) *Builder {
+	if len(bMatrix) != brows*bcols {
+		panic("invalid number of matrix elements for MulMatImmediate")
+	}
+	arg := packMulMat(arows, brows, bcols, true)
+	b.expr.Prog = append(b.expr.Prog, uint8(Operation_MulMat), arg)
+	for _, f := range bMatrix {
+		b.expr.Prog = binary.LittleEndian.AppendUint32(b.expr.Prog, math.Float32bits(float32(f)))
+	}
 	return b
 }
 
@@ -592,38 +672,41 @@ func (expr *Expression) Validate(initialStackLen int) (minCapacity, finalStackLe
 				stackLen = stackLen - size + 1
 			}
 		case Operation_MulMat:
-			if avail() < 3 {
-				return 0, 0, ErrIllegalOperation
-			}
-			arows := fetchByte()
-			brows := fetchByte()
-			bcols := fetchByte()
-			asize := arows * brows
-			bsize := brows * bcols
-			csize := arows * bcols
-			if stackLen < asize+bsize {
-				return 0, 0, ErrStackUnderflow
-			}
-			updateMax(stackLen + csize)
-			stackLen = stackLen - (asize + bsize) + csize
-		case Operation_PolyVec:
 			if avail() < 1 {
 				return 0, 0, ErrIllegalOperation
 			}
-			size := fetchByte()
-			if avail() < size*4 {
+			arg := fetchByte()
+			arows, brows, bcols, immediate := unpackMulMat(uint8(arg))
+			if bcols <= 0 {
 				return 0, 0, ErrIllegalOperation
 			}
-			pc += size * 4
-			if stackLen < 1 {
-				return 0, 0, ErrStackUnderflow
+			asize := arows * brows
+			bsize := brows * bcols
+			csize := arows * bcols
+			if immediate {
+				if avail() < bsize*4 {
+					return 0, 0, ErrIllegalOperation
+				}
+				pc += bsize * 4
+				if stackLen < asize {
+					return 0, 0, ErrStackUnderflow
+				}
+				updateMax(stackLen + csize)
+				stackLen = stackLen - asize + csize
+			} else {
+				if stackLen < asize+bsize {
+					return 0, 0, ErrStackUnderflow
+				}
+				updateMax(stackLen + csize)
+				stackLen = stackLen - (asize + bsize) + csize
 			}
-		case Operation_PolyMat:
-			if avail() < 2 {
+		case Operation_Polynomial:
+			if avail() < 1 {
 				return 0, 0, ErrIllegalOperation
 			}
-			rows := fetchByte()
-			cols := fetchByte()
+			arg := fetchByte()
+			rows := int(arg&0x0F) + 1
+			cols := int((arg>>4)&0x0F) + 1
 			coeffSize := rows * cols
 			if avail() < coeffSize*4 {
 				return 0, 0, ErrIllegalOperation
@@ -851,13 +934,20 @@ func (expr *Expression) Evaluate(stack []float64) []float64 {
 			}
 			stack = append(stack, math.Sqrt(result))
 		case Operation_MulMat:
-			arows := fetchByte()
-			brows := fetchByte()
-			bcols := fetchByte()
+			arg := fetchByte()
+			arows, brows, bcols, immediate := unpackMulMat(uint8(arg))
 			asize := arows * brows
 			bsize := brows * bcols
 			csize := arows * bcols
-			b := popv(bsize)
+			var b []float64
+			if immediate {
+				b = make([]float64, bsize)
+				for i := range bsize {
+					b[i] = fetchFloat()
+				}
+			} else {
+				b = popv(bsize)
+			}
 			a := popv(asize)
 			c := make([]float64, csize)
 			for i := range arows {
@@ -870,38 +960,29 @@ func (expr *Expression) Evaluate(stack []float64) []float64 {
 				}
 			}
 			stack = append(stack, c...)
-		case Operation_PolyVec:
-			size := fetchByte()
+		case Operation_Polynomial:
+			arg := fetchByte()
+			rows := int(arg&0x0F) + 1
+			cols := int((arg>>4)&0x0F) + 1
 			t := pop()
-			if size == 0 {
-				stack = append(stack, 0)
-				continue
-			}
-			result := fetchFloat()
-			for range size - 1 {
-				result = result*t + fetchFloat()
-			}
-			stack = append(stack, result)
-		case Operation_PolyMat:
-			rows := fetchByte()
-			cols := fetchByte()
-			t := pop()
-			if rows == 0 {
-				for range cols {
-					stack = append(stack, 0)
+			if cols == 1 {
+				result := fetchFloat()
+				for range rows - 1 {
+					result = result*t + fetchFloat()
 				}
-				continue
-			}
-			result := make([]float64, cols)
-			for j := range cols {
-				result[j] = fetchFloat()
-			}
-			for range rows - 1 {
+				stack = append(stack, result)
+			} else {
+				result := make([]float64, cols)
 				for j := range cols {
-					result[j] = result[j]*t + fetchFloat()
+					result[j] = fetchFloat()
 				}
+				for range rows - 1 {
+					for j := range cols {
+						result[j] = result[j]*t + fetchFloat()
+					}
+				}
+				stack = append(stack, result...)
 			}
-			stack = append(stack, result...)
 		case Operation_LerpVec:
 			size := fetchByte()
 			v1 := popv(size)
