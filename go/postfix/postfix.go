@@ -61,9 +61,10 @@ const (
 	Operation_NegVec     Operation = 35
 	Operation_InvVec     Operation = 36
 	Operation_NormVec    Operation = 37
-	Operation_LerpVec    Operation = 38
-	Operation_MulMat     Operation = 39
-	Operation_Polynomial Operation = 40
+	Operation_SumVec     Operation = 38
+	Operation_LerpVec    Operation = 39
+	Operation_MulMat     Operation = 40
+	Operation_Polynomial Operation = 41
 )
 
 type Expression struct {
@@ -152,6 +153,8 @@ func (op Operation) String() string {
 		return "InvVec"
 	case Operation_NormVec:
 		return "NormVec"
+	case Operation_SumVec:
+		return "SumVec"
 	case Operation_LerpVec:
 		return "LerpVec"
 	case Operation_MulMat:
@@ -501,6 +504,11 @@ func (b *Builder) NormVec(size int) *Builder {
 	return b
 }
 
+func (b *Builder) SumVec(size int) *Builder {
+	b.expr.Prog = append(b.expr.Prog, uint8(Operation_SumVec), uint8(size))
+	return b
+}
+
 func (b *Builder) LerpVec(size int) *Builder {
 	b.expr.Prog = append(b.expr.Prog, uint8(Operation_LerpVec), uint8(size))
 	return b
@@ -672,7 +680,7 @@ func (expr *Expression) Validate(initialStackLen int) (minCapacity, finalStackLe
 			if stackLen < size {
 				return 0, 0, ErrStackUnderflow
 			}
-		case Operation_NormVec:
+		case Operation_NormVec, Operation_SumVec:
 			if avail() < 1 {
 				return 0, 0, ErrIllegalOperation
 			}
@@ -961,6 +969,14 @@ func (expr *Expression) Evaluate(stack []float64) []float64 {
 				result += vec[i] * vec[i]
 			}
 			stack = append(stack, math.Sqrt(result))
+		case Operation_SumVec:
+			size := fetchByte()
+			vec := popv(size)
+			var result float64
+			for i := range size {
+				result += vec[i]
+			}
+			stack = append(stack, result)
 		case Operation_MulMat:
 			arg := fetchByte()
 			arows, brows, bcols, immediate := unpackMulMat(uint8(arg))

@@ -71,9 +71,10 @@ typedef enum WickedPostfixOp {
   WickedPostfixOp_NegVec    = 35,
   WickedPostfixOp_InvVec    = 36,
   WickedPostfixOp_NormVec   = 37,
-  WickedPostfixOp_LerpVec   = 38,
-  WickedPostfixOp_MulMat    = 39,
-  WickedPostfixOp_Polynomial = 40,
+  WickedPostfixOp_SumVec    = 38,
+  WickedPostfixOp_LerpVec   = 39,
+  WickedPostfixOp_MulMat    = 40,
+  WickedPostfixOp_Polynomial = 41,
 } WickedPostfixOp_t;
 
 const char* WickedPostfixOpToString(WickedPostfixOp_t op);
@@ -282,6 +283,11 @@ class WickedPostfixWriter {
 
   void NormVec(uint8_t size) {
     EmitOp(WickedPostfixOp_NormVec);
+    EmitByte(size);
+  }
+
+  void SumVec(uint8_t size) {
+    EmitOp(WickedPostfixOp_SumVec);
     EmitByte(size);
   }
 

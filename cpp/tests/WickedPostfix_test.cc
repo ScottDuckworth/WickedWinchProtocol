@@ -1170,6 +1170,38 @@ TEST(EvalTest, NormVecIntUnderflow) {
   EXPECT_EQ(WickedPostfixValidate(&eval, 0), WickedEvalStatus_IllegalOperation);
 }
 
+TEST(EvalTest, SumVec) {
+  WickedPostfixWriter writer;
+  writer.SumVec(3);
+  auto buffer = writer.Write();
+
+  TestEval eval(8, {0, 1.0f, 2.5f, -0.5f});
+  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval));
+  EXPECT_EQ(WickedPostfixValidate(&eval, 2), WickedEvalStatus_Ok);
+  WickedPostfixEvaluate(&eval);
+  EXPECT_THAT(eval.stack(), ElementsAre(0, 3.0f));
+}
+
+TEST(EvalTest, SumVecStackUnderflow) {
+  WickedPostfixWriter writer;
+  writer.SumVec(3);
+  auto buffer = writer.Write();
+
+  TestEval eval(8, {1, 2});
+  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval));
+  EXPECT_EQ(WickedPostfixValidate(&eval, 0), WickedEvalStatus_StackUnderflow);
+}
+
+TEST(EvalTest, SumVecIntUnderflow) {
+  WickedPostfixWriter writer;
+  writer.EmitOp(WickedPostfixOp_SumVec);
+  auto buffer = writer.Write();
+
+  TestEval eval(8, {0, 2, 3, 4});
+  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval));
+  EXPECT_EQ(WickedPostfixValidate(&eval, 0), WickedEvalStatus_IllegalOperation);
+}
+
 TEST(EvalTest, MulMat) {
   WickedPostfixWriter writer;
   writer.MulMat(2, 3, 4);

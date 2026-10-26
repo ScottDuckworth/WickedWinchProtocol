@@ -60,6 +60,7 @@ extern "C" const char* WickedPostfixOpToString(WickedPostfixOp_t op) {
     case WickedPostfixOp_NegVec:    return "NegVec";
     case WickedPostfixOp_InvVec:    return "InvVec";
     case WickedPostfixOp_NormVec:    return "NormVec";
+    case WickedPostfixOp_SumVec:     return "SumVec";
     case WickedPostfixOp_LerpVec:    return "LerpVec";
     case WickedPostfixOp_MulMat:     return "MulMat";
     case WickedPostfixOp_Polynomial: return "Polynomial";
@@ -364,7 +365,8 @@ extern "C" WickedEvalStatus_t WickedPostfixValidate(const uint8_t* prog_data, ui
       case WickedPostfixOp_ScaleVec:  status = validate::ScaleVec(ctx); break;
       case WickedPostfixOp_NegVec:    status = validate::NegVec(ctx); break;
       case WickedPostfixOp_InvVec:    status = validate::InvVec(ctx); break;
-      case WickedPostfixOp_NormVec:    status = validate::NormVec(ctx); break;
+      case WickedPostfixOp_NormVec:
+      case WickedPostfixOp_SumVec:     status = validate::NormVec(ctx); break;
       case WickedPostfixOp_LerpVec:    status = validate::LerpVec(ctx); break;
       case WickedPostfixOp_MulMat:     status = validate::MulMat(ctx); break;
       case WickedPostfixOp_Polynomial: status = validate::Polynomial(ctx); break;
@@ -665,6 +667,16 @@ WICKED_ALWAYS_INLINE void NormVec(EvalContext& ctx) {
   ctx.push(std::sqrt(result));
 }
 
+WICKED_ALWAYS_INLINE void SumVec(EvalContext& ctx) {
+  uint8_t size = ctx.fetch_byte();
+  std::span<float> v = ctx.popv(size);
+  float result = 0;
+  for (uint8_t i = 0; i < size; ++i) {
+    result += v[i];
+  }
+  ctx.push(result);
+}
+
 WICKED_ALWAYS_INLINE void MulMat(EvalContext& ctx) {
   uint8_t arg = ctx.fetch_byte();
   uint8_t arows = (arg & 0x03) + 1;
@@ -873,6 +885,7 @@ extern "C" void WickedPostfixEvaluate(const uint8_t* prog_data, uint16_t prog_si
       case WickedPostfixOp_NegVec:     ops::NegVec(ctx); break;
       case WickedPostfixOp_InvVec:     ops::InvVec(ctx); break;
       case WickedPostfixOp_NormVec:    ops::NormVec(ctx); break;
+      case WickedPostfixOp_SumVec:     ops::SumVec(ctx); break;
       case WickedPostfixOp_LerpVec:    ops::LerpVec(ctx); break;
       case WickedPostfixOp_MulMat:     ops::MulMat(ctx); break;
       case WickedPostfixOp_Polynomial: ops::Polynomial(ctx); break;
