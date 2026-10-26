@@ -57,11 +57,13 @@ const (
 	Operation_MulVec     Operation = 31
 	Operation_MulAddVec  Operation = 32
 	Operation_ScaleVec   Operation = 33
-	Operation_NegVec     Operation = 34
-	Operation_NormVec    Operation = 35
-	Operation_MulMat     Operation = 36
-	Operation_Polynomial Operation = 37
+	Operation_DivVec     Operation = 34
+	Operation_NegVec     Operation = 35
+	Operation_InvVec     Operation = 36
+	Operation_NormVec    Operation = 37
 	Operation_LerpVec    Operation = 38
+	Operation_MulMat     Operation = 39
+	Operation_Polynomial Operation = 40
 )
 
 type Expression struct {
@@ -142,16 +144,20 @@ func (op Operation) String() string {
 		return "MulAddVec"
 	case Operation_ScaleVec:
 		return "ScaleVec"
+	case Operation_DivVec:
+		return "DivVec"
 	case Operation_NegVec:
 		return "NegVec"
+	case Operation_InvVec:
+		return "InvVec"
 	case Operation_NormVec:
 		return "NormVec"
+	case Operation_LerpVec:
+		return "LerpVec"
 	case Operation_MulMat:
 		return "MulMat"
 	case Operation_Polynomial:
 		return "Polynomial"
-	case Operation_LerpVec:
-		return "LerpVec"
 	default:
 		return fmt.Sprintf("unknown[%d]", op)
 	}
@@ -475,13 +481,28 @@ func (b *Builder) ScaleVec(size int) *Builder {
 	return b
 }
 
+func (b *Builder) DivVec(size int) *Builder {
+	b.expr.Prog = append(b.expr.Prog, uint8(Operation_DivVec), uint8(size))
+	return b
+}
+
 func (b *Builder) NegVec(size int) *Builder {
 	b.expr.Prog = append(b.expr.Prog, uint8(Operation_NegVec), uint8(size))
 	return b
 }
 
+func (b *Builder) InvVec(size int) *Builder {
+	b.expr.Prog = append(b.expr.Prog, uint8(Operation_InvVec), uint8(size))
+	return b
+}
+
 func (b *Builder) NormVec(size int) *Builder {
 	b.expr.Prog = append(b.expr.Prog, uint8(Operation_NormVec), uint8(size))
+	return b
+}
+
+func (b *Builder) LerpVec(size int) *Builder {
+	b.expr.Prog = append(b.expr.Prog, uint8(Operation_LerpVec), uint8(size))
 	return b
 }
 
@@ -513,11 +534,6 @@ func (b *Builder) MulMatImmediate(arows, brows, bcols int, bMatrix ...float64) *
 	for _, f := range bMatrix {
 		b.expr.Prog = binary.LittleEndian.AppendUint32(b.expr.Prog, math.Float32bits(float32(f)))
 	}
-	return b
-}
-
-func (b *Builder) LerpVec(size int) *Builder {
-	b.expr.Prog = append(b.expr.Prog, uint8(Operation_LerpVec), uint8(size))
 	return b
 }
 
@@ -621,7 +637,7 @@ func (expr *Expression) Validate(initialStackLen int) (minCapacity, finalStackLe
 			if stackLen < 1 {
 				return 0, 0, ErrStackUnderflow
 			}
-		case Operation_AddVec, Operation_SubVec, Operation_MulVec:
+		case Operation_AddVec, Operation_SubVec, Operation_MulVec, Operation_DivVec:
 			if avail() < 1 {
 				return 0, 0, ErrIllegalOperation
 			}
@@ -648,7 +664,7 @@ func (expr *Expression) Validate(initialStackLen int) (minCapacity, finalStackLe
 				return 0, 0, ErrStackUnderflow
 			}
 			stackLen -= 1
-		case Operation_NegVec:
+		case Operation_NegVec, Operation_InvVec:
 			if avail() < 1 {
 				return 0, 0, ErrIllegalOperation
 			}
@@ -918,11 +934,24 @@ func (expr *Expression) Evaluate(stack []float64) []float64 {
 			for i := range size {
 				stack = append(stack, scalar*vec[i])
 			}
+		case Operation_DivVec:
+			size := fetchByte()
+			rhs := popv(size)
+			lhs := popv(size)
+			for i := range size {
+				stack = append(stack, lhs[i]/rhs[i])
+			}
 		case Operation_NegVec:
 			size := fetchByte()
 			vec := popv(size)
 			for i := range size {
 				stack = append(stack, -vec[i])
+			}
+		case Operation_InvVec:
+			size := fetchByte()
+			vec := popv(size)
+			for i := range size {
+				stack = append(stack, 1.0/vec[i])
 			}
 		case Operation_NormVec:
 			size := fetchByte()

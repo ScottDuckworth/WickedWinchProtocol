@@ -542,6 +542,18 @@ func TestEvalPostfixExpression(t *testing.T) {
 			wantErr: postfix.ErrStackUnderflow,
 		},
 		{
+			name:      "divide vector 3",
+			expr:      postfix.MakeBuilder().DivVec(3).Build(),
+			stack:     []float64{6, 8, -10, 2, 4, 5},
+			wantStack: []float64{3, 2, -2},
+		},
+		{
+			name:    "divide vector underflow",
+			expr:      postfix.MakeBuilder().DivVec(3).Build(),
+			stack:   []float64{6, 8, -10, 2, 4},
+			wantErr: postfix.ErrStackUnderflow,
+		},
+		{
 			name:      "negate vector 3",
 			expr:      postfix.MakeBuilder().NegVec(3).Build(),
 			stack:     []float64{1, 2, -3},
@@ -551,6 +563,18 @@ func TestEvalPostfixExpression(t *testing.T) {
 			name:    "negate vector underflow",
 			expr:    postfix.MakeBuilder().NegVec(3).Build(),
 			stack:   []float64{1, 2},
+			wantErr: postfix.ErrStackUnderflow,
+		},
+		{
+			name:      "invert vector 3",
+			expr:      postfix.MakeBuilder().InvVec(3).Build(),
+			stack:     []float64{2, 4, -0.5},
+			wantStack: []float64{0.5, 0.25, -2},
+		},
+		{
+			name:    "invert vector underflow",
+			expr:      postfix.MakeBuilder().InvVec(3).Build(),
+			stack:   []float64{2, 4},
 			wantErr: postfix.ErrStackUnderflow,
 		},
 		{

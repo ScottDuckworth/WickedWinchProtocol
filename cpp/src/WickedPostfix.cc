@@ -56,11 +56,13 @@ extern "C" const char* WickedPostfixOpToString(WickedPostfixOp_t op) {
     case WickedPostfixOp_MulVec:    return "MulVec";
     case WickedPostfixOp_MulAddVec: return "MulAddVec";
     case WickedPostfixOp_ScaleVec:  return "ScaleVec";
+    case WickedPostfixOp_DivVec:    return "DivVec";
     case WickedPostfixOp_NegVec:    return "NegVec";
+    case WickedPostfixOp_InvVec:    return "InvVec";
     case WickedPostfixOp_NormVec:    return "NormVec";
+    case WickedPostfixOp_LerpVec:    return "LerpVec";
     case WickedPostfixOp_MulMat:     return "MulMat";
     case WickedPostfixOp_Polynomial: return "Polynomial";
-    case WickedPostfixOp_LerpVec:    return "LerpVec";
   }
   return "UNKNOWN";
 }
@@ -229,6 +231,13 @@ WICKED_ALWAYS_INLINE WickedEvalStatus_t NegVec(ValidationContext& ctx) {
   return WickedEvalStatus_Ok;
 }
 
+WICKED_ALWAYS_INLINE WickedEvalStatus_t InvVec(ValidationContext& ctx) {
+  if (!ctx.has_bytes(1)) return WickedEvalStatus_IllegalOperation;
+  uint8_t size = ctx.fetch_byte();
+  if (ctx.stack_depth < size) return WickedEvalStatus_StackUnderflow;
+  return WickedEvalStatus_Ok;
+}
+
 WICKED_ALWAYS_INLINE WickedEvalStatus_t NormVec(ValidationContext& ctx) {
   if (!ctx.has_bytes(1)) return WickedEvalStatus_IllegalOperation;
   uint8_t size = ctx.fetch_byte();
@@ -349,14 +358,16 @@ extern "C" WickedEvalStatus_t WickedPostfixValidate(const uint8_t* prog_data, ui
       case WickedPostfixOp_Acos:      status = validate::UnaryOp(ctx); break;
       case WickedPostfixOp_AddVec:
       case WickedPostfixOp_SubVec:
-      case WickedPostfixOp_MulVec:    status = validate::BinaryVec(ctx); break;
+      case WickedPostfixOp_MulVec:
+      case WickedPostfixOp_DivVec:    status = validate::BinaryVec(ctx); break;
       case WickedPostfixOp_MulAddVec: status = validate::MulAddVec(ctx); break;
       case WickedPostfixOp_ScaleVec:  status = validate::ScaleVec(ctx); break;
       case WickedPostfixOp_NegVec:    status = validate::NegVec(ctx); break;
+      case WickedPostfixOp_InvVec:    status = validate::InvVec(ctx); break;
       case WickedPostfixOp_NormVec:    status = validate::NormVec(ctx); break;
+      case WickedPostfixOp_LerpVec:    status = validate::LerpVec(ctx); break;
       case WickedPostfixOp_MulMat:     status = validate::MulMat(ctx); break;
       case WickedPostfixOp_Polynomial: status = validate::Polynomial(ctx); break;
-      case WickedPostfixOp_LerpVec:    status = validate::LerpVec(ctx); break;
       default:
         return WickedEvalStatus_UndefinedOperation;
     }
@@ -619,11 +630,28 @@ WICKED_ALWAYS_INLINE void ScaleVec(EvalContext& ctx) {
   }
 }
 
+WICKED_ALWAYS_INLINE void DivVec(EvalContext& ctx) {
+  uint8_t size = ctx.fetch_byte();
+  std::span<float> rhs = ctx.popv(size);
+  std::span<float> lhs = ctx.peekv(size);
+  for (uint8_t i = 0; i < size; ++i) {
+    lhs[i] /= rhs[i];
+  }
+}
+
 WICKED_ALWAYS_INLINE void NegVec(EvalContext& ctx) {
   uint8_t size = ctx.fetch_byte();
   std::span<float> v = ctx.peekv(size);
   for (uint8_t i = 0; i < size; ++i) {
     v[i] = -v[i];
+  }
+}
+
+WICKED_ALWAYS_INLINE void InvVec(EvalContext& ctx) {
+  uint8_t size = ctx.fetch_byte();
+  std::span<float> v = ctx.peekv(size);
+  for (uint8_t i = 0; i < size; ++i) {
+    v[i] = 1.0f / v[i];
   }
 }
 
@@ -841,11 +869,13 @@ extern "C" void WickedPostfixEvaluate(const uint8_t* prog_data, uint16_t prog_si
       case WickedPostfixOp_MulVec:     ops::MulVec(ctx); break;
       case WickedPostfixOp_MulAddVec:  ops::MulAddVec(ctx); break;
       case WickedPostfixOp_ScaleVec:   ops::ScaleVec(ctx); break;
+      case WickedPostfixOp_DivVec:     ops::DivVec(ctx); break;
       case WickedPostfixOp_NegVec:     ops::NegVec(ctx); break;
+      case WickedPostfixOp_InvVec:     ops::InvVec(ctx); break;
       case WickedPostfixOp_NormVec:    ops::NormVec(ctx); break;
+      case WickedPostfixOp_LerpVec:    ops::LerpVec(ctx); break;
       case WickedPostfixOp_MulMat:     ops::MulMat(ctx); break;
       case WickedPostfixOp_Polynomial: ops::Polynomial(ctx); break;
-      case WickedPostfixOp_LerpVec:    ops::LerpVec(ctx); break;
       default:
         break;
     }

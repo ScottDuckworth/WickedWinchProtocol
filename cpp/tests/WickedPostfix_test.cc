@@ -1042,6 +1042,38 @@ TEST(EvalTest, ScaleVecIntUnderflow) {
   EXPECT_EQ(WickedPostfixValidate(&eval, 0), WickedEvalStatus_IllegalOperation);
 }
 
+TEST(EvalTest, DivVec) {
+  WickedPostfixWriter writer;
+  writer.DivVec(3);
+  auto buffer = writer.Write();
+
+  TestEval eval(8, {0, 6, 8, -10, 2, 4, 5});
+  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval));
+  EXPECT_EQ(WickedPostfixValidate(&eval, 4), WickedEvalStatus_Ok);
+  WickedPostfixEvaluate(&eval);
+  EXPECT_THAT(eval.stack(), ElementsAre(0, 3, 2, -2));
+}
+
+TEST(EvalTest, DivVecStackUnderflow) {
+  WickedPostfixWriter writer;
+  writer.DivVec(3);
+  auto buffer = writer.Write();
+
+  TestEval eval(8, {1, 2, 3, 4, 5});
+  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval));
+  EXPECT_EQ(WickedPostfixValidate(&eval, 0), WickedEvalStatus_StackUnderflow);
+}
+
+TEST(EvalTest, DivVecIntUnderflow) {
+  WickedPostfixWriter writer;
+  writer.EmitOp(WickedPostfixOp_DivVec);
+  auto buffer = writer.Write();
+
+  TestEval eval(8, {0, 1, 2, 3, 4, 5, 6});
+  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval));
+  EXPECT_EQ(WickedPostfixValidate(&eval, 0), WickedEvalStatus_IllegalOperation);
+}
+
 TEST(EvalTest, NegVec) {
   WickedPostfixWriter writer;
   writer.NegVec(3);
@@ -1067,6 +1099,38 @@ TEST(EvalTest, NegVecStackUnderflow) {
 TEST(EvalTest, NegVecIntUnderflow) {
   WickedPostfixWriter writer;
   writer.EmitOp(WickedPostfixOp_NegVec);
+  auto buffer = writer.Write();
+
+  TestEval eval(8, {0, 1, 2, 3});
+  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval));
+  EXPECT_EQ(WickedPostfixValidate(&eval, 0), WickedEvalStatus_IllegalOperation);
+}
+
+TEST(EvalTest, InvVec) {
+  WickedPostfixWriter writer;
+  writer.InvVec(3);
+  auto buffer = writer.Write();
+
+  TestEval eval(8, {0, 2, 4, -0.5f});
+  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval));
+  EXPECT_EQ(WickedPostfixValidate(&eval, 4), WickedEvalStatus_Ok);
+  WickedPostfixEvaluate(&eval);
+  EXPECT_THAT(eval.stack(), ElementsAre(0, 0.5f, 0.25f, -2.0f));
+}
+
+TEST(EvalTest, InvVecStackUnderflow) {
+  WickedPostfixWriter writer;
+  writer.InvVec(3);
+  auto buffer = writer.Write();
+
+  TestEval eval(8, {1, 2});
+  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval));
+  EXPECT_EQ(WickedPostfixValidate(&eval, 0), WickedEvalStatus_StackUnderflow);
+}
+
+TEST(EvalTest, InvVecIntUnderflow) {
+  WickedPostfixWriter writer;
+  writer.EmitOp(WickedPostfixOp_InvVec);
   auto buffer = writer.Write();
 
   TestEval eval(8, {0, 1, 2, 3});

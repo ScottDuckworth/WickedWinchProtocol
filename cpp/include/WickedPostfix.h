@@ -67,11 +67,13 @@ typedef enum WickedPostfixOp {
   WickedPostfixOp_MulVec    = 31,
   WickedPostfixOp_MulAddVec = 32,
   WickedPostfixOp_ScaleVec  = 33,
-  WickedPostfixOp_NegVec    = 34,
-  WickedPostfixOp_NormVec   = 35,
-  WickedPostfixOp_MulMat    = 36,
-  WickedPostfixOp_Polynomial = 37,
+  WickedPostfixOp_DivVec    = 34,
+  WickedPostfixOp_NegVec    = 35,
+  WickedPostfixOp_InvVec    = 36,
+  WickedPostfixOp_NormVec   = 37,
   WickedPostfixOp_LerpVec   = 38,
+  WickedPostfixOp_MulMat    = 39,
+  WickedPostfixOp_Polynomial = 40,
 } WickedPostfixOp_t;
 
 const char* WickedPostfixOpToString(WickedPostfixOp_t op);
@@ -263,13 +265,28 @@ class WickedPostfixWriter {
     EmitByte(size);
   }
 
+  void DivVec(uint8_t size) {
+    EmitOp(WickedPostfixOp_DivVec);
+    EmitByte(size);
+  }
+
   void NegVec(uint8_t size) {
     EmitOp(WickedPostfixOp_NegVec);
     EmitByte(size);
   }
 
+  void InvVec(uint8_t size) {
+    EmitOp(WickedPostfixOp_InvVec);
+    EmitByte(size);
+  }
+
   void NormVec(uint8_t size) {
     EmitOp(WickedPostfixOp_NormVec);
+    EmitByte(size);
+  }
+
+  void LerpVec(uint8_t size) {
+    EmitOp(WickedPostfixOp_LerpVec);
     EmitByte(size);
   }
 
@@ -337,11 +354,6 @@ class WickedPostfixWriter {
 
   void MulMatImmediate(uint8_t arows, uint8_t brows, uint8_t bcols, std::initializer_list<float> b_matrix) {
     MulMatImmediate(arows, brows, bcols, std::span<const float>(b_matrix));
-  }
-
-  void LerpVec(uint8_t size) {
-    EmitOp(WickedPostfixOp_LerpVec);
-    EmitByte(size);
   }
 
  private:
