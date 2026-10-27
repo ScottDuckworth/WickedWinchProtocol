@@ -59,8 +59,8 @@ extern "C" const char* WickedPostfixOpToString(WickedPostfixOp_t op) {
     case WickedPostfixOp_DivVec:    return "DivVec";
     case WickedPostfixOp_NegVec:    return "NegVec";
     case WickedPostfixOp_InvVec:    return "InvVec";
-    case WickedPostfixOp_NormVec:    return "NormVec";
-    case WickedPostfixOp_SumVec:     return "SumVec";
+    case WickedPostfixOp_NormSqVec: return "NormSqVec";
+    case WickedPostfixOp_SumVec:    return "SumVec";
     case WickedPostfixOp_LerpVec:    return "LerpVec";
     case WickedPostfixOp_MulMat:     return "MulMat";
     case WickedPostfixOp_Polynomial: return "Polynomial";
@@ -239,7 +239,7 @@ WICKED_ALWAYS_INLINE WickedEvalStatus_t InvVec(ValidationContext& ctx) {
   return WickedEvalStatus_Ok;
 }
 
-WICKED_ALWAYS_INLINE WickedEvalStatus_t NormVec(ValidationContext& ctx) {
+WICKED_ALWAYS_INLINE WickedEvalStatus_t NormSqVec(ValidationContext& ctx) {
   if (!ctx.has_bytes(1)) return WickedEvalStatus_IllegalOperation;
   uint8_t size = ctx.fetch_byte();
   if (ctx.stack_depth < size) return WickedEvalStatus_StackUnderflow;
@@ -365,8 +365,8 @@ extern "C" WickedEvalStatus_t WickedPostfixValidate(const uint8_t* prog_data, ui
       case WickedPostfixOp_ScaleVec:  status = validate::ScaleVec(ctx); break;
       case WickedPostfixOp_NegVec:    status = validate::NegVec(ctx); break;
       case WickedPostfixOp_InvVec:    status = validate::InvVec(ctx); break;
-      case WickedPostfixOp_NormVec:
-      case WickedPostfixOp_SumVec:     status = validate::NormVec(ctx); break;
+      case WickedPostfixOp_NormSqVec:
+      case WickedPostfixOp_SumVec:     status = validate::NormSqVec(ctx); break;
       case WickedPostfixOp_LerpVec:    status = validate::LerpVec(ctx); break;
       case WickedPostfixOp_MulMat:     status = validate::MulMat(ctx); break;
       case WickedPostfixOp_Polynomial: status = validate::Polynomial(ctx); break;
@@ -657,14 +657,14 @@ WICKED_ALWAYS_INLINE void InvVec(EvalContext& ctx) {
   }
 }
 
-WICKED_ALWAYS_INLINE void NormVec(EvalContext& ctx) {
+WICKED_ALWAYS_INLINE void NormSqVec(EvalContext& ctx) {
   uint8_t size = ctx.fetch_byte();
   std::span<float> v = ctx.popv(size);
   float result = 0;
   for (uint8_t i = 0; i < size; ++i) {
     result = std::fma(v[i], v[i], result);
   }
-  ctx.push(std::sqrt(result));
+  ctx.push(result);
 }
 
 WICKED_ALWAYS_INLINE void SumVec(EvalContext& ctx) {
@@ -884,7 +884,7 @@ extern "C" void WickedPostfixEvaluate(const uint8_t* prog_data, uint16_t prog_si
       case WickedPostfixOp_DivVec:     ops::DivVec(ctx); break;
       case WickedPostfixOp_NegVec:     ops::NegVec(ctx); break;
       case WickedPostfixOp_InvVec:     ops::InvVec(ctx); break;
-      case WickedPostfixOp_NormVec:    ops::NormVec(ctx); break;
+      case WickedPostfixOp_NormSqVec:  ops::NormSqVec(ctx); break;
       case WickedPostfixOp_SumVec:     ops::SumVec(ctx); break;
       case WickedPostfixOp_LerpVec:    ops::LerpVec(ctx); break;
       case WickedPostfixOp_MulMat:     ops::MulMat(ctx); break;

@@ -578,14 +578,20 @@ func TestEvalPostfixExpression(t *testing.T) {
 			wantErr: postfix.ErrStackUnderflow,
 		},
 		{
-			name:      "norm vector 2",
-			expr:      postfix.MakeBuilder().NormVec(2).Build(),
+			name:      "norm squared vector 2",
+			expr:      postfix.MakeBuilder().NormSqVec(2).Build(),
+			stack:     []float64{3, 4},
+			wantStack: []float64{25},
+		},
+		{
+			name:      "norm squared and sqrt vector 2",
+			expr:      postfix.MakeBuilder().NormSqVec(2).Sqrt().Build(),
 			stack:     []float64{3, 4},
 			wantStack: []float64{5},
 		},
 		{
-			name:    "norm vector underflow",
-			expr:    postfix.MakeBuilder().NormVec(2).Build(),
+			name:    "norm squared vector underflow",
+			expr:    postfix.MakeBuilder().NormSqVec(2).Build(),
 			stack:   []float64{3},
 			wantErr: postfix.ErrStackUnderflow,
 		},
@@ -760,7 +766,7 @@ func TestValidateAndEvaluate(t *testing.T) {
 	// Expected final stack is [42, 1, 2], final length = 3, minCapacity = 3.
 	expr := postfix.MakeBuilder().Push(1, 2).Build()
 
-	minCapacity, finalStackLen, err := postfix.Validate(expr, 1)
+	minCapacity, finalStackLen, _, err := postfix.Validate(expr, 1)
 	if err != nil {
 		t.Fatalf("unexpected validation error: %v", err)
 	}
@@ -771,7 +777,7 @@ func TestValidateAndEvaluate(t *testing.T) {
 		t.Errorf("got finalStackLen %d, want 3", finalStackLen)
 	}
 
-	minCapExpr, finalLenExpr, err := expr.Validate(1)
+	minCapExpr, finalLenExpr, _, err := expr.Validate(1)
 	if err != nil {
 		t.Fatalf("unexpected validation error: %v", err)
 	}
@@ -781,7 +787,7 @@ func TestValidateAndEvaluate(t *testing.T) {
 
 	// Caller checking expected final stack length
 	checkExpectedFinalLen := func(expected int) error {
-		_, finalLen, err := expr.Validate(1)
+		_, finalLen, _, err := expr.Validate(1)
 		if err != nil {
 			return err
 		}
@@ -818,7 +824,7 @@ func TestValidateAndEvaluate(t *testing.T) {
 
 func TestValidateStackOverflow(t *testing.T) {
 	expr := postfix.MakeBuilder().Dup().Build()
-	_, _, err := expr.Validate(math.MaxUint16)
+	_, _, _, err := expr.Validate(math.MaxUint16)
 	if !errors.Is(err, postfix.ErrStackOverflow) {
 		t.Errorf("got %v, want %v", err, postfix.ErrStackOverflow)
 	}

@@ -60,7 +60,7 @@ const (
 	Operation_DivVec     Operation = 34
 	Operation_NegVec     Operation = 35
 	Operation_InvVec     Operation = 36
-	Operation_NormVec    Operation = 37
+	Operation_NormSqVec  Operation = 37
 	Operation_SumVec     Operation = 38
 	Operation_LerpVec    Operation = 39
 	Operation_MulMat     Operation = 40
@@ -151,8 +151,8 @@ func (op Operation) String() string {
 		return "NegVec"
 	case Operation_InvVec:
 		return "InvVec"
-	case Operation_NormVec:
-		return "NormVec"
+	case Operation_NormSqVec:
+		return "NormSqVec"
 	case Operation_SumVec:
 		return "SumVec"
 	case Operation_LerpVec:
@@ -499,8 +499,8 @@ func (b *Builder) InvVec(size int) *Builder {
 	return b
 }
 
-func (b *Builder) NormVec(size int) *Builder {
-	b.expr.Prog = append(b.expr.Prog, uint8(Operation_NormVec), uint8(size))
+func (b *Builder) NormSqVec(size int) *Builder {
+	b.expr.Prog = append(b.expr.Prog, uint8(Operation_NormSqVec), uint8(size))
 	return b
 }
 
@@ -680,7 +680,7 @@ func (expr *Expression) Validate(initialStackLen int) (minCapacity, finalStackLe
 			if stackLen < size {
 				return 0, 0, nil, ErrStackUnderflow
 			}
-		case Operation_NormVec, Operation_SumVec:
+		case Operation_NormSqVec, Operation_SumVec:
 			if avail() < 1 {
 				return 0, 0, nil, ErrIllegalOperation
 			}
@@ -962,14 +962,14 @@ func (expr *Expression) Evaluate(stack []float64) []float64 {
 			for i := range size {
 				stack = append(stack, 1.0/vec[i])
 			}
-		case Operation_NormVec:
+		case Operation_NormSqVec:
 			size := fetchByte()
 			vec := popv(size)
 			var result float64
 			for i := range size {
 				result += vec[i] * vec[i]
 			}
-			stack = append(stack, math.Sqrt(result))
+			stack = append(stack, result)
 		case Operation_SumVec:
 			size := fetchByte()
 			vec := popv(size)

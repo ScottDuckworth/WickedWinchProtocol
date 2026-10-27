@@ -1138,9 +1138,22 @@ TEST(EvalTest, InvVecIntUnderflow) {
   EXPECT_EQ(WickedPostfixValidate(&eval, 0), WickedEvalStatus_IllegalOperation);
 }
 
-TEST(EvalTest, NormVec) {
+TEST(EvalTest, NormSqVec) {
   WickedPostfixWriter writer;
-  writer.NormVec(3);
+  writer.NormSqVec(3);
+  auto buffer = writer.Write();
+
+  TestEval eval(8, {0, 2, 3, 4});
+  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval));
+  EXPECT_EQ(WickedPostfixValidate(&eval, 2), WickedEvalStatus_Ok);
+  WickedPostfixEvaluate(&eval);
+  EXPECT_THAT(eval.stack(), ElementsAre(0, 2 * 2 + 3 * 3 + 4 * 4));
+}
+
+TEST(EvalTest, NormSqVecAndSqrt) {
+  WickedPostfixWriter writer;
+  writer.NormSqVec(3);
+  writer.Sqrt();
   auto buffer = writer.Write();
 
   TestEval eval(8, {0, 2, 3, 4});
@@ -1150,9 +1163,9 @@ TEST(EvalTest, NormVec) {
   EXPECT_THAT(eval.stack(), ElementsAre(0, std::sqrt(2 * 2 + 3 * 3 + 4 * 4)));
 }
 
-TEST(EvalTest, NormVecStackUnderflow) {
+TEST(EvalTest, NormSqVecStackUnderflow) {
   WickedPostfixWriter writer;
-  writer.NormVec(3);
+  writer.NormSqVec(3);
   auto buffer = writer.Write();
 
   TestEval eval(8, {1, 2});
@@ -1160,9 +1173,9 @@ TEST(EvalTest, NormVecStackUnderflow) {
   EXPECT_EQ(WickedPostfixValidate(&eval, 0), WickedEvalStatus_StackUnderflow);
 }
 
-TEST(EvalTest, NormVecIntUnderflow) {
+TEST(EvalTest, NormSqVecIntUnderflow) {
   WickedPostfixWriter writer;
-  writer.EmitOp(WickedPostfixOp_NormVec);
+  writer.EmitOp(WickedPostfixOp_NormSqVec);
   auto buffer = writer.Write();
 
   TestEval eval(8, {0, 2, 3, 4});

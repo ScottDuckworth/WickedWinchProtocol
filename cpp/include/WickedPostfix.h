@@ -70,7 +70,7 @@ typedef enum WickedPostfixOp {
   WickedPostfixOp_DivVec    = 34,
   WickedPostfixOp_NegVec    = 35,
   WickedPostfixOp_InvVec    = 36,
-  WickedPostfixOp_NormVec   = 37,
+  WickedPostfixOp_NormSqVec = 37,
   WickedPostfixOp_SumVec    = 38,
   WickedPostfixOp_LerpVec   = 39,
   WickedPostfixOp_MulMat    = 40,
@@ -281,8 +281,8 @@ class WickedPostfixWriter {
     EmitByte(size);
   }
 
-  void NormVec(uint8_t size) {
-    EmitOp(WickedPostfixOp_NormVec);
+  void NormSqVec(uint8_t size) {
+    EmitOp(WickedPostfixOp_NormSqVec);
     EmitByte(size);
   }
 
