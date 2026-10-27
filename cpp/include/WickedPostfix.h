@@ -19,6 +19,7 @@ extern "C" {
 #endif
 
 #pragma pack(push, 1)
+// Header preceding the postfix bytecode program, specifying program byte size.
 typedef struct WICKED_PACKED WickedPostfixHeader {
 	uint16_t prog_size;
 } WickedPostfixHeader_t;
@@ -32,6 +33,7 @@ _Static_assert(sizeof(WickedPostfixHeader_t) == 2, "WickedPostfixHeader_t must b
 _Static_assert(_Alignof(WickedPostfixHeader_t) == 1, "WickedPostfixHeader_t must be packed");
 #endif
 
+// Bytecode operations for the postfix evaluation machine.
 typedef enum WickedPostfixOp {
   WickedPostfixOp_Undefined = 0,
   WickedPostfixOp_Push      = 1,
@@ -77,11 +79,19 @@ typedef enum WickedPostfixOp {
   WickedPostfixOp_Polynomial = 41,
 } WickedPostfixOp_t;
 
+// Returns the string representation of an opcode.
 const char* WickedPostfixOpToString(WickedPostfixOp_t op);
+
+// Parses and validates the header from data, returning pointers to prog_data and prog_size.
 bool WickedPostfixRead(const uint8_t* data, size_t size, const uint8_t** prog_data, uint16_t* prog_size);
+
+// Validates bytecode stack requirements and returns status, minimum stack capacity, and final stack size.
 WickedEvalStatus_t WickedPostfixValidate(const uint8_t* prog_data, uint16_t prog_size, uint16_t initial_stack_size, uint16_t* minimum_stack_capacity, uint16_t* final_stack_size);
+
+// Evaluates bytecode on stack_data in-place without bounds checking.
 void WickedPostfixEvaluate(const uint8_t* prog_data, uint16_t prog_size, uint16_t initial_stack_size, float* stack_data);
 
+// Unsafe inline reader that extracts prog_data and prog_size without bounds checking.
 static inline void WickedPostfixReadUnsafe(const uint8_t* data, const uint8_t** prog_data, uint16_t* prog_size) {
   if (prog_data) *prog_data = data + sizeof(WickedPostfixHeader_t);
   if (prog_size) {
@@ -101,109 +111,169 @@ static inline void WickedPostfixReadUnsafe(const uint8_t* data, const uint8_t** 
 #include <span>
 #include <vector>
 
+// Formats opcode name to output stream.
 inline std::ostream& operator<<(std::ostream& out, WickedPostfixOp_t op) {
   return out << WickedPostfixOpToString(op);
 }
 
+// Builds serialized postfix bytecode programs.
 class WickedPostfixWriter {
  public:
+  // Pointer to bytecode data buffer.
   uint8_t* prog_data() { return prog_.data(); }
+  // Const pointer to bytecode data buffer.
   const uint8_t* prog_data() const { return prog_.data(); }
+  // Bytecode size in bytes.
   uint16_t prog_size() const { return static_cast<uint16_t>(prog_.size()); }
+  // Total serialized size including header.
   uint16_t data_size() const { return prog_offset() + prog_size(); }
 
+  // Serializes header and bytecode into the provided buffer.
   bool Write(uint8_t* data, size_t size) const;
+  // Serializes header and bytecode into a newly allocated vector.
   std::vector<uint8_t> Write() const {
     std::vector<uint8_t> buffer(data_size());
     Write(buffer.data(), buffer.size());
     return buffer;
   }
 
+  // Clears the bytecode buffer.
   void clear() {
     prog_.clear();
   }
 
+  // Emits a raw byte into the bytecode stream.
   void EmitByte(uint8_t b) { prog_.push_back(b); }
 
+  // Emits an operation opcode byte into the bytecode stream.
   void EmitOp(WickedPostfixOp_t op) { EmitByte(static_cast<uint8_t>(op)); }
 
+  // Emits a 32-bit float literal into the bytecode stream.
   void EmitFloat(float f) {
     uint8_t bytes[sizeof(float)];
     memcpy(bytes, &f, sizeof(float));
     for (uint8_t b : bytes) prog_.push_back(b);
   }
 
+  // Pushes a single float literal onto the stack.
   void Push(float value) {
     EmitOp(WickedPostfixOp_Push);
     EmitByte(1);
     EmitFloat(value);
   }
 
+  // Pushes multiple float literals onto the stack.
   void Push(std::span<const float> values) {
     EmitOp(WickedPostfixOp_Push);
     EmitByte(static_cast<uint8_t>(values.size()));
     for (float value : values) EmitFloat(value);
   }
 
+  // Pushes multiple float literals onto the stack.
   void Push(std::initializer_list<float> values) {
     Push(std::span<const float>(values));
   }
 
+  // Drops the top value from the stack.
   void Drop() {
     EmitOp(WickedPostfixOp_Drop);
   }
 
+  // Duplicates the top value on the stack.
   void Dup() {
     EmitOp(WickedPostfixOp_Dup);
   }
 
+  // Swaps the top two values on the stack.
   void Swap() {
     EmitOp(WickedPostfixOp_Swap);
   }
 
+  // Copies the second value to the top (a b -> a b a).
   void Over() {
     EmitOp(WickedPostfixOp_Over);
   }
 
+  // Inserts copy of top value under second value (a b -> b a b).
   void Tuck() {
     EmitOp(WickedPostfixOp_Tuck);
   }
 
+  // Drops the second value from the top (a b -> b).
   void Nip() {
     EmitOp(WickedPostfixOp_Nip);
   }
 
+  // Rotates third value to the top (a b c -> b c a).
   void Rot() {
     EmitOp(WickedPostfixOp_Rot);
   }
 
+  // Copies or moves an element or subvector from stack depth offset to the top.
   void Pick(uint8_t offset, uint8_t size = 1, bool move = false) {
     EmitOp(WickedPostfixOp_Pick);
     uint8_t arg = (offset & 0x1F) | ((move ? 1 : 0) << 5) | (((size - 1) & 0x03) << 6);
     EmitByte(arg);
   }
 
+  // Pops two values and pushes their sum.
   void Add() { EmitOp(WickedPostfixOp_Add); }
+
+  // Pops rhs and lhs and pushes lhs - rhs.
   void Sub() { EmitOp(WickedPostfixOp_Sub); }
+
+  // Pops two values and pushes their product.
   void Mul() { EmitOp(WickedPostfixOp_Mul); }
+
+  // Pops c, b, a and pushes a*b + c.
   void MulAdd() { EmitOp(WickedPostfixOp_MulAdd); }
+
+  // Pops rhs and lhs and pushes lhs / rhs.
   void Div() { EmitOp(WickedPostfixOp_Div); }
+
+  // Pops rhs and lhs and pushes lhs % rhs.
   void Mod() { EmitOp(WickedPostfixOp_Mod); }
+
+  // Negates the top value.
   void Neg() { EmitOp(WickedPostfixOp_Neg); }
+
+  // Absolute value of top value.
   void Abs() { EmitOp(WickedPostfixOp_Abs); }
+
+  // Inverts top value (1 / v).
   void Inv() { EmitOp(WickedPostfixOp_Inv); }
+
+  // Pops rhs and lhs and pushes lhs^rhs.
   void Pow() { EmitOp(WickedPostfixOp_Pow); }
+
+  // Square root of top value.
   void Sqrt() { EmitOp(WickedPostfixOp_Sqrt); }
+
+  // Exponential e^v of top value.
   void Exp() { EmitOp(WickedPostfixOp_Exp); }
+
+  // Natural logarithm ln(v) of top value.
   void Ln() { EmitOp(WickedPostfixOp_Ln); }
+
+  // Sine of top value.
   void Sin() { EmitOp(WickedPostfixOp_Sin); }
+
+  // Cosine of top value.
   void Cos() { EmitOp(WickedPostfixOp_Cos); }
+
+  // Tangent of top value.
   void Tan() { EmitOp(WickedPostfixOp_Tan); }
+
+  // Arc sine of top value.
   void Asin() { EmitOp(WickedPostfixOp_Asin); }
+
+  // Arc cosine of top value.
   void Acos() { EmitOp(WickedPostfixOp_Acos); }
+
+  // Pops x and y and pushes atan2(y, x).
   void Atan2() { EmitOp(WickedPostfixOp_Atan2); }
 
-  // Evaluates a polynomial or matrix of polynomials using Horner's method.
+  // Evaluates a polynomial or matrix of polynomials.
   // Operand constraints:
   //   - rows: 1 to 16 (number of polynomial coefficients per column, i.e. degree + 1)
   //   - cols: 1 to 16 (number of dimensions / columns)
@@ -223,14 +293,17 @@ class WickedPostfixWriter {
     }
   }
 
+  // Evaluates a polynomial or matrix of polynomials.
   void Polynomial(uint8_t rows, uint8_t cols, std::initializer_list<float> coeffs) {
     Polynomial(rows, cols, std::span<const float>(coeffs));
   }
 
+  // Evaluates a 1D polynomial.
   void Polynomial(std::span<const float> coeffs) {
     Polynomial(static_cast<uint8_t>(coeffs.size()), 1, coeffs);
   }
 
+  // Evaluates a 1D polynomial.
   void Polynomial(std::initializer_list<float> coeffs) {
     Polynomial(std::span<const float>(coeffs));
   }
@@ -241,56 +314,67 @@ class WickedPostfixWriter {
   void PolyMat(uint8_t rows, uint8_t cols, std::span<const float> coeffs) { Polynomial(rows, cols, coeffs); }
   void PolyMat(uint8_t rows, uint8_t cols, std::initializer_list<float> coeffs) { Polynomial(rows, cols, coeffs); }
 
+  // Adds two vectors componentwise.
   void AddVec(uint8_t size) {
     EmitOp(WickedPostfixOp_AddVec);
     EmitByte(size);
   }
 
+  // Subtracts two vectors componentwise (lhs - rhs).
   void SubVec(uint8_t size) {
     EmitOp(WickedPostfixOp_SubVec);
     EmitByte(size);
   }
 
+  // Multiplies two vectors componentwise.
   void MulVec(uint8_t size) {
     EmitOp(WickedPostfixOp_MulVec);
     EmitByte(size);
   }
 
+  // Componentwise fused multiply-add (a*b + c).
   void MulAddVec(uint8_t size) {
     EmitOp(WickedPostfixOp_MulAddVec);
     EmitByte(size);
   }
 
+  // Scales vector by scalar (factor * vec).
   void ScaleVec(uint8_t size) {
     EmitOp(WickedPostfixOp_ScaleVec);
     EmitByte(size);
   }
 
+  // Divides two vectors componentwise (lhs / rhs).
   void DivVec(uint8_t size) {
     EmitOp(WickedPostfixOp_DivVec);
     EmitByte(size);
   }
 
+  // Negates each component of vector.
   void NegVec(uint8_t size) {
     EmitOp(WickedPostfixOp_NegVec);
     EmitByte(size);
   }
 
+  // Inverts each component of vector (1 / v[i]).
   void InvVec(uint8_t size) {
     EmitOp(WickedPostfixOp_InvVec);
     EmitByte(size);
   }
 
+  // Pushes scalar squared Euclidean norm ||v||^2.
   void NormSqVec(uint8_t size) {
     EmitOp(WickedPostfixOp_NormSqVec);
     EmitByte(size);
   }
 
+  // Pushes scalar sum of vector components.
   void SumVec(uint8_t size) {
     EmitOp(WickedPostfixOp_SumVec);
     EmitByte(size);
   }
 
+  // Linear interpolation between two vectors: (1-t)*v0 + t*v1.
   void LerpVec(uint8_t size) {
     EmitOp(WickedPostfixOp_LerpVec);
     EmitByte(size);
@@ -358,6 +442,7 @@ class WickedPostfixWriter {
     }
   }
 
+  // Encodes a matrix multiplication C = A * B with immediate matrix B supplied as an initializer list.
   void MulMatImmediate(uint8_t arows, uint8_t brows, uint8_t bcols, std::initializer_list<float> b_matrix) {
     MulMatImmediate(arows, brows, bcols, std::span<const float>(b_matrix));
   }

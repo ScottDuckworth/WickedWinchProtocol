@@ -12,14 +12,21 @@ import (
 )
 
 var (
+	// ErrUndefinedOperation indicates an unrecognized opcode was encountered.
 	ErrUndefinedOperation     = errors.New("undefined operation")
+	// ErrIllegalOperation indicates an operation argument or program encoding is malformed.
 	ErrIllegalOperation       = errors.New("illegal operation")
+	// ErrStackUnderflow indicates the evaluation stack had fewer elements than required.
 	ErrStackUnderflow         = errors.New("stack underflow")
+	// ErrStackOverflow indicates the required stack capacity exceeds the maximum allowed size.
 	ErrStackOverflow          = errors.New("stack overflow")
+	// ErrFloatLiteralsUnderflow indicates unexpected EOF when reading embedded float literals.
 	ErrFloatLiteralsUnderflow = errors.New("floats underflow")
+	// ErrUnexpectedStackSize indicates the final stack length does not match expected output dimensions.
 	ErrUnexpectedStackSize    = errors.New("unexpected stack size")
 )
 
+// Operation represents a bytecode opcode for the postfix evaluation machine.
 type Operation uint8
 
 const (
@@ -67,14 +74,17 @@ const (
 	Operation_Polynomial Operation = 41
 )
 
+// Expression represents an immutable bytecode sequence of postfix operations.
 type Expression struct {
 	Prog []uint8
 }
 
+// PostfixHeader represents the wire and storage header preceding the bytecode program.
 type PostfixHeader struct {
 	ProgSize uint16
 }
 
+// String returns the human-readable mnemonic of the operation.
 func (op Operation) String() string {
 	switch op {
 	case Operation_Undefined:
@@ -166,6 +176,7 @@ func (op Operation) String() string {
 	}
 }
 
+// String returns a space-separated representation of the bytecode bytes.
 func (expr Expression) String() string {
 	var sb strings.Builder
 	sb.WriteString("{")
@@ -179,6 +190,7 @@ func (expr Expression) String() string {
 	return sb.String()
 }
 
+// Write serializes the expression with its PostfixHeader to the given writer in little-endian format.
 func (expr *Expression) Write(w io.Writer) error {
 	header := PostfixHeader{
 		ProgSize: uint16(len(expr.Prog)),
@@ -189,6 +201,7 @@ func (expr *Expression) Write(w io.Writer) error {
 	)
 }
 
+// Read deserializes a PostfixHeader and subsequent bytecode bytes from the given reader.
 func (expr *Expression) Read(r io.Reader) error {
 	var header PostfixHeader
 	err := binary.Read(r, binary.LittleEndian, &header)
@@ -199,10 +212,12 @@ func (expr *Expression) Read(r io.Reader) error {
 	return binary.Read(r, binary.LittleEndian, &expr.Prog)
 }
 
+// Equal reports whether two expressions have identical bytecode programs.
 func Equal(a, b *Expression) bool {
 	return slices.Equal(a.Prog, b.Prog)
 }
 
+// Join concatenates multiple expressions into a single sequential expression.
 func Join(exprs ...*Expression) *Expression {
 	result := &Expression{}
 	for _, expr := range exprs {
@@ -211,18 +226,22 @@ func Join(exprs ...*Expression) *Expression {
 	return result
 }
 
+// Builder constructs an Expression by appending bytecode operations and immediate data.
 type Builder struct {
 	expr Expression
 }
 
+// MakeBuilder creates an empty postfix expression builder.
 func MakeBuilder() *Builder {
 	return &Builder{}
 }
 
+// Build returns the completed postfix Expression constructed by this builder.
 func (b *Builder) Build() *Expression {
 	return &b.expr
 }
 
+// Push appends an Operation_Push instruction with the given 32-bit float literals.
 func (b *Builder) Push(literals ...float64) *Builder {
 	b.expr.Prog = append(b.expr.Prog, uint8(Operation_Push), uint8(len(literals)))
 	for _, v := range literals {
@@ -231,41 +250,50 @@ func (b *Builder) Push(literals ...float64) *Builder {
 	return b
 }
 
+// Drop discards the top value from the stack.
 func (b *Builder) Drop() *Builder {
 	b.expr.Prog = append(b.expr.Prog, uint8(Operation_Drop))
 	return b
 }
 
+// Dup duplicates the top value on the stack.
 func (b *Builder) Dup() *Builder {
 	b.expr.Prog = append(b.expr.Prog, uint8(Operation_Dup))
 	return b
 }
 
+// Swap exchanges the top two values on the stack.
 func (b *Builder) Swap() *Builder {
 	b.expr.Prog = append(b.expr.Prog, uint8(Operation_Swap))
 	return b
 }
 
+// Over copies the second value from the top of the stack onto the top (a b -> a b a).
 func (b *Builder) Over() *Builder {
 	b.expr.Prog = append(b.expr.Prog, uint8(Operation_Over))
 	return b
 }
 
+// Tuck inserts a copy of the top value beneath the second value (a b -> b a b).
 func (b *Builder) Tuck() *Builder {
 	b.expr.Prog = append(b.expr.Prog, uint8(Operation_Tuck))
 	return b
 }
 
+// Nip discards the second value from the top of the stack (a b -> b).
 func (b *Builder) Nip() *Builder {
 	b.expr.Prog = append(b.expr.Prog, uint8(Operation_Nip))
 	return b
 }
 
+// Rot rotates the third value to the top of the stack (a b c -> b c a).
 func (b *Builder) Rot() *Builder {
 	b.expr.Prog = append(b.expr.Prog, uint8(Operation_Rot))
 	return b
 }
 
+// Pick copies or moves an element or subvector from stack depth offset to the top.
+// Optional opts may contain size (int, 1-4) and move (bool).
 func (b *Builder) Pick(offset int, opts ...any) *Builder {
 	size := 1
 	move := false
@@ -286,96 +314,115 @@ func (b *Builder) Pick(offset int, opts ...any) *Builder {
 	return b
 }
 
+// Add pops two values and pushes their sum (lhs + rhs).
 func (b *Builder) Add() *Builder {
 	b.expr.Prog = append(b.expr.Prog, uint8(Operation_Add))
 	return b
 }
 
+// Sub pops rhs and lhs and pushes lhs - rhs.
 func (b *Builder) Sub() *Builder {
 	b.expr.Prog = append(b.expr.Prog, uint8(Operation_Sub))
 	return b
 }
 
+// Mul pops two values and pushes their product (lhs * rhs).
 func (b *Builder) Mul() *Builder {
 	b.expr.Prog = append(b.expr.Prog, uint8(Operation_Mul))
 	return b
 }
 
+// MulAdd pops c, b, a and pushes a*b + c.
 func (b *Builder) MulAdd() *Builder {
 	b.expr.Prog = append(b.expr.Prog, uint8(Operation_MulAdd))
 	return b
 }
 
+// Div pops rhs and lhs and pushes lhs / rhs.
 func (b *Builder) Div() *Builder {
 	b.expr.Prog = append(b.expr.Prog, uint8(Operation_Div))
 	return b
 }
 
+// Mod pops rhs and lhs and pushes the floating-point remainder (lhs % rhs).
 func (b *Builder) Mod() *Builder {
 	b.expr.Prog = append(b.expr.Prog, uint8(Operation_Mod))
 	return b
 }
 
+// Neg negates the top value on the stack (-v).
 func (b *Builder) Neg() *Builder {
 	b.expr.Prog = append(b.expr.Prog, uint8(Operation_Neg))
 	return b
 }
 
+// Abs replaces the top value on the stack with its absolute value |v|.
 func (b *Builder) Abs() *Builder {
 	b.expr.Prog = append(b.expr.Prog, uint8(Operation_Abs))
 	return b
 }
 
+// Inv inverts the top value on the stack (1 / v).
 func (b *Builder) Inv() *Builder {
 	b.expr.Prog = append(b.expr.Prog, uint8(Operation_Inv))
 	return b
 }
 
+// Pow pops rhs and lhs and pushes lhs raised to the power of rhs (lhs^rhs).
 func (b *Builder) Pow() *Builder {
 	b.expr.Prog = append(b.expr.Prog, uint8(Operation_Pow))
 	return b
 }
 
+// Sqrt replaces the top value on the stack with its square root.
 func (b *Builder) Sqrt() *Builder {
 	b.expr.Prog = append(b.expr.Prog, uint8(Operation_Sqrt))
 	return b
 }
 
+// Exp replaces the top value on the stack with e^v.
 func (b *Builder) Exp() *Builder {
 	b.expr.Prog = append(b.expr.Prog, uint8(Operation_Exp))
 	return b
 }
 
+// Ln replaces the top value on the stack with its natural logarithm ln(v).
 func (b *Builder) Ln() *Builder {
 	b.expr.Prog = append(b.expr.Prog, uint8(Operation_Ln))
 	return b
 }
 
+// Sin replaces the top value on the stack with sin(v).
 func (b *Builder) Sin() *Builder {
 	b.expr.Prog = append(b.expr.Prog, uint8(Operation_Sin))
 	return b
 }
 
+// Cos replaces the top value on the stack with cos(v).
 func (b *Builder) Cos() *Builder {
 	b.expr.Prog = append(b.expr.Prog, uint8(Operation_Cos))
 	return b
 }
 
+// Tan replaces the top value on the stack with tan(v).
 func (b *Builder) Tan() *Builder {
 	b.expr.Prog = append(b.expr.Prog, uint8(Operation_Tan))
 	return b
 }
 
+// Asin replaces the top value on the stack with asin(v).
 func (b *Builder) Asin() *Builder {
 	b.expr.Prog = append(b.expr.Prog, uint8(Operation_Asin))
 	return b
 }
 
+// Acos replaces the top value on the stack with acos(v).
 func (b *Builder) Acos() *Builder {
 	b.expr.Prog = append(b.expr.Prog, uint8(Operation_Acos))
 	return b
 }
 
+// Atan2 pops x and y and pushes atan2(y, x).
 func (b *Builder) Atan2() *Builder {
 	b.expr.Prog = append(b.expr.Prog, uint8(Operation_Atan2))
 	return b
@@ -459,56 +506,67 @@ func unpackMulMat(arg uint8) (arows, brows, bcols int, immediate bool) {
 	return
 }
 
+// AddVec pops two vectors of the specified dimension and pushes their componentwise sum.
 func (b *Builder) AddVec(size int) *Builder {
 	b.expr.Prog = append(b.expr.Prog, uint8(Operation_AddVec), uint8(size))
 	return b
 }
 
+// SubVec pops vector rhs and vector lhs and pushes their componentwise difference (lhs - rhs).
 func (b *Builder) SubVec(size int) *Builder {
 	b.expr.Prog = append(b.expr.Prog, uint8(Operation_SubVec), uint8(size))
 	return b
 }
 
+// MulVec pops two vectors of the specified dimension and pushes their componentwise product.
 func (b *Builder) MulVec(size int) *Builder {
 	b.expr.Prog = append(b.expr.Prog, uint8(Operation_MulVec), uint8(size))
 	return b
 }
 
+// MulAddVec pops vectors c, b, a of the specified dimension and pushes a*b + c componentwise.
 func (b *Builder) MulAddVec(size int) *Builder {
 	b.expr.Prog = append(b.expr.Prog, uint8(Operation_MulAddVec), uint8(size))
 	return b
 }
 
+// ScaleVec pops vector vec and scalar factor and pushes factor * vec.
 func (b *Builder) ScaleVec(size int) *Builder {
 	b.expr.Prog = append(b.expr.Prog, uint8(Operation_ScaleVec), uint8(size))
 	return b
 }
 
+// DivVec pops vector rhs and vector lhs and pushes componentwise lhs / rhs.
 func (b *Builder) DivVec(size int) *Builder {
 	b.expr.Prog = append(b.expr.Prog, uint8(Operation_DivVec), uint8(size))
 	return b
 }
 
+// NegVec negates each component of a vector on the stack.
 func (b *Builder) NegVec(size int) *Builder {
 	b.expr.Prog = append(b.expr.Prog, uint8(Operation_NegVec), uint8(size))
 	return b
 }
 
+// InvVec inverts each component of a vector on the stack (1 / v[i]).
 func (b *Builder) InvVec(size int) *Builder {
 	b.expr.Prog = append(b.expr.Prog, uint8(Operation_InvVec), uint8(size))
 	return b
 }
 
+// NormSqVec pops a vector and pushes the scalar squared Euclidean norm ||v||^2.
 func (b *Builder) NormSqVec(size int) *Builder {
 	b.expr.Prog = append(b.expr.Prog, uint8(Operation_NormSqVec), uint8(size))
 	return b
 }
 
+// SumVec pops a vector and pushes the scalar sum of its components.
 func (b *Builder) SumVec(size int) *Builder {
 	b.expr.Prog = append(b.expr.Prog, uint8(Operation_SumVec), uint8(size))
 	return b
 }
 
+// LerpVec pops vector v1, vector v0, and scalar t and pushes the linear interpolation (1-t)*v0 + t*v1.
 func (b *Builder) LerpVec(size int) *Builder {
 	b.expr.Prog = append(b.expr.Prog, uint8(Operation_LerpVec), uint8(size))
 	return b
@@ -545,6 +603,8 @@ func (b *Builder) MulMatImmediate(arows, brows, bcols int, bMatrix ...float64) *
 	return b
 }
 
+// Validate performs static analysis of the bytecode against an initial stack length,
+// returning the peak stack capacity needed, the final stack length, the opcode trace, or an error.
 func (expr *Expression) Validate(initialStackLen int) (minCapacity, finalStackLen int, ops []Operation, err error) {
 	pc := 0
 	stackLen := initialStackLen
@@ -762,10 +822,12 @@ func (expr *Expression) Validate(initialStackLen int) (minCapacity, finalStackLe
 	return maxStackLen, stackLen, ops, nil
 }
 
+// Validate performs static analysis of expr against an initial stack length.
 func Validate(expr *Expression, initialStackLen int) (minCapacity, finalStackLen int, ops []Operation, err error) {
 	return expr.Validate(initialStackLen)
 }
 
+// Evaluate executes the bytecode on the provided stack without runtime bounds checking.
 func (expr *Expression) Evaluate(stack []float64) []float64 {
 	pc := 0
 
@@ -1041,10 +1103,12 @@ func (expr *Expression) Evaluate(stack []float64) []float64 {
 	return stack
 }
 
+// Evaluate executes expr on stack without runtime bounds checking.
 func Evaluate(expr *Expression, stack []float64) []float64 {
 	return expr.Evaluate(stack)
 }
 
+// Eval validates the expression and executes it on the provided stack, returning an error if validation fails.
 func (expr *Expression) Eval(stack []float64) ([]float64, error) {
 	if _, _, _, err := expr.Validate(len(stack)); err != nil {
 		return nil, err
@@ -1052,6 +1116,7 @@ func (expr *Expression) Eval(stack []float64) ([]float64, error) {
 	return expr.Evaluate(stack), nil
 }
 
+// Eval validates expr and executes it on stack, returning an error if validation fails.
 func Eval(expr *Expression, stack []float64) ([]float64, error) {
 	return expr.Eval(stack)
 }
