@@ -386,77 +386,47 @@ class WickedPostfixWriter {
     EmitByte(size - 1);
   }
 
-  // Linear interpolation between two vectors (v0[N] v1[N] t -> ((1 - t)*v0 + t*v1)[N]).
-  void LerpVec(uint8_t size) {
-    assert(size > 0);
+  // Linear interpolation between two immediate vectors for scalar t (t -> ((1 - t)*v0 + t*v1)[N]).
+  // Operand constraints:
+  //   - v0.size() == v1.size()
+  //   - size: 1 to 255
+  void LerpVec(std::span<const float> v0, std::span<const float> v1) {
+    assert(v0.size() == v1.size());
+    assert(v0.size() >= 1 && v0.size() <= 255);
     EmitOp(WickedPostfixOp_LerpVec);
-    EmitByte(size - 1);
-  }
-
-  // Encodes a matrix multiplication C = A * B (A[arows,brows] B[brows,bcols] -> C[arows,bcols]).
-  // Operand constraints:
-  //   - arows: 1 to 4
-  //   - brows: 1 to 8
-  //   - bcols: must be brows (square), brows - 1 (projection down), brows + 1 (projection up), or 1 (reduction/dot product)
-  //   - Matrix B is popped from the evaluation stack.
-  void MulMat(uint8_t arows, uint8_t brows, uint8_t bcols) {
-    assert(arows >= 1 && arows <= 4);
-    assert(brows >= 1 && brows <= 8);
-    uint8_t mode = 0;
-    if (bcols == brows) {
-      mode = 0;
-    } else if (bcols == brows - 1) {
-      mode = 1;
-    } else if (bcols == brows + 1) {
-      mode = 2;
-    } else if (bcols == 1) {
-      mode = 3;
-    } else {
-      assert(false && "Unsupported bcols dimension for MulMat: must be brows, brows-1, brows+1, or 1");
+    EmitByte(static_cast<uint8_t>(v0.size() - 1));
+    for (float f : v0) {
+      EmitFloat(f);
     }
-    EmitOp(WickedPostfixOp_MulMat);
-    uint8_t arg = ((arows - 1) & 0x03) |
-                  (((brows - 1) & 0x07) << 2) |
-                  ((mode & 0x03) << 5);  // Imm = 0
-    EmitByte(arg);
-  }
-
-  // Encodes a matrix multiplication C = A * B with immediate matrix B (A[arows,brows] -> C[arows,bcols]).
-  // Operand constraints:
-  //   - arows: 1 to 4
-  //   - brows: 1 to 8
-  //   - bcols: must be brows (square), brows - 1 (projection down), brows + 1 (projection up), or 1 (reduction/dot product)
-  //   - b_matrix.size() == brows * bcols
-  void MulMatImmediate(uint8_t arows, uint8_t brows, uint8_t bcols, std::span<const float> b_matrix) {
-    assert(arows >= 1 && arows <= 4);
-    assert(brows >= 1 && brows <= 8);
-    assert(b_matrix.size() == static_cast<size_t>(brows) * bcols);
-    uint8_t mode = 0;
-    if (bcols == brows) {
-      mode = 0;
-    } else if (bcols == brows - 1) {
-      mode = 1;
-    } else if (bcols == brows + 1) {
-      mode = 2;
-    } else if (bcols == 1) {
-      mode = 3;
-    } else {
-      assert(false && "Unsupported bcols dimension for MulMat: must be brows, brows-1, brows+1, or 1");
-    }
-    EmitOp(WickedPostfixOp_MulMat);
-    uint8_t arg = ((arows - 1) & 0x03) |
-                  (((brows - 1) & 0x07) << 2) |
-                  ((mode & 0x03) << 5) |
-                  0x80;  // Imm = 1
-    EmitByte(arg);
-    for (float f : b_matrix) {
+    for (float f : v1) {
       EmitFloat(f);
     }
   }
 
-  // Encodes a matrix multiplication C = A * B with immediate matrix B supplied as an initializer list (A[arows,brows] -> C[arows,bcols]).
-  void MulMatImmediate(uint8_t arows, uint8_t brows, uint8_t bcols, std::initializer_list<float> b_matrix) {
-    MulMatImmediate(arows, brows, bcols, std::span<const float>(b_matrix));
+  void LerpVec(std::initializer_list<float> v0, std::initializer_list<float> v1) {
+    LerpVec(std::span<const float>(v0), std::span<const float>(v1));
+  }
+
+  // Vector-matrix multiplication w = v * M with immediate column-major matrix M (v[rows] -> (v * M)[cols]).
+  // Operand constraints:
+  //   - rows: 1 to 4 (input vector dimension)
+  //   - cols: 1 to 16 (output vector dimension)
+  //   - matrix: elements in column-major order (column by column)
+  //   - matrix.size() == rows * cols
+  void MulMat(uint8_t rows, uint8_t cols, std::span<const float> matrix) {
+    assert(rows >= 1 && rows <= 4);
+    assert(cols >= 1 && cols <= 16);
+    assert(matrix.size() == static_cast<size_t>(rows) * cols);
+    EmitOp(WickedPostfixOp_MulMat);
+    uint8_t arg = ((rows - 1) & 0x03) | (((cols - 1) & 0x0F) << 4);
+    EmitByte(arg);
+    for (float f : matrix) {
+      EmitFloat(f);
+    }
+  }
+
+  void MulMat(uint8_t rows, uint8_t cols, std::initializer_list<float> matrix) {
+    MulMat(rows, cols, std::span<const float>(matrix));
   }
 
   // Evaluates a polynomial or matrix of polynomials for scalar t (t -> P(t)[cols]).

@@ -558,85 +558,52 @@ func (b *Builder) ScaleVec(size int) *Builder {
 	return b
 }
 
-// LerpVec pops vector v1, vector v0, and scalar t and pushes the linear interpolation (v0[N] v1[N] t -> ((1 - t)*v0 + t*v1)[N]).
-func (b *Builder) LerpVec(size int) *Builder {
+// LerpVec pops scalar t and interpolates between immediate vectors v0 and v1 (t -> ((1 - t)*v0 + t*v1)[N]).
+func (b *Builder) LerpVec(v0, v1 []float64) *Builder {
+	if len(v0) != len(v1) {
+		panic(fmt.Sprintf("LerpVec vectors must have same length: len(v0)=%d, len(v1)=%d", len(v0), len(v1)))
+	}
+	size := len(v0)
 	if size < 1 || size > 255 {
 		panic(fmt.Sprintf("LerpVec size (%d) must be in range [1, 255]", size))
 	}
 	b.expr.Prog = append(b.expr.Prog, uint8(Operation_LerpVec), uint8(size-1))
+	for _, f := range v0 {
+		b.expr.Prog = binary.LittleEndian.AppendUint32(b.expr.Prog, math.Float32bits(float32(f)))
+	}
+	for _, f := range v1 {
+		b.expr.Prog = binary.LittleEndian.AppendUint32(b.expr.Prog, math.Float32bits(float32(f)))
+	}
 	return b
 }
 
-func packMulMat(arows, brows, bcols int, immediate bool) uint8 {
-	if arows < 1 || arows > 4 {
-		panic(fmt.Sprintf("MulMat arows (%d) must be in range [1, 4]", arows))
+func packMulMat(rows, cols int) uint8 {
+	if rows < 1 || rows > 4 {
+		panic(fmt.Sprintf("MulMat rows (%d) must be in range [1, 4]", rows))
 	}
-	if brows < 1 || brows > 8 {
-		panic(fmt.Sprintf("MulMat brows (%d) must be in range [1, 8]", brows))
+	if cols < 1 || cols > 16 {
+		panic(fmt.Sprintf("MulMat cols (%d) must be in range [1, 16]", cols))
 	}
-	var mode uint8
-	switch {
-	case bcols == brows:
-		mode = 0
-	case bcols == brows-1:
-		mode = 1
-	case bcols == brows+1:
-		mode = 2
-	case bcols == 1:
-		mode = 3
-	default:
-		panic(fmt.Sprintf("Unsupported MulMat bcols (%d) for brows (%d): must be brows, brows-1, brows+1, or 1", bcols, brows))
-	}
-	arg := uint8((arows-1)&0x03) | (uint8((brows-1)&0x07) << 2) | (mode << 5)
-	if immediate {
-		arg |= 0x80
-	}
-	return arg
+	return uint8(((rows - 1) & 0x03) | (((cols - 1) & 0x0F) << 4))
 }
 
-func unpackMulMat(arg uint8) (arows, brows, bcols int, immediate bool) {
-	arows = int(arg&0x03) + 1
-	brows = int((arg>>2)&0x07) + 1
-	mode := (arg >> 5) & 0x03
-	immediate = (arg & 0x80) != 0
-	switch mode {
-	case 0:
-		bcols = brows
-	case 1:
-		bcols = brows - 1
-	case 2:
-		bcols = brows + 1
-	case 3:
-		bcols = 1
-	}
-	return
+func unpackMulMat(arg uint8) (rows, cols int) {
+	return int(arg&0x03) + 1, int((arg>>4)&0x0F) + 1
 }
 
-// MulMat encodes a matrix multiplication C = A * B (A[arows,brows] B[brows,bcols] -> C[arows,bcols]).
+// MulMat encodes a vector-matrix multiplication w = v * M with immediate column-major matrix M (v[rows] -> (v * M)[cols]).
 // Operand constraints:
-//   - arows: 1 to 4
-//   - brows: 1 to 8
-//   - bcols: must be brows (square), brows - 1 (projection down), brows + 1 (projection up), or 1 (reduction/dot product)
-//   - Matrix B is popped from the evaluation stack.
-func (b *Builder) MulMat(arows, brows, bcols int) *Builder {
-	arg := packMulMat(arows, brows, bcols, false)
-	b.expr.Prog = append(b.expr.Prog, uint8(Operation_MulMat), arg)
-	return b
-}
-
-// MulMatImmediate encodes a matrix multiplication C = A * B with immediate matrix B (A[arows,brows] -> C[arows,bcols]).
-// Operand constraints:
-//   - arows: 1 to 4
-//   - brows: 1 to 8
-//   - bcols: must be brows (square), brows - 1 (projection down), brows + 1 (projection up), or 1 (reduction/dot product)
-//   - len(bMatrix) == brows * bcols
-func (b *Builder) MulMatImmediate(arows, brows, bcols int, bMatrix ...float64) *Builder {
-	if len(bMatrix) != brows*bcols {
-		panic("invalid number of matrix elements for MulMatImmediate")
+//   - rows: 1 to 4 (input vector dimension)
+//   - cols: 1 to 16 (output vector dimension)
+//   - matrix: elements in column-major order (column by column)
+//   - len(matrix) == rows * cols
+func (b *Builder) MulMat(rows, cols int, matrix ...float64) *Builder {
+	if len(matrix) != rows*cols {
+		panic(fmt.Sprintf("invalid number of matrix elements for MulMat: got %d, want %d", len(matrix), rows*cols))
 	}
-	arg := packMulMat(arows, brows, bcols, true)
+	arg := packMulMat(rows, cols)
 	b.expr.Prog = append(b.expr.Prog, uint8(Operation_MulMat), arg)
-	for _, f := range bMatrix {
+	for _, f := range matrix {
 		b.expr.Prog = binary.LittleEndian.AppendUint32(b.expr.Prog, math.Float32bits(float32(f)))
 	}
 	return b
@@ -834,39 +801,37 @@ func (expr *Expression) Validate(initialStackLen int) (minCapacity, finalStackLe
 				return 0, 0, nil, ErrIllegalOperation
 			}
 			size := fetchByte() + 1
-			if stackLen < size*2+1 {
+			byteCount := size * 2 * 4
+			if avail() < byteCount {
+				return 0, 0, nil, ErrIllegalOperation
+			}
+			pc += byteCount
+			if stackLen < 1 {
 				return 0, 0, nil, ErrStackUnderflow
 			}
-			stackLen -= size + 1
+			stackLen -= 1
+			updateMax(stackLen + size)
+			stackLen += size
 		case Operation_MulMat:
 			if avail() < 1 {
 				return 0, 0, nil, ErrIllegalOperation
 			}
 			arg := fetchByte()
-			arows, brows, bcols, immediate := unpackMulMat(uint8(arg))
-			if bcols <= 0 {
+			if (arg & 0x0C) != 0 {
 				return 0, 0, nil, ErrIllegalOperation
 			}
-			asize := arows * brows
-			bsize := brows * bcols
-			csize := arows * bcols
-			if immediate {
-				if avail() < bsize*4 {
-					return 0, 0, nil, ErrIllegalOperation
-				}
-				pc += bsize * 4
-				if stackLen < asize {
-					return 0, 0, nil, ErrStackUnderflow
-				}
-				updateMax(stackLen + csize)
-				stackLen = stackLen - asize + csize
-			} else {
-				if stackLen < asize+bsize {
-					return 0, 0, nil, ErrStackUnderflow
-				}
-				updateMax(stackLen + csize)
-				stackLen = stackLen - (asize + bsize) + csize
+			rows, cols := unpackMulMat(uint8(arg))
+			byteCount := rows * cols * 4
+			if avail() < byteCount {
+				return 0, 0, nil, ErrIllegalOperation
 			}
+			pc += byteCount
+			if stackLen < rows {
+				return 0, 0, nil, ErrStackUnderflow
+			}
+			stackLen -= rows
+			updateMax(stackLen + cols)
+			stackLen += cols
 		case Operation_Poly:
 			if avail() < 1 {
 				return 0, 0, nil, ErrIllegalOperation
@@ -1135,38 +1100,30 @@ func (expr *Expression) Evaluate(stack []float64) []float64 {
 				stack = append(stack, scalar*vec[i])
 			}
 		case Operation_LerpVec:
-			size := fetchByte() + 1
-			v1 := popv(size)
-			v0 := popv(size)
+			size := int(fetchByte()) + 1
+			v0 := make([]float64, size)
+			for i := range size {
+				v0[i] = fetchFloat()
+			}
+			v1 := make([]float64, size)
+			for i := range size {
+				v1[i] = fetchFloat()
+			}
 			t := pop()
 			for i := range size {
 				stack = append(stack, (1-t)*v0[i]+t*v1[i])
 			}
 		case Operation_MulMat:
 			arg := fetchByte()
-			arows, brows, bcols, immediate := unpackMulMat(uint8(arg))
-			asize := arows * brows
-			bsize := brows * bcols
-			csize := arows * bcols
-			var b []float64
-			if immediate {
-				b = make([]float64, bsize)
-				for i := range bsize {
-					b[i] = fetchFloat()
+			rows, cols := unpackMulMat(uint8(arg))
+			v := popv(rows)
+			c := make([]float64, cols)
+			for j := range cols {
+				var r float64
+				for i := range rows {
+					r += v[i] * fetchFloat()
 				}
-			} else {
-				b = popv(bsize)
-			}
-			a := popv(asize)
-			c := make([]float64, csize)
-			for i := range arows {
-				for j := range bcols {
-					var r float64
-					for k := range brows {
-						r += a[brows*i+k] * b[bcols*k+j]
-					}
-					c[bcols*i+j] = r
-				}
+				c[j] = r
 			}
 			stack = append(stack, c...)
 		case Operation_Poly:

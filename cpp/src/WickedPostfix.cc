@@ -250,46 +250,29 @@ WICKED_ALWAYS_INLINE WickedEvalStatus_t ScaleVec(ValidationContext& ctx) {
 WICKED_ALWAYS_INLINE WickedEvalStatus_t LerpVec(ValidationContext& ctx) {
   if (!ctx.has_bytes(1)) return WickedEvalStatus_IllegalOperation;
   uint8_t size = ctx.fetch_byte() + 1;
-  if (ctx.stack_depth < int32_t(size) * 2 + 1) return WickedEvalStatus_StackUnderflow;
-  ctx.stack_depth -= (int32_t(size) + 1);
+  uint16_t byte_count = uint16_t(size) * 2 * sizeof(float);
+  if (!ctx.has_bytes(byte_count)) return WickedEvalStatus_IllegalOperation;
+  ctx.skip(byte_count);
+  if (ctx.stack_depth < 1) return WickedEvalStatus_StackUnderflow;
+  ctx.stack_depth -= 1;
+  ctx.update_max(ctx.stack_depth + size);
+  ctx.stack_depth += size;
   return WickedEvalStatus_Ok;
 }
 
 WICKED_ALWAYS_INLINE WickedEvalStatus_t MulMat(ValidationContext& ctx) {
   if (!ctx.has_bytes(1)) return WickedEvalStatus_IllegalOperation;
   uint8_t arg = ctx.fetch_byte();
-  uint8_t arows = (arg & 0x03) + 1;
-  uint8_t brows = ((arg >> 2) & 0x07) + 1;
-  uint8_t mode = (arg >> 5) & 0x03;
-  bool immediate = (arg & 0x80) != 0;
-  uint8_t bcols = brows;
-  switch (mode) {
-    case 0: bcols = brows; break;
-    case 1: bcols = brows - 1; break;
-    case 2: bcols = brows + 1; break;
-    case 3: bcols = 1; break;
-  }
-  if (bcols == 0) return WickedEvalStatus_IllegalOperation;
-
-  uint16_t asize = uint16_t(arows) * brows;
-  uint16_t bsize = uint16_t(brows) * bcols;
-  uint16_t csize = uint16_t(arows) * bcols;
-
-  if (immediate) {
-    uint16_t byte_count = bsize * sizeof(float);
-    if (!ctx.has_bytes(byte_count)) return WickedEvalStatus_IllegalOperation;
-    ctx.skip(byte_count);
-    bsize = 0;
-  }
-
-  if (ctx.stack_depth < asize + bsize) return WickedEvalStatus_StackUnderflow;
-
-  bool is_fastpath = (arows == 1 && (brows >= 2 && brows <= 4));
-  if (!is_fastpath) {
-    ctx.update_max(ctx.stack_depth + csize);
-  }
-  ctx.stack_depth = ctx.stack_depth - asize - bsize + csize;
-  ctx.update_max(ctx.stack_depth);
+  if ((arg & 0x0C) != 0) return WickedEvalStatus_IllegalOperation;
+  uint8_t rows = (arg & 0x03) + 1;
+  uint8_t cols = ((arg >> 4) & 0x0F) + 1;
+  uint16_t byte_count = uint16_t(rows) * cols * sizeof(float);
+  if (!ctx.has_bytes(byte_count)) return WickedEvalStatus_IllegalOperation;
+  ctx.skip(byte_count);
+  if (ctx.stack_depth < rows) return WickedEvalStatus_StackUnderflow;
+  ctx.stack_depth -= rows;
+  ctx.update_max(ctx.stack_depth + cols);
+  ctx.stack_depth += cols;
   return WickedEvalStatus_Ok;
 }
 
@@ -691,106 +674,70 @@ WICKED_ALWAYS_INLINE void ScaleVec(EvalContext& ctx) {
 
 WICKED_ALWAYS_INLINE void LerpVec(EvalContext& ctx) {
   uint8_t size = ctx.fetch_byte() + 1;
-  std::span<float> v1 = ctx.popv(size);
-  std::span<float> v0 = ctx.popv(size);
+  const uint8_t* v0_ptr = ctx.pc;
+  ctx.skip(size * sizeof(float));
+  const uint8_t* v1_ptr = ctx.pc;
+  ctx.skip(size * sizeof(float));
   float t = ctx.pop();
   std::span<float> result = ctx.allocv(size);
   for (uint8_t i = 0; i < size; ++i) {
-    result[i] = std::fma(t, v1[i] - v0[i], v0[i]);
+    float v0_val, v1_val;
+    std::memcpy(&v0_val, v0_ptr + i * sizeof(float), sizeof(float));
+    std::memcpy(&v1_val, v1_ptr + i * sizeof(float), sizeof(float));
+    result[i] = std::fma(t, v1_val - v0_val, v0_val);
   }
 }
 
 WICKED_ALWAYS_INLINE void MulMat(EvalContext& ctx) {
   uint8_t arg = ctx.fetch_byte();
-  uint8_t arows = (arg & 0x03) + 1;
-  uint8_t brows = ((arg >> 2) & 0x07) + 1;
-  uint8_t mode = (arg >> 5) & 0x03;
-  bool immediate = (arg & 0x80) != 0;
-  uint8_t bcols = brows;
-  switch (mode) {
-    case 0: bcols = brows; break;
-    case 1: bcols = brows - 1; break;
-    case 2: bcols = brows + 1; break;
-    case 3: bcols = 1; break;
-  }
+  uint8_t rows = (arg & 0x03) + 1;
+  uint8_t cols = ((arg >> 4) & 0x0F) + 1;
+  std::span<float> v = ctx.popv(rows);
 
-  uint16_t asize = uint16_t(arows) * brows;
-  uint16_t bsize = uint16_t(brows) * bcols;
-  uint16_t csize = uint16_t(arows) * bcols;
-
-  const uint8_t* b_ptr = nullptr;
-  std::span<float> a;
-
-  if (immediate) {
-    b_ptr = ctx.pc;
-    ctx.skip(bsize * sizeof(float));
-    a = ctx.popv(asize);
-  } else {
-    std::span<float> b = ctx.popv(bsize);
-    b_ptr = reinterpret_cast<const uint8_t*>(b.data());
-    a = ctx.popv(asize);
-  }
-
-  // --- FAST PATH: arows == 1, brows in {2, 3, 4} (ZERO memmove, ZERO C stack) ---
-  if (arows == 1) {
-    switch (brows) {
-      case 2: {
-        float a0 = a[0], a1 = a[1];
-        std::span<float> c = ctx.allocv(bcols);
-        for (uint8_t j = 0; j < bcols; ++j) {
-          float b0, b1;
-          std::memcpy(&b0, b_ptr + j * sizeof(float), sizeof(float));
-          std::memcpy(&b1, b_ptr + (bcols + j) * sizeof(float), sizeof(float));
-          c[j] = std::fma(a0, b0, a1 * b1);
-        }
-        return;
+  switch (rows) {
+    case 1: {
+      float v0 = v[0];
+      std::span<float> c = ctx.allocv(cols);
+      for (uint8_t j = 0; j < cols; ++j) {
+        c[j] = v0 * ctx.fetch_float();
       }
-      case 3: {
-        float a0 = a[0], a1 = a[1], a2 = a[2];
-        std::span<float> c = ctx.allocv(bcols);
-        for (uint8_t j = 0; j < bcols; ++j) {
-          float b0, b1, b2;
-          std::memcpy(&b0, b_ptr + j * sizeof(float), sizeof(float));
-          std::memcpy(&b1, b_ptr + (bcols + j) * sizeof(float), sizeof(float));
-          std::memcpy(&b2, b_ptr + (2 * bcols + j) * sizeof(float), sizeof(float));
-          c[j] = std::fma(a0, b0, std::fma(a1, b1, a2 * b2));
-        }
-        return;
+      return;
+    }
+    case 2: {
+      float v0 = v[0], v1 = v[1];
+      std::span<float> c = ctx.allocv(cols);
+      for (uint8_t j = 0; j < cols; ++j) {
+        float m0 = ctx.fetch_float();
+        float m1 = ctx.fetch_float();
+        c[j] = std::fma(v0, m0, v1 * m1);
       }
-      case 4: {
-        float a0 = a[0], a1 = a[1], a2 = a[2], a3 = a[3];
-        std::span<float> c = ctx.allocv(bcols);
-        for (uint8_t j = 0; j < bcols; ++j) {
-          float b0, b1, b2, b3;
-          std::memcpy(&b0, b_ptr + j * sizeof(float), sizeof(float));
-          std::memcpy(&b1, b_ptr + (bcols + j) * sizeof(float), sizeof(float));
-          std::memcpy(&b2, b_ptr + (2 * bcols + j) * sizeof(float), sizeof(float));
-          std::memcpy(&b3, b_ptr + (3 * bcols + j) * sizeof(float), sizeof(float));
-          c[j] = std::fma(a0, b0, std::fma(a1, b1, std::fma(a2, b2, a3 * b3)));
-        }
-        return;
+      return;
+    }
+    case 3: {
+      float v0 = v[0], v1 = v[1], v2 = v[2];
+      std::span<float> c = ctx.allocv(cols);
+      for (uint8_t j = 0; j < cols; ++j) {
+        float m0 = ctx.fetch_float();
+        float m1 = ctx.fetch_float();
+        float m2 = ctx.fetch_float();
+        c[j] = std::fma(v0, m0, std::fma(v1, m1, v2 * m2));
       }
+      return;
+    }
+    case 4:
+    default: {
+      float v0 = v[0], v1 = v[1], v2 = v[2], v3 = v[3];
+      std::span<float> c = ctx.allocv(cols);
+      for (uint8_t j = 0; j < cols; ++j) {
+        float m0 = ctx.fetch_float();
+        float m1 = ctx.fetch_float();
+        float m2 = ctx.fetch_float();
+        float m3 = ctx.fetch_float();
+        c[j] = std::fma(v0, m0, std::fma(v1, m1, std::fma(v2, m2, v3 * m3)));
+      }
+      return;
     }
   }
-
-  float* c = ctx.sp + (immediate ? asize : (asize + bsize));
-
-  for (uint8_t i = 0; i < arows; ++i) {
-    for (uint8_t j = 0; j < bcols; ++j) {
-      float r = 0;
-      for (uint8_t k = 0; k < brows; ++k) {
-        float b_val;
-        std::memcpy(&b_val, b_ptr + (bcols * k + j) * sizeof(float), sizeof(float));
-        r = std::fma(a[brows * i + k], b_val, r);
-      }
-      size_t cidx = bcols * i + j;
-      c[cidx] = r;
-    }
-  }
-
-  float* dest = a.data();
-  std::memmove(dest, c, csize * sizeof(float));
-  ctx.sp += csize;
 }
 
 WICKED_ALWAYS_INLINE void Poly(EvalContext& ctx) {

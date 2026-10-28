@@ -630,97 +630,77 @@ func TestEvalPostfixExpression(t *testing.T) {
 		},
 		{
 			name:      "lerp 1d 0",
-			expr:      postfix.MakeBuilder().LerpVec(1).Build(),
-			stack:     []float64{0, 1, 2},
+			expr:      postfix.MakeBuilder().LerpVec([]float64{1}, []float64{2}).Build(),
+			stack:     []float64{0},
 			wantStack: []float64{1},
 		},
 		{
 			name:      "lerp 1d 1",
-			expr:      postfix.MakeBuilder().LerpVec(1).Build(),
-			stack:     []float64{1, 1, 2},
+			expr:      postfix.MakeBuilder().LerpVec([]float64{1}, []float64{2}).Build(),
+			stack:     []float64{1},
 			wantStack: []float64{2},
 		},
 		{
 			name:      "lerp 1d 0.5",
-			expr:      postfix.MakeBuilder().LerpVec(1).Build(),
-			stack:     []float64{0.5, 1, 2},
+			expr:      postfix.MakeBuilder().LerpVec([]float64{1}, []float64{2}).Build(),
+			stack:     []float64{0.5},
 			wantStack: []float64{1.5},
 		},
 		{
 			name:      "lerp 3d 0.5",
-			expr:      postfix.MakeBuilder().LerpVec(3).Build(),
-			stack:     []float64{0.5, 1, 2, 3, 4, 5, 6},
-			wantStack: []float64{2.5, 3.5, 4.5},
-		},
-		{
-			name:    "lerp underflow",
-			expr:    postfix.MakeBuilder().LerpVec(1).Build(),
-			stack:   []float64{0.5, 1},
-			wantErr: postfix.ErrStackUnderflow,
-		},
-		{
-			name:      "push 1 lerp 3d 0.5",
-			expr:      postfix.MakeBuilder().Push(4, 5, 6).LerpVec(3).Build(),
-			stack:     []float64{0.5, 1, 2, 3},
-			wantStack: []float64{2.5, 3.5, 4.5},
-		},
-		{
-			name:      "push 2 lerp 3d 0.5",
-			expr:      postfix.MakeBuilder().Push(1, 2, 3, 4, 5, 6).LerpVec(3).Build(),
+			expr:      postfix.MakeBuilder().LerpVec([]float64{1, 2, 3}, []float64{4, 5, 6}).Build(),
 			stack:     []float64{0.5},
 			wantStack: []float64{2.5, 3.5, 4.5},
 		},
 		{
-			name: "multiply matrix 2 3 4",
-			expr: postfix.MakeBuilder().MulMat(2, 3, 4).Build(),
-			stack: []float64{1, 2, 3, 4, 5, 6, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12},
-			wantStack: []float64{
-				1*1 + 2*5 + 3*9, 1*2 + 2*6 + 3*10, 1*3 + 2*7 + 3*11, 1*4 + 2*8 + 3*12,
-				4*1 + 5*5 + 6*9, 4*2 + 5*6 + 6*10, 4*3 + 5*7 + 6*11, 4*4 + 5*8 + 6*12,
-			},
-		},
-		{
-			name: "multiply matrix square 1 3 3",
-			expr: postfix.MakeBuilder().MulMat(1, 3, 3).Build(),
-			stack: []float64{1, 2, 3, 1, 0, 0, 0, 1, 0, 0, 0, 1},
-			wantStack: []float64{1, 2, 3},
-		},
-		{
-			name: "multiply matrix projection down 1 3 2",
-			expr: postfix.MakeBuilder().MulMat(1, 3, 2).Build(),
-			stack: []float64{1, 2, 3, 1, 2, 3, 4, 5, 6},
-			wantStack: []float64{1*1 + 2*3 + 3*5, 1*2 + 2*4 + 3*6},
-		},
-		{
-			name: "multiply matrix dot product 1 3 1",
-			expr: postfix.MakeBuilder().MulMat(1, 3, 1).Build(),
-			stack: []float64{1, 2, 3, 4, 5, 6},
-			wantStack: []float64{1*4 + 2*5 + 3*6},
-		},
-		{
-			name: "multiply matrix immediate 1 3 3",
-			expr: postfix.MakeBuilder().MulMatImmediate(1, 3, 3, 1, 2, 3, 4, 5, 6, 7, 8, 9).Build(),
-			stack: []float64{2, 3, 4},
-			wantStack: []float64{
-				2*1 + 3*4 + 4*7,
-				2*2 + 3*5 + 4*8,
-				2*3 + 3*6 + 4*9,
-			},
-		},
-		{
-			name:    "multiply matrix underflow",
-			expr:    postfix.MakeBuilder().MulMat(2, 3, 4).Build(),
-			stack:   []float64{1, 2, 3, 4, 5, 6, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11},
+			name:    "lerp underflow",
+			expr:    postfix.MakeBuilder().LerpVec([]float64{1}, []float64{2}).Build(),
+			stack:   []float64{},
 			wantErr: postfix.ErrStackUnderflow,
 		},
 		{
-			name:  "push multiply matrix 2 3 4",
-			expr:  postfix.MakeBuilder().Push(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12).MulMat(2, 3, 4).Build(),
-			stack: []float64{1, 2, 3, 4, 5, 6},
+			name: "multiply matrix 3 4",
+			expr: postfix.MakeBuilder().MulMat(3, 4, 1, 5, 9, 2, 6, 10, 3, 7, 11, 4, 8, 12).Build(),
+			stack: []float64{1, 2, 3},
 			wantStack: []float64{
 				1*1 + 2*5 + 3*9, 1*2 + 2*6 + 3*10, 1*3 + 2*7 + 3*11, 1*4 + 2*8 + 3*12,
-				4*1 + 5*5 + 6*9, 4*2 + 5*6 + 6*10, 4*3 + 5*7 + 6*11, 4*4 + 5*8 + 6*12,
 			},
+		},
+		{
+			name: "multiply matrix square 3 3",
+			expr: postfix.MakeBuilder().MulMat(3, 3, 1, 0, 0, 0, 1, 0, 0, 0, 1).Build(),
+			stack: []float64{1, 2, 3},
+			wantStack: []float64{1, 2, 3},
+		},
+		{
+			name: "multiply matrix projection down 3 2",
+			expr: postfix.MakeBuilder().MulMat(3, 2, 1, 3, 5, 2, 4, 6).Build(),
+			stack: []float64{1, 2, 3},
+			wantStack: []float64{1*1 + 2*3 + 3*5, 1*2 + 2*4 + 3*6},
+		},
+		{
+			name: "multiply matrix dot product 3 1",
+			expr: postfix.MakeBuilder().MulMat(3, 1, 4, 5, 6).Build(),
+			stack: []float64{1, 2, 3},
+			wantStack: []float64{1*4 + 2*5 + 3*6},
+		},
+		{
+			name: "multiply matrix arbitrary projection 4 2",
+			expr: postfix.MakeBuilder().MulMat(4, 2, 1, 3, 5, 7, 2, 4, 6, 8).Build(),
+			stack: []float64{1, 1, 1, 1},
+			wantStack: []float64{1 + 3 + 5 + 7, 2 + 4 + 6 + 8},
+		},
+		{
+			name:    "multiply matrix underflow",
+			expr:    postfix.MakeBuilder().MulMat(3, 4, 1, 5, 9, 2, 6, 10, 3, 7, 11, 4, 8, 12).Build(),
+			stack:   []float64{1, 2},
+			wantErr: postfix.ErrStackUnderflow,
+		},
+		{
+			name:    "multiply matrix reserved bits non zero",
+			expr:    &postfix.Expression{Prog: []uint8{uint8(postfix.Operation_MulMat), 0x04, 0, 0, 0, 0}},
+			stack:   []float64{1},
+			wantErr: postfix.ErrIllegalOperation,
 		},
 		{
 			name:      "poly vector 1",
@@ -873,8 +853,15 @@ func TestVectorBuilderSizeValidation(t *testing.T) {
 		assertPanics(fmt.Sprintf("SumVec(%d)", invalidSize), func() { postfix.MakeBuilder().SumVec(invalidSize) })
 		assertPanics(fmt.Sprintf("MulAddVec(%d)", invalidSize), func() { postfix.MakeBuilder().MulAddVec(invalidSize) })
 		assertPanics(fmt.Sprintf("ScaleVec(%d)", invalidSize), func() { postfix.MakeBuilder().ScaleVec(invalidSize) })
-		assertPanics(fmt.Sprintf("LerpVec(%d)", invalidSize), func() { postfix.MakeBuilder().LerpVec(invalidSize) })
 	}
+
+	assertPanics("LerpVec mismatch", func() { postfix.MakeBuilder().LerpVec([]float64{1}, []float64{1, 2}) })
+	assertPanics("LerpVec empty", func() { postfix.MakeBuilder().LerpVec([]float64{}, []float64{}) })
+	assertPanics("MulMat row 0", func() { postfix.MakeBuilder().MulMat(0, 3, 1, 2, 3) })
+	assertPanics("MulMat row 5", func() { postfix.MakeBuilder().MulMat(5, 1) })
+	assertPanics("MulMat col 0", func() { postfix.MakeBuilder().MulMat(1, 0) })
+	assertPanics("MulMat col 17", func() { postfix.MakeBuilder().MulMat(1, 17) })
+	assertPanics("MulMat element mismatch", func() { postfix.MakeBuilder().MulMat(2, 2, 1, 2, 3) })
 
 	// Verify size - 1 is encoded
 	expr := postfix.MakeBuilder().AddVec(3).Build()
