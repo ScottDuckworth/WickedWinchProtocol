@@ -619,13 +619,13 @@ func TestEvalPostfixExpression(t *testing.T) {
 		{
 			name:      "scale vector 3",
 			expr:      postfix.MakeBuilder().ScaleVec(3).Build(),
-			stack:     []float64{2, 1, 2, 3},
+			stack:     []float64{1, 2, 3, 2},
 			wantStack: []float64{2, 4, 6},
 		},
 		{
 			name:    "scale vector underflow",
 			expr:    postfix.MakeBuilder().ScaleVec(3).Build(),
-			stack:   []float64{2, 1, 2},
+			stack:   []float64{1, 2, 3},
 			wantErr: postfix.ErrStackUnderflow,
 		},
 		{

@@ -1092,10 +1092,10 @@ func (expr *Expression) Evaluate(stack []float64) []float64 {
 			}
 		case Operation_ScaleVec:
 			size := fetchByte() + 1
-			vec := popv(size)
 			scalar := pop()
-			for i := range size {
-				stack = append(stack, scalar*vec[i])
+			start := len(stack) - size
+			for i := start; i < len(stack); i++ {
+				stack[i] *= scalar
 			}
 		case Operation_LerpVec:
 			size := int(fetchByte()) + 1

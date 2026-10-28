@@ -664,11 +664,10 @@ WICKED_ALWAYS_INLINE void MulAddVec(EvalContext& ctx) {
 
 WICKED_ALWAYS_INLINE void ScaleVec(EvalContext& ctx) {
   uint8_t size = ctx.fetch_byte() + 1;
-  std::span<float> v = ctx.popv(size);
   float scalar = ctx.pop();
-  std::span<float> result = ctx.allocv(size);
+  std::span<float> v = ctx.peekv(size);
   for (uint8_t i = 0; i < size; ++i) {
-    result[i] = scalar * v[i];
+    v[i] *= scalar;
   }
 }
 

@@ -1113,7 +1113,7 @@ TEST(EvalTest, ScaleVec) {
   writer.ScaleVec(3);
   auto buffer = writer.Write();
 
-  TestEval eval(8, {0, 2, 3, 4, -2});
+  TestEval eval(8, {0, 3, 4, -2, 2});
   EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval));
   EXPECT_EQ(WickedPostfixValidate(&eval, 4), WickedEvalStatus_Ok);
   WickedPostfixEvaluate(&eval);
