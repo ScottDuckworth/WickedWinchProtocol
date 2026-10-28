@@ -43,13 +43,13 @@ const (
 	Operation_Add        Operation = 10
 	Operation_Sub        Operation = 11
 	Operation_Mul        Operation = 12
-	Operation_MulAdd     Operation = 13
-	Operation_Div        Operation = 14
-	Operation_Mod        Operation = 15
-	Operation_Neg        Operation = 16
-	Operation_Abs        Operation = 17
-	Operation_Inv        Operation = 18
-	Operation_Pow        Operation = 19
+	Operation_Div        Operation = 13
+	Operation_Pow        Operation = 14
+	Operation_Ipow       Operation = 15
+	Operation_MulAdd     Operation = 16
+	Operation_Neg        Operation = 17
+	Operation_Abs        Operation = 18
+	Operation_Inv        Operation = 19
 	Operation_Sqrt       Operation = 20
 	Operation_Exp        Operation = 21
 	Operation_Ln         Operation = 22
@@ -113,20 +113,20 @@ func (op Operation) String() string {
 		return "Sub"
 	case Operation_Mul:
 		return "Mul"
-	case Operation_MulAdd:
-		return "MulAdd"
 	case Operation_Div:
 		return "Div"
-	case Operation_Mod:
-		return "Mod"
+	case Operation_Pow:
+		return "Pow"
+	case Operation_Ipow:
+		return "Ipow"
+	case Operation_MulAdd:
+		return "MulAdd"
 	case Operation_Neg:
 		return "Neg"
 	case Operation_Abs:
 		return "Abs"
 	case Operation_Inv:
 		return "Inv"
-	case Operation_Pow:
-		return "Pow"
 	case Operation_Sqrt:
 		return "Sqrt"
 	case Operation_Exp:
@@ -344,9 +344,9 @@ func (b *Builder) Div() *Builder {
 	return b
 }
 
-// Mod pops rhs and lhs and pushes the floating-point remainder (lhs % rhs).
-func (b *Builder) Mod() *Builder {
-	b.expr.Prog = append(b.expr.Prog, uint8(Operation_Mod))
+// Ipow raises the top value on the stack to the integer exponent exp (v^exp).
+func (b *Builder) Ipow(exp int8) *Builder {
+	b.expr.Prog = append(b.expr.Prog, uint8(Operation_Ipow), uint8(exp))
 	return b
 }
 
@@ -691,11 +691,19 @@ func (expr *Expression) Validate(initialStackLen int) (minCapacity, finalStackLe
 				stackLen += size
 				updateMax(stackLen)
 			}
-		case Operation_Add, Operation_Sub, Operation_Mul, Operation_Div, Operation_Mod, Operation_Pow, Operation_Atan2:
+		case Operation_Add, Operation_Sub, Operation_Mul, Operation_Div, Operation_Pow, Operation_Atan2:
 			if stackLen < 2 {
 				return 0, 0, nil, ErrStackUnderflow
 			}
 			stackLen -= 1
+		case Operation_Ipow:
+			if avail() < 1 {
+				return 0, 0, nil, ErrIllegalOperation
+			}
+			_ = fetchByte()
+			if stackLen < 1 {
+				return 0, 0, nil, ErrStackUnderflow
+			}
 		case Operation_MulAdd:
 			if stackLen < 3 {
 				return 0, 0, nil, ErrStackUnderflow
@@ -827,6 +835,25 @@ func Validate(expr *Expression, initialStackLen int) (minCapacity, finalStackLen
 	return expr.Validate(initialStackLen)
 }
 
+func ipow(base float64, exp int) float64 {
+	if exp == 0 {
+		return 1.0
+	}
+	if exp < 0 {
+		base = 1.0 / base
+		exp = -exp
+	}
+	result := 1.0
+	for exp > 0 {
+		if exp&1 != 0 {
+			result *= base
+		}
+		base *= base
+		exp >>= 1
+	}
+	return result
+}
+
 // Evaluate executes the bytecode on the provided stack without runtime bounds checking.
 func (expr *Expression) Evaluate(stack []float64) []float64 {
 	pc := 0
@@ -915,19 +942,23 @@ func (expr *Expression) Evaluate(stack []float64) []float64 {
 			rhs := pop()
 			lhs := pop()
 			stack = append(stack, lhs*rhs)
+		case Operation_Div:
+			rhs := pop()
+			lhs := pop()
+			stack = append(stack, lhs/rhs)
+		case Operation_Pow:
+			rhs := pop()
+			lhs := pop()
+			stack = append(stack, math.Pow(lhs, rhs))
+		case Operation_Ipow:
+			exp := int8(fetchByte())
+			v := pop()
+			stack = append(stack, ipow(v, int(exp)))
 		case Operation_MulAdd:
 			c := pop()
 			b := pop()
 			a := pop()
 			stack = append(stack, a*b+c)
-		case Operation_Div:
-			rhs := pop()
-			lhs := pop()
-			stack = append(stack, lhs/rhs)
-		case Operation_Mod:
-			rhs := pop()
-			lhs := pop()
-			stack = append(stack, math.Mod(lhs, rhs))
 		case Operation_Neg:
 			v := pop()
 			stack = append(stack, -v)
@@ -937,10 +968,6 @@ func (expr *Expression) Evaluate(stack []float64) []float64 {
 		case Operation_Inv:
 			v := pop()
 			stack = append(stack, 1/v)
-		case Operation_Pow:
-			rhs := pop()
-			lhs := pop()
-			stack = append(stack, math.Pow(lhs, rhs))
 		case Operation_Sqrt:
 			v := pop()
 			stack = append(stack, math.Sqrt(v))

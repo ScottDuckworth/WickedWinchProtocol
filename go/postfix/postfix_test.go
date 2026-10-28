@@ -296,16 +296,36 @@ func TestEvalPostfixExpression(t *testing.T) {
 			wantErr: postfix.ErrStackUnderflow,
 		},
 		{
-			name:      "mod",
-			expr:      postfix.MakeBuilder().Mod().Build(),
-			stack:     []float64{0, 10, 3},
+			name:      "ipow positive",
+			expr:      postfix.MakeBuilder().Ipow(3).Build(),
+			stack:     []float64{0, 2},
+			wantStack: []float64{0, 8},
+		},
+		{
+			name:      "ipow zero",
+			expr:      postfix.MakeBuilder().Ipow(0).Build(),
+			stack:     []float64{0, 5},
 			wantStack: []float64{0, 1},
 		},
 		{
-			name:    "mod underflow",
-			expr:    postfix.MakeBuilder().Mod().Build(),
-			stack:   []float64{1},
+			name:      "ipow negative",
+			expr:      postfix.MakeBuilder().Ipow(-2).Build(),
+			stack:     []float64{0, 2},
+			wantStack: []float64{0, 0.25},
+		},
+		{
+			name:    "ipow underflow",
+			expr:    postfix.MakeBuilder().Ipow(2).Build(),
+			stack:   []float64{},
 			wantErr: postfix.ErrStackUnderflow,
+		},
+		{
+			name: "ipow truncated",
+			expr: &postfix.Expression{
+				Prog: []uint8{uint8(postfix.Operation_Ipow)},
+			},
+			stack:   []float64{2},
+			wantErr: postfix.ErrIllegalOperation,
 		},
 		{
 			name:      "negate",
@@ -827,5 +847,11 @@ func TestValidateStackOverflow(t *testing.T) {
 	_, _, _, err := expr.Validate(math.MaxUint16)
 	if !errors.Is(err, postfix.ErrStackOverflow) {
 		t.Errorf("got %v, want %v", err, postfix.ErrStackOverflow)
+	}
+}
+
+func TestOperationString(t *testing.T) {
+	if got := postfix.Operation_Ipow.String(); got != "Ipow" {
+		t.Errorf("got %q, want %q", got, "Ipow")
 	}
 }

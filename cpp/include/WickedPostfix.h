@@ -48,13 +48,13 @@ typedef enum WickedPostfixOp {
   WickedPostfixOp_Add       = 10,
   WickedPostfixOp_Sub       = 11,
   WickedPostfixOp_Mul       = 12,
-  WickedPostfixOp_MulAdd    = 13,
-  WickedPostfixOp_Div       = 14,
-  WickedPostfixOp_Mod       = 15,
-  WickedPostfixOp_Neg       = 16,
-  WickedPostfixOp_Abs       = 17,
-  WickedPostfixOp_Inv       = 18,
-  WickedPostfixOp_Pow       = 19,
+  WickedPostfixOp_Div       = 13,
+  WickedPostfixOp_Pow       = 14,
+  WickedPostfixOp_Ipow      = 15,
+  WickedPostfixOp_MulAdd    = 16,
+  WickedPostfixOp_Neg       = 17,
+  WickedPostfixOp_Abs       = 18,
+  WickedPostfixOp_Inv       = 19,
   WickedPostfixOp_Sqrt      = 20,
   WickedPostfixOp_Exp       = 21,
   WickedPostfixOp_Ln        = 22,
@@ -231,8 +231,14 @@ class WickedPostfixWriter {
   // Pops rhs and lhs and pushes lhs / rhs.
   void Div() { EmitOp(WickedPostfixOp_Div); }
 
-  // Pops rhs and lhs and pushes lhs % rhs.
-  void Mod() { EmitOp(WickedPostfixOp_Mod); }
+  // Pops rhs and lhs and pushes lhs^rhs.
+  void Pow() { EmitOp(WickedPostfixOp_Pow); }
+
+  // Raises the top value to the integer exponent exp (base^exp).
+  void Ipow(int8_t exp) {
+    EmitOp(WickedPostfixOp_Ipow);
+    EmitByte(static_cast<uint8_t>(exp));
+  }
 
   // Negates the top value.
   void Neg() { EmitOp(WickedPostfixOp_Neg); }
@@ -242,9 +248,6 @@ class WickedPostfixWriter {
 
   // Inverts top value (1 / v).
   void Inv() { EmitOp(WickedPostfixOp_Inv); }
-
-  // Pops rhs and lhs and pushes lhs^rhs.
-  void Pow() { EmitOp(WickedPostfixOp_Pow); }
 
   // Square root of top value.
   void Sqrt() { EmitOp(WickedPostfixOp_Sqrt); }

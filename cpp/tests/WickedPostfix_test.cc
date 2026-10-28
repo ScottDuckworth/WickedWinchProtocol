@@ -468,26 +468,57 @@ TEST(EvalTest, DivStackUnderflow) {
   EXPECT_EQ(WickedPostfixValidate(&eval, 0), WickedEvalStatus_StackUnderflow);
 }
 
-TEST(EvalTest, Mod) {
+TEST(EvalTest, Ipow) {
   WickedPostfixWriter writer;
-  writer.Mod();
+  writer.Ipow(3);
   auto buffer = writer.Write();
 
-  TestEval eval(4, {0, 8, 3});
+  TestEval eval(4, {0, 2});
   EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval));
   EXPECT_EQ(WickedPostfixValidate(&eval, 2), WickedEvalStatus_Ok);
   WickedPostfixEvaluate(&eval);
-  EXPECT_THAT(eval.stack(), ElementsAre(0, 2));
+  EXPECT_THAT(eval.stack(), ElementsAre(0, 8));
 }
 
-TEST(EvalTest, ModStackUnderflow) {
+TEST(EvalTest, IpowNegative) {
   WickedPostfixWriter writer;
-  writer.Mod();
+  writer.Ipow(-2);
   auto buffer = writer.Write();
 
-  TestEval eval(4, {1});
+  TestEval eval(4, {0, 2});
+  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval));
+  EXPECT_EQ(WickedPostfixValidate(&eval, 2), WickedEvalStatus_Ok);
+  WickedPostfixEvaluate(&eval);
+  EXPECT_THAT(eval.stack(), ElementsAre(0, 0.25f));
+}
+
+TEST(EvalTest, IpowZero) {
+  WickedPostfixWriter writer;
+  writer.Ipow(0);
+  auto buffer = writer.Write();
+
+  TestEval eval(4, {0, 5});
+  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval));
+  EXPECT_EQ(WickedPostfixValidate(&eval, 2), WickedEvalStatus_Ok);
+  WickedPostfixEvaluate(&eval);
+  EXPECT_THAT(eval.stack(), ElementsAre(0, 1));
+}
+
+TEST(EvalTest, IpowStackUnderflow) {
+  WickedPostfixWriter writer;
+  writer.Ipow(2);
+  auto buffer = writer.Write();
+
+  TestEval eval(4, {});
   EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval));
   EXPECT_EQ(WickedPostfixValidate(&eval, 0), WickedEvalStatus_StackUnderflow);
+}
+
+TEST(EvalTest, IpowIllegalTruncated) {
+  uint8_t raw[] = {1, 0, static_cast<uint8_t>(WickedPostfixOp_Ipow)};
+  TestEval eval(4, {2});
+  EXPECT_TRUE(WickedPostfixRead(raw, sizeof(raw), &eval));
+  EXPECT_EQ(WickedPostfixValidate(&eval, 1), WickedEvalStatus_IllegalOperation);
 }
 
 TEST(EvalTest, Neg) {
@@ -1531,6 +1562,10 @@ TEST(EvalTest, ReadUnaligned) {
 TEST(EvalTest, HeaderPacked) {
   EXPECT_EQ(sizeof(WickedPostfixHeader_t), 2);
   EXPECT_EQ(alignof(WickedPostfixHeader_t), 1);
+}
+
+TEST(EvalTest, OpToString) {
+  EXPECT_STREQ(WickedPostfixOpToString(WickedPostfixOp_Ipow), "Ipow");
 }
 
 }  // namespace
