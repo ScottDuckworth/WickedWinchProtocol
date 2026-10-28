@@ -281,7 +281,7 @@ func (b *Builder) Build() *Expression {
 	return &b.expr
 }
 
-// Push appends an Operation_Push instruction with the given 32-bit float literals.
+// Push appends an Operation_Push instruction with the given 32-bit float literals ( -> literals...).
 func (b *Builder) Push(literals ...float64) *Builder {
 	b.expr.Prog = append(b.expr.Prog, uint8(Operation_Push), uint8(len(literals)))
 	for _, v := range literals {
@@ -290,19 +290,19 @@ func (b *Builder) Push(literals ...float64) *Builder {
 	return b
 }
 
-// Drop discards the top value from the stack.
+// Drop discards the top value from the stack (a -> ).
 func (b *Builder) Drop() *Builder {
 	b.expr.Prog = append(b.expr.Prog, uint8(Operation_Drop))
 	return b
 }
 
-// Dup duplicates the top value on the stack.
+// Dup duplicates the top value on the stack (a -> a a).
 func (b *Builder) Dup() *Builder {
 	b.expr.Prog = append(b.expr.Prog, uint8(Operation_Dup))
 	return b
 }
 
-// Swap exchanges the top two values on the stack.
+// Swap exchanges the top two values on the stack (a b -> b a).
 func (b *Builder) Swap() *Builder {
 	b.expr.Prog = append(b.expr.Prog, uint8(Operation_Swap))
 	return b
@@ -332,7 +332,7 @@ func (b *Builder) Rot() *Builder {
 	return b
 }
 
-// Pick copies or moves an element or subvector from stack depth offset to the top.
+// Pick copies or moves an element or subvector from stack depth offset to the top (... v ... -> ... v).
 // Optional opts may contain size (int, 1-4) and move (bool).
 func (b *Builder) Pick(offset int, opts ...any) *Builder {
 	size := 1
@@ -354,181 +354,181 @@ func (b *Builder) Pick(offset int, opts ...any) *Builder {
 	return b
 }
 
-// Add pops two values and pushes their sum (lhs + rhs).
+// Add pops two values and pushes their sum (a b -> a + b).
 func (b *Builder) Add() *Builder {
 	b.expr.Prog = append(b.expr.Prog, uint8(Operation_Add))
 	return b
 }
 
-// Sub pops rhs and lhs and pushes lhs - rhs.
+// Sub pops rhs and lhs and pushes lhs - rhs (a b -> a - b).
 func (b *Builder) Sub() *Builder {
 	b.expr.Prog = append(b.expr.Prog, uint8(Operation_Sub))
 	return b
 }
 
-// Mul pops two values and pushes their product (lhs * rhs).
+// Mul pops two values and pushes their product (a b -> a * b).
 func (b *Builder) Mul() *Builder {
 	b.expr.Prog = append(b.expr.Prog, uint8(Operation_Mul))
 	return b
 }
 
-// Div pops rhs and lhs and pushes lhs / rhs.
+// Div pops rhs and lhs and pushes lhs / rhs (a b -> a / b).
 func (b *Builder) Div() *Builder {
 	b.expr.Prog = append(b.expr.Prog, uint8(Operation_Div))
 	return b
 }
 
-// Pow pops rhs and lhs and pushes lhs raised to the power of rhs (lhs^rhs).
+// Pow pops rhs and lhs and pushes lhs raised to the power of rhs (a b -> a ^ b).
 func (b *Builder) Pow() *Builder {
 	b.expr.Prog = append(b.expr.Prog, uint8(Operation_Pow))
 	return b
 }
 
-// Atan2 pops x and y and pushes atan2(y, x).
+// Atan2 pops x and y and pushes atan2(y, x) (y x -> atan2(y, x)).
 func (b *Builder) Atan2() *Builder {
 	b.expr.Prog = append(b.expr.Prog, uint8(Operation_Atan2))
 	return b
 }
 
-// Neg negates the top value on the stack (-v).
+// Neg negates the top value on the stack (a -> -a).
 func (b *Builder) Neg() *Builder {
 	b.expr.Prog = append(b.expr.Prog, uint8(Operation_Neg))
 	return b
 }
 
-// Abs replaces the top value on the stack with its absolute value |v|.
+// Abs replaces the top value on the stack with its absolute value (a -> |a|).
 func (b *Builder) Abs() *Builder {
 	b.expr.Prog = append(b.expr.Prog, uint8(Operation_Abs))
 	return b
 }
 
-// Inv inverts the top value on the stack (1 / v).
+// Inv inverts the top value on the stack (a -> 1 / a).
 func (b *Builder) Inv() *Builder {
 	b.expr.Prog = append(b.expr.Prog, uint8(Operation_Inv))
 	return b
 }
 
-// Sqrt replaces the top value on the stack with its square root.
+// Sqrt replaces the top value on the stack with its square root (a -> sqrt(a)).
 func (b *Builder) Sqrt() *Builder {
 	b.expr.Prog = append(b.expr.Prog, uint8(Operation_Sqrt))
 	return b
 }
 
-// Exp replaces the top value on the stack with e^v.
+// Exp replaces the top value on the stack with e^a (a -> exp(a)).
 func (b *Builder) Exp() *Builder {
 	b.expr.Prog = append(b.expr.Prog, uint8(Operation_Exp))
 	return b
 }
 
-// Ln replaces the top value on the stack with its natural logarithm ln(v).
+// Ln replaces the top value on the stack with its natural logarithm ln(a) (a -> ln(a)).
 func (b *Builder) Ln() *Builder {
 	b.expr.Prog = append(b.expr.Prog, uint8(Operation_Ln))
 	return b
 }
 
-// Sin replaces the top value on the stack with sin(v).
+// Sin replaces the top value on the stack with sin(a) (a -> sin(a)).
 func (b *Builder) Sin() *Builder {
 	b.expr.Prog = append(b.expr.Prog, uint8(Operation_Sin))
 	return b
 }
 
-// Cos replaces the top value on the stack with cos(v).
+// Cos replaces the top value on the stack with cos(a) (a -> cos(a)).
 func (b *Builder) Cos() *Builder {
 	b.expr.Prog = append(b.expr.Prog, uint8(Operation_Cos))
 	return b
 }
 
-// Tan replaces the top value on the stack with tan(v).
+// Tan replaces the top value on the stack with tan(a) (a -> tan(a)).
 func (b *Builder) Tan() *Builder {
 	b.expr.Prog = append(b.expr.Prog, uint8(Operation_Tan))
 	return b
 }
 
-// Asin replaces the top value on the stack with asin(v).
+// Asin replaces the top value on the stack with asin(a) (a -> asin(a)).
 func (b *Builder) Asin() *Builder {
 	b.expr.Prog = append(b.expr.Prog, uint8(Operation_Asin))
 	return b
 }
 
-// Acos replaces the top value on the stack with acos(v).
+// Acos replaces the top value on the stack with acos(a) (a -> acos(a)).
 func (b *Builder) Acos() *Builder {
 	b.expr.Prog = append(b.expr.Prog, uint8(Operation_Acos))
 	return b
 }
 
-// Ipow raises the top value on the stack to the integer exponent exp (v^exp).
+// Ipow raises the top value on the stack to the integer exponent exp (a -> a ^ exp).
 func (b *Builder) Ipow(exp int8) *Builder {
 	b.expr.Prog = append(b.expr.Prog, uint8(Operation_Ipow), uint8(exp))
 	return b
 }
 
-// MulAdd pops c, b, a and pushes a*b + c.
+// MulAdd pops c, b, a and pushes a*b + c (a b c -> a * b + c).
 func (b *Builder) MulAdd() *Builder {
 	b.expr.Prog = append(b.expr.Prog, uint8(Operation_MulAdd))
 	return b
 }
 
-// AddVec pops two vectors of the specified dimension and pushes their componentwise sum.
+// AddVec pops two vectors of the specified dimension and pushes their componentwise sum (u[N] v[N] -> (u + v)[N]).
 func (b *Builder) AddVec(size int) *Builder {
 	b.expr.Prog = append(b.expr.Prog, uint8(Operation_AddVec), uint8(size))
 	return b
 }
 
-// SubVec pops vector rhs and vector lhs and pushes their componentwise difference (lhs - rhs).
+// SubVec pops vector rhs and vector lhs and pushes their componentwise difference (u[N] v[N] -> (u - v)[N]).
 func (b *Builder) SubVec(size int) *Builder {
 	b.expr.Prog = append(b.expr.Prog, uint8(Operation_SubVec), uint8(size))
 	return b
 }
 
-// MulVec pops two vectors of the specified dimension and pushes their componentwise product.
+// MulVec pops two vectors of the specified dimension and pushes their componentwise product (u[N] v[N] -> (u * v)[N]).
 func (b *Builder) MulVec(size int) *Builder {
 	b.expr.Prog = append(b.expr.Prog, uint8(Operation_MulVec), uint8(size))
 	return b
 }
 
-// DivVec pops vector rhs and vector lhs and pushes componentwise lhs / rhs.
+// DivVec pops vector rhs and vector lhs and pushes componentwise lhs / rhs (u[N] v[N] -> (u / v)[N]).
 func (b *Builder) DivVec(size int) *Builder {
 	b.expr.Prog = append(b.expr.Prog, uint8(Operation_DivVec), uint8(size))
 	return b
 }
 
-// NegVec negates each component of a vector on the stack.
+// NegVec negates each component of a vector on the stack (v[N] -> (-v)[N]).
 func (b *Builder) NegVec(size int) *Builder {
 	b.expr.Prog = append(b.expr.Prog, uint8(Operation_NegVec), uint8(size))
 	return b
 }
 
-// InvVec inverts each component of a vector on the stack (1 / v[i]).
+// InvVec inverts each component of a vector on the stack (v[N] -> (1 / v)[N]).
 func (b *Builder) InvVec(size int) *Builder {
 	b.expr.Prog = append(b.expr.Prog, uint8(Operation_InvVec), uint8(size))
 	return b
 }
 
-// NormSqVec pops a vector and pushes the scalar squared Euclidean norm ||v||^2.
+// NormSqVec pops a vector and pushes the scalar squared Euclidean norm ||v||^2 (v[N] -> ||v||^2).
 func (b *Builder) NormSqVec(size int) *Builder {
 	b.expr.Prog = append(b.expr.Prog, uint8(Operation_NormSqVec), uint8(size))
 	return b
 }
 
-// SumVec pops a vector and pushes the scalar sum of its components.
+// SumVec pops a vector and pushes the scalar sum of its components (v[N] -> sum(v)).
 func (b *Builder) SumVec(size int) *Builder {
 	b.expr.Prog = append(b.expr.Prog, uint8(Operation_SumVec), uint8(size))
 	return b
 }
 
-// MulAddVec pops vectors c, b, a of the specified dimension and pushes a*b + c componentwise.
+// MulAddVec pops vectors c, b, a of the specified dimension and pushes a*b + c componentwise (a[N] b[N] c[N] -> (a * b + c)[N]).
 func (b *Builder) MulAddVec(size int) *Builder {
 	b.expr.Prog = append(b.expr.Prog, uint8(Operation_MulAddVec), uint8(size))
 	return b
 }
 
-// ScaleVec pops vector vec and scalar factor and pushes factor * vec.
+// ScaleVec pops vector vec and scalar factor and pushes factor * vec (v[N] s -> (s * v)[N]).
 func (b *Builder) ScaleVec(size int) *Builder {
 	b.expr.Prog = append(b.expr.Prog, uint8(Operation_ScaleVec), uint8(size))
 	return b
 }
 
-// LerpVec pops vector v1, vector v0, and scalar t and pushes the linear interpolation (1-t)*v0 + t*v1.
+// LerpVec pops vector v1, vector v0, and scalar t and pushes the linear interpolation (v0[N] v1[N] t -> ((1 - t)*v0 + t*v1)[N]).
 func (b *Builder) LerpVec(size int) *Builder {
 	b.expr.Prog = append(b.expr.Prog, uint8(Operation_LerpVec), uint8(size))
 	return b
@@ -579,7 +579,7 @@ func unpackMulMat(arg uint8) (arows, brows, bcols int, immediate bool) {
 	return
 }
 
-// MulMat encodes a matrix multiplication C = A * B, where A is (arows x brows) and B is (brows x bcols).
+// MulMat encodes a matrix multiplication C = A * B (A[arows,brows] B[brows,bcols] -> C[arows,bcols]).
 // Operand constraints:
 //   - arows: 1 to 4
 //   - brows: 1 to 8
@@ -591,8 +591,7 @@ func (b *Builder) MulMat(arows, brows, bcols int) *Builder {
 	return b
 }
 
-// MulMatImmediate encodes a matrix multiplication C = A * B with immediate matrix B, where A is on the stack (arows x brows)
-// and B is supplied as immediate float literals in the program stream (brows x bcols).
+// MulMatImmediate encodes a matrix multiplication C = A * B with immediate matrix B (A[arows,brows] -> C[arows,bcols]).
 // Operand constraints:
 //   - arows: 1 to 4
 //   - brows: 1 to 8
@@ -610,7 +609,7 @@ func (b *Builder) MulMatImmediate(arows, brows, bcols int, bMatrix ...float64) *
 	return b
 }
 
-// Polynomial evaluates a polynomial or matrix of polynomials using Horner's method.
+// Polynomial evaluates a polynomial or matrix of polynomials for scalar t (t -> P(t)[cols]).
 // Operand constraints:
 //   - rows: 1 to 16 (number of polynomial coefficients per column, i.e. degree + 1)
 //   - cols: 1 to 16 (number of dimensions / columns)
@@ -633,12 +632,12 @@ func (b *Builder) Polynomial(rows, cols int, coeffs ...float64) *Builder {
 	return b
 }
 
-// PolyVec is a convenience method that evaluates a 1D polynomial via Operation_Polynomial.
+// PolyVec is a convenience method that evaluates a 1D polynomial via Operation_Polynomial (t -> P(t)).
 func (b *Builder) PolyVec(coeffs ...float64) *Builder {
 	return b.Polynomial(len(coeffs), 1, coeffs...)
 }
 
-// PolyMat is an alias for Polynomial.
+// PolyMat is an alias for Polynomial (t -> P(t)[cols]).
 func (b *Builder) PolyMat(rows, cols int, coeffs ...float64) *Builder {
 	return b.Polynomial(rows, cols, coeffs...)
 }

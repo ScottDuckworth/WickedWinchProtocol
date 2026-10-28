@@ -674,42 +674,6 @@ WICKED_ALWAYS_INLINE void SumVec(EvalContext& ctx) {
   ctx.push(result);
 }
 
-WICKED_ALWAYS_INLINE void NegVec(EvalContext& ctx) {
-  uint8_t size = ctx.fetch_byte();
-  std::span<float> v = ctx.peekv(size);
-  for (uint8_t i = 0; i < size; ++i) {
-    v[i] = -v[i];
-  }
-}
-
-WICKED_ALWAYS_INLINE void InvVec(EvalContext& ctx) {
-  uint8_t size = ctx.fetch_byte();
-  std::span<float> v = ctx.peekv(size);
-  for (uint8_t i = 0; i < size; ++i) {
-    v[i] = 1.0f / v[i];
-  }
-}
-
-WICKED_ALWAYS_INLINE void NormSqVec(EvalContext& ctx) {
-  uint8_t size = ctx.fetch_byte();
-  std::span<float> v = ctx.popv(size);
-  float result = 0;
-  for (uint8_t i = 0; i < size; ++i) {
-    result = std::fma(v[i], v[i], result);
-  }
-  ctx.push(result);
-}
-
-WICKED_ALWAYS_INLINE void SumVec(EvalContext& ctx) {
-  uint8_t size = ctx.fetch_byte();
-  std::span<float> v = ctx.popv(size);
-  float result = 0;
-  for (uint8_t i = 0; i < size; ++i) {
-    result += v[i];
-  }
-  ctx.push(result);
-}
-
 WICKED_ALWAYS_INLINE void MulAddVec(EvalContext& ctx) {
   uint8_t size = ctx.fetch_byte();
   std::span<float> c = ctx.popv(size);
