@@ -76,7 +76,7 @@ typedef enum WickedPostfixOp {
   WickedPostfixOp_ScaleVec  = 38,
   WickedPostfixOp_LerpVec   = 39,
   WickedPostfixOp_MulMat    = 40,
-  WickedPostfixOp_Polynomial = 41,
+  WickedPostfixOp_Poly      = 41,
 } WickedPostfixOp_t;
 
 // Returns true if op is a binary scalar operation (10..15).
@@ -453,11 +453,11 @@ class WickedPostfixWriter {
   //   - rows: 1 to 16 (number of polynomial coefficients per column, i.e. degree + 1)
   //   - cols: 1 to 16 (number of dimensions / columns)
   //   - coeffs.size() == rows * cols
-  void Polynomial(uint8_t rows, uint8_t cols, std::span<const float> coeffs) {
+  void Poly(uint8_t rows, uint8_t cols, std::span<const float> coeffs) {
     assert(rows >= 1 && rows <= 16);
     assert(cols >= 1 && cols <= 16);
     assert(coeffs.size() == static_cast<size_t>(rows) * cols);
-    EmitOp(WickedPostfixOp_Polynomial);
+    EmitOp(WickedPostfixOp_Poly);
     uint8_t arg = ((rows - 1) & 0x0F) | (((cols - 1) & 0x0F) << 4);
     EmitByte(arg);
     for (size_t i = rows; i > 0; --i) {
@@ -469,25 +469,25 @@ class WickedPostfixWriter {
   }
 
   // Evaluates a polynomial or matrix of polynomials (t -> P(t)[cols]).
-  void Polynomial(uint8_t rows, uint8_t cols, std::initializer_list<float> coeffs) {
-    Polynomial(rows, cols, std::span<const float>(coeffs));
+  void Poly(uint8_t rows, uint8_t cols, std::initializer_list<float> coeffs) {
+    Poly(rows, cols, std::span<const float>(coeffs));
   }
 
   // Evaluates a 1D polynomial (t -> P(t)).
-  void Polynomial(std::span<const float> coeffs) {
-    Polynomial(static_cast<uint8_t>(coeffs.size()), 1, coeffs);
+  void Poly(std::span<const float> coeffs) {
+    Poly(static_cast<uint8_t>(coeffs.size()), 1, coeffs);
   }
 
   // Evaluates a 1D polynomial (t -> P(t)).
-  void Polynomial(std::initializer_list<float> coeffs) {
-    Polynomial(std::span<const float>(coeffs));
+  void Poly(std::initializer_list<float> coeffs) {
+    Poly(std::span<const float>(coeffs));
   }
 
-  // Deprecated compatibility wrappers
-  void PolyVec(std::span<const float> coeffs) { Polynomial(coeffs); }
-  void PolyVec(std::initializer_list<float> coeffs) { Polynomial(coeffs); }
-  void PolyMat(uint8_t rows, uint8_t cols, std::span<const float> coeffs) { Polynomial(rows, cols, coeffs); }
-  void PolyMat(uint8_t rows, uint8_t cols, std::initializer_list<float> coeffs) { Polynomial(rows, cols, coeffs); }
+  // Convenience aliases
+  void PolyVec(std::span<const float> coeffs) { Poly(coeffs); }
+  void PolyVec(std::initializer_list<float> coeffs) { Poly(coeffs); }
+  void PolyMat(uint8_t rows, uint8_t cols, std::span<const float> coeffs) { Poly(rows, cols, coeffs); }
+  void PolyMat(uint8_t rows, uint8_t cols, std::initializer_list<float> coeffs) { Poly(rows, cols, coeffs); }
 
  private:
   constexpr uint16_t prog_offset() const { return sizeof(WickedPostfixHeader); }

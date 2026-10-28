@@ -722,38 +722,38 @@ func TestEvalPostfixExpression(t *testing.T) {
 			},
 		},
 		{
-			name:      "polynomial vector 1",
-			expr:      postfix.MakeBuilder().Polynomial(1, 1, 1).Build(),
+			name:      "poly vector 1",
+			expr:      postfix.MakeBuilder().Poly(1, 1, 1).Build(),
 			stack:     []float64{2},
 			wantStack: []float64{1},
 		},
 		{
-			name:      "polynomial vector 2",
-			expr:      postfix.MakeBuilder().Polynomial(2, 1, 1, 3).Build(),
+			name:      "poly vector 2",
+			expr:      postfix.MakeBuilder().Poly(2, 1, 1, 3).Build(),
 			stack:     []float64{2},
 			wantStack: []float64{7},
 		},
 		{
-			name:      "polynomial vector 3",
-			expr:      postfix.MakeBuilder().Polynomial(3, 1, 1, 3, 5).Build(),
+			name:      "poly vector 3",
+			expr:      postfix.MakeBuilder().Poly(3, 1, 1, 3, 5).Build(),
 			stack:     []float64{2},
 			wantStack: []float64{27},
 		},
 		{
-			name:    "polynomial vector underflow",
-			expr:    postfix.MakeBuilder().Polynomial(1, 1, 1).Build(),
+			name:    "poly vector underflow",
+			expr:    postfix.MakeBuilder().Poly(1, 1, 1).Build(),
 			stack:   []float64{},
 			wantErr: postfix.ErrStackUnderflow,
 		},
 		{
-			name:      "polynomial matrix 3x2",
-			expr:      postfix.MakeBuilder().Polynomial(3, 2, 1, 2, 3, 4, 5, 6).Build(),
+			name:      "poly matrix 3x2",
+			expr:      postfix.MakeBuilder().Poly(3, 2, 1, 2, 3, 4, 5, 6).Build(),
 			stack:     []float64{2},
 			wantStack: []float64{1 + 2*3 + 2*2*5, 2 + 2*4 + 2*2*6},
 		},
 		{
-			name:    "polynomial matrix underflow",
-			expr:    postfix.MakeBuilder().Polynomial(3, 2, 1, 2, 3, 4, 5, 6).Build(),
+			name:    "poly matrix underflow",
+			expr:    postfix.MakeBuilder().Poly(3, 2, 1, 2, 3, 4, 5, 6).Build(),
 			stack:   []float64{},
 			wantErr: postfix.ErrStackUnderflow,
 		},
@@ -853,6 +853,9 @@ func TestValidateStackOverflow(t *testing.T) {
 func TestOperationString(t *testing.T) {
 	if got := postfix.Operation_Ipow.String(); got != "Ipow" {
 		t.Errorf("got %q, want %q", got, "Ipow")
+	}
+	if got := postfix.Operation_Poly.String(); got != "Poly" {
+		t.Errorf("got %q, want %q", got, "Poly")
 	}
 }
 

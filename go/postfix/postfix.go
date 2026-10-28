@@ -71,7 +71,7 @@ const (
 	Operation_ScaleVec   Operation = 38
 	Operation_LerpVec    Operation = 39
 	Operation_MulMat     Operation = 40
-	Operation_Polynomial Operation = 41
+	Operation_Poly       Operation = 41
 )
 
 // IsBinaryScalar reports whether op is a binary scalar operation (10..15).
@@ -209,8 +209,8 @@ func (op Operation) String() string {
 		return "LerpVec"
 	case Operation_MulMat:
 		return "MulMat"
-	case Operation_Polynomial:
-		return "Polynomial"
+	case Operation_Poly:
+		return "Poly"
 	default:
 		return fmt.Sprintf("unknown[%d]", op)
 	}
@@ -609,20 +609,20 @@ func (b *Builder) MulMatImmediate(arows, brows, bcols int, bMatrix ...float64) *
 	return b
 }
 
-// Polynomial evaluates a polynomial or matrix of polynomials for scalar t (t -> P(t)[cols]).
+// Poly evaluates a polynomial or matrix of polynomials for scalar t (t -> P(t)[cols]).
 // Operand constraints:
 //   - rows: 1 to 16 (number of polynomial coefficients per column, i.e. degree + 1)
 //   - cols: 1 to 16 (number of dimensions / columns)
 //   - len(coeffs) == rows * cols
-func (b *Builder) Polynomial(rows, cols int, coeffs ...float64) *Builder {
+func (b *Builder) Poly(rows, cols int, coeffs ...float64) *Builder {
 	if rows < 1 || rows > 16 || cols < 1 || cols > 16 {
-		panic(fmt.Sprintf("Polynomial rows (%d) and cols (%d) must be in range [1, 16]", rows, cols))
+		panic(fmt.Sprintf("Poly rows (%d) and cols (%d) must be in range [1, 16]", rows, cols))
 	}
 	if len(coeffs) != rows*cols {
-		panic("invalid number of coefficients for Polynomial")
+		panic("invalid number of coefficients for Poly")
 	}
 	arg := uint8((rows-1)&0x0F) | (uint8((cols-1)&0x0F) << 4)
-	b.expr.Prog = append(b.expr.Prog, uint8(Operation_Polynomial), arg)
+	b.expr.Prog = append(b.expr.Prog, uint8(Operation_Poly), arg)
 	for i := rows - 1; i >= 0; i-- {
 		rowOffset := i * cols
 		for j := range cols {
@@ -632,14 +632,14 @@ func (b *Builder) Polynomial(rows, cols int, coeffs ...float64) *Builder {
 	return b
 }
 
-// PolyVec is a convenience method that evaluates a 1D polynomial via Operation_Polynomial (t -> P(t)).
+// PolyVec is a convenience method that evaluates a 1D polynomial via Operation_Poly (t -> P(t)).
 func (b *Builder) PolyVec(coeffs ...float64) *Builder {
-	return b.Polynomial(len(coeffs), 1, coeffs...)
+	return b.Poly(len(coeffs), 1, coeffs...)
 }
 
-// PolyMat is an alias for Polynomial (t -> P(t)[cols]).
+// PolyMat is an alias for Poly (t -> P(t)[cols]).
 func (b *Builder) PolyMat(rows, cols int, coeffs ...float64) *Builder {
-	return b.Polynomial(rows, cols, coeffs...)
+	return b.Poly(rows, cols, coeffs...)
 }
 
 // Validate performs static analysis of the bytecode against an initial stack length,
@@ -839,7 +839,7 @@ func (expr *Expression) Validate(initialStackLen int) (minCapacity, finalStackLe
 				updateMax(stackLen + csize)
 				stackLen = stackLen - (asize + bsize) + csize
 			}
-		case Operation_Polynomial:
+		case Operation_Poly:
 			if avail() < 1 {
 				return 0, 0, nil, ErrIllegalOperation
 			}
@@ -1141,7 +1141,7 @@ func (expr *Expression) Evaluate(stack []float64) []float64 {
 				}
 			}
 			stack = append(stack, c...)
-		case Operation_Polynomial:
+		case Operation_Poly:
 			arg := fetchByte()
 			rows := int(arg&0x0F) + 1
 			cols := int((arg>>4)&0x0F) + 1

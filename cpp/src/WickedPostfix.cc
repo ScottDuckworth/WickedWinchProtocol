@@ -63,7 +63,7 @@ extern "C" const char* WickedPostfixOpToString(WickedPostfixOp_t op) {
     case WickedPostfixOp_ScaleVec:  return "ScaleVec";
     case WickedPostfixOp_LerpVec:   return "LerpVec";
     case WickedPostfixOp_MulMat:    return "MulMat";
-    case WickedPostfixOp_Polynomial: return "Polynomial";
+    case WickedPostfixOp_Poly:      return "Poly";
   }
   return "UNKNOWN";
 }
@@ -298,7 +298,7 @@ WICKED_ALWAYS_INLINE WickedEvalStatus_t MulMat(ValidationContext& ctx) {
   return WickedEvalStatus_Ok;
 }
 
-WICKED_ALWAYS_INLINE WickedEvalStatus_t Polynomial(ValidationContext& ctx) {
+WICKED_ALWAYS_INLINE WickedEvalStatus_t Poly(ValidationContext& ctx) {
   if (!ctx.has_bytes(1)) return WickedEvalStatus_IllegalOperation;
   uint8_t arg = ctx.fetch_byte();
   uint8_t rows = (arg & 0x0F) + 1;
@@ -369,7 +369,7 @@ extern "C" WickedEvalStatus_t WickedPostfixValidate(const uint8_t* prog_data, ui
       case WickedPostfixOp_ScaleVec:  status = validate::ScaleVec(ctx); break;
       case WickedPostfixOp_LerpVec:   status = validate::LerpVec(ctx); break;
       case WickedPostfixOp_MulMat:    status = validate::MulMat(ctx); break;
-      case WickedPostfixOp_Polynomial: status = validate::Polynomial(ctx); break;
+      case WickedPostfixOp_Poly:      status = validate::Poly(ctx); break;
       default:
         return WickedEvalStatus_UndefinedOperation;
     }
@@ -798,7 +798,7 @@ WICKED_ALWAYS_INLINE void MulMat(EvalContext& ctx) {
   ctx.sp += csize;
 }
 
-WICKED_ALWAYS_INLINE void Polynomial(EvalContext& ctx) {
+WICKED_ALWAYS_INLINE void Poly(EvalContext& ctx) {
   uint8_t arg = ctx.fetch_byte();
   uint8_t rows = (arg & 0x0F) + 1;
   uint8_t cols = ((arg >> 4) & 0x0F) + 1;
@@ -905,7 +905,7 @@ extern "C" void WickedPostfixEvaluate(const uint8_t* prog_data, uint16_t prog_si
       case WickedPostfixOp_ScaleVec:  ops::ScaleVec(ctx); break;
       case WickedPostfixOp_LerpVec:   ops::LerpVec(ctx); break;
       case WickedPostfixOp_MulMat:    ops::MulMat(ctx); break;
-      case WickedPostfixOp_Polynomial: ops::Polynomial(ctx); break;
+      case WickedPostfixOp_Poly:      ops::Poly(ctx); break;
       default:
         break;
     }
