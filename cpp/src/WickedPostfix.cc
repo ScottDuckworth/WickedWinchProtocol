@@ -674,17 +674,12 @@ WICKED_ALWAYS_INLINE void ScaleVec(EvalContext& ctx) {
 
 WICKED_ALWAYS_INLINE void LerpVec(EvalContext& ctx) {
   uint8_t size = ctx.fetch_byte() + 1;
-  const uint8_t* v0_ptr = ctx.pc;
-  ctx.skip(size * sizeof(float));
-  const uint8_t* v1_ptr = ctx.pc;
-  ctx.skip(size * sizeof(float));
   float t = ctx.pop();
   std::span<float> result = ctx.allocv(size);
   for (uint8_t i = 0; i < size; ++i) {
-    float v0_val, v1_val;
-    std::memcpy(&v0_val, v0_ptr + i * sizeof(float), sizeof(float));
-    std::memcpy(&v1_val, v1_ptr + i * sizeof(float), sizeof(float));
-    result[i] = std::fma(t, v1_val - v0_val, v0_val);
+    float v0 = ctx.fetch_float();
+    float v1 = ctx.fetch_float();
+    result[i] = std::fma(t, v1 - v0, v0);
   }
 }
 

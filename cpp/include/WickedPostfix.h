@@ -395,11 +395,9 @@ class WickedPostfixWriter {
     assert(v0.size() >= 1 && v0.size() <= 255);
     EmitOp(WickedPostfixOp_LerpVec);
     EmitByte(static_cast<uint8_t>(v0.size() - 1));
-    for (float f : v0) {
-      EmitFloat(f);
-    }
-    for (float f : v1) {
-      EmitFloat(f);
+    for (size_t i = 0; i < v0.size(); ++i) {
+      EmitFloat(v0[i]);
+      EmitFloat(v1[i]);
     }
   }
 

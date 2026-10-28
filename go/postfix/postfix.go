@@ -568,11 +568,9 @@ func (b *Builder) LerpVec(v0, v1 []float64) *Builder {
 		panic(fmt.Sprintf("LerpVec size (%d) must be in range [1, 255]", size))
 	}
 	b.expr.Prog = append(b.expr.Prog, uint8(Operation_LerpVec), uint8(size-1))
-	for _, f := range v0 {
-		b.expr.Prog = binary.LittleEndian.AppendUint32(b.expr.Prog, math.Float32bits(float32(f)))
-	}
-	for _, f := range v1 {
-		b.expr.Prog = binary.LittleEndian.AppendUint32(b.expr.Prog, math.Float32bits(float32(f)))
+	for i := range size {
+		b.expr.Prog = binary.LittleEndian.AppendUint32(b.expr.Prog, math.Float32bits(float32(v0[i])))
+		b.expr.Prog = binary.LittleEndian.AppendUint32(b.expr.Prog, math.Float32bits(float32(v1[i])))
 	}
 	return b
 }
@@ -1101,17 +1099,11 @@ func (expr *Expression) Evaluate(stack []float64) []float64 {
 			}
 		case Operation_LerpVec:
 			size := int(fetchByte()) + 1
-			v0 := make([]float64, size)
-			for i := range size {
-				v0[i] = fetchFloat()
-			}
-			v1 := make([]float64, size)
-			for i := range size {
-				v1[i] = fetchFloat()
-			}
 			t := pop()
-			for i := range size {
-				stack = append(stack, (1-t)*v0[i]+t*v1[i])
+			for range size {
+				v0 := fetchFloat()
+				v1 := fetchFloat()
+				stack = append(stack, (1-t)*v0+t*v1)
 			}
 		case Operation_MulMat:
 			arg := fetchByte()
