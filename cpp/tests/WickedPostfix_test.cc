@@ -1612,4 +1612,23 @@ TEST(EvalTest, Predicates) {
   EXPECT_FALSE(WickedPostfixOpHasSizeOperand(WickedPostfixOp_MulMat));
 }
 
+TEST(EvalTest, VectorEncoding) {
+  WickedPostfixWriter writer;
+  writer.AddVec(1);
+  writer.SubVec(3);
+  writer.MulVec(255);
+
+  auto prog = writer.prog_data();
+  EXPECT_EQ(writer.prog_size(), 6);
+  // AddVec(1) -> [Op_AddVec, 0]
+  EXPECT_EQ(prog[0], WickedPostfixOp_AddVec);
+  EXPECT_EQ(prog[1], 0);
+  // SubVec(3) -> [Op_SubVec, 2]
+  EXPECT_EQ(prog[2], WickedPostfixOp_SubVec);
+  EXPECT_EQ(prog[3], 2);
+  // MulVec(255) -> [Op_MulVec, 254]
+  EXPECT_EQ(prog[4], WickedPostfixOp_MulVec);
+  EXPECT_EQ(prog[5], 254);
+}
+
 }  // namespace

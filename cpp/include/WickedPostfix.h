@@ -318,68 +318,79 @@ class WickedPostfixWriter {
 
   // Adds two vectors componentwise (u[N] v[N] -> (u + v)[N]).
   void AddVec(uint8_t size) {
+    assert(size > 0);
     EmitOp(WickedPostfixOp_AddVec);
-    EmitByte(size);
+    EmitByte(size - 1);
   }
 
   // Subtracts two vectors componentwise (u[N] v[N] -> (u - v)[N]).
   void SubVec(uint8_t size) {
+    assert(size > 0);
     EmitOp(WickedPostfixOp_SubVec);
-    EmitByte(size);
+    EmitByte(size - 1);
   }
 
   // Multiplies two vectors componentwise (u[N] v[N] -> (u * v)[N]).
   void MulVec(uint8_t size) {
+    assert(size > 0);
     EmitOp(WickedPostfixOp_MulVec);
-    EmitByte(size);
+    EmitByte(size - 1);
   }
 
   // Divides two vectors componentwise (u[N] v[N] -> (u / v)[N]).
   void DivVec(uint8_t size) {
+    assert(size > 0);
     EmitOp(WickedPostfixOp_DivVec);
-    EmitByte(size);
+    EmitByte(size - 1);
   }
 
   // Negates each component of vector (v[N] -> (-v)[N]).
   void NegVec(uint8_t size) {
+    assert(size > 0);
     EmitOp(WickedPostfixOp_NegVec);
-    EmitByte(size);
+    EmitByte(size - 1);
   }
 
   // Inverts each component of vector (v[N] -> (1 / v)[N]).
   void InvVec(uint8_t size) {
+    assert(size > 0);
     EmitOp(WickedPostfixOp_InvVec);
-    EmitByte(size);
+    EmitByte(size - 1);
   }
 
   // Pushes scalar squared Euclidean norm ||v||^2 (v[N] -> ||v||^2).
   void NormSqVec(uint8_t size) {
+    assert(size > 0);
     EmitOp(WickedPostfixOp_NormSqVec);
-    EmitByte(size);
+    EmitByte(size - 1);
   }
 
   // Pushes scalar sum of vector components (v[N] -> sum(v)).
   void SumVec(uint8_t size) {
+    assert(size > 0);
     EmitOp(WickedPostfixOp_SumVec);
-    EmitByte(size);
+    EmitByte(size - 1);
   }
 
   // Componentwise fused multiply-add (a[N] b[N] c[N] -> (a * b + c)[N]).
   void MulAddVec(uint8_t size) {
+    assert(size > 0);
     EmitOp(WickedPostfixOp_MulAddVec);
-    EmitByte(size);
+    EmitByte(size - 1);
   }
 
   // Scales vector by scalar (v[N] s -> (s * v)[N]).
   void ScaleVec(uint8_t size) {
+    assert(size > 0);
     EmitOp(WickedPostfixOp_ScaleVec);
-    EmitByte(size);
+    EmitByte(size - 1);
   }
 
   // Linear interpolation between two vectors (v0[N] v1[N] t -> ((1 - t)*v0 + t*v1)[N]).
   void LerpVec(uint8_t size) {
+    assert(size > 0);
     EmitOp(WickedPostfixOp_LerpVec);
-    EmitByte(size);
+    EmitByte(size - 1);
   }
 
   // Encodes a matrix multiplication C = A * B (A[arows,brows] B[brows,bcols] -> C[arows,bcols]).

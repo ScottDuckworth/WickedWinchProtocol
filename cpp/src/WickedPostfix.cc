@@ -210,7 +210,7 @@ WICKED_ALWAYS_INLINE WickedEvalStatus_t MulAdd(ValidationContext& ctx) {
 
 WICKED_ALWAYS_INLINE WickedEvalStatus_t BinaryVec(ValidationContext& ctx) {
   if (!ctx.has_bytes(1)) return WickedEvalStatus_IllegalOperation;
-  uint8_t size = ctx.fetch_byte();
+  uint8_t size = ctx.fetch_byte() + 1;
   if (ctx.stack_depth < int32_t(size) * 2) return WickedEvalStatus_StackUnderflow;
   ctx.stack_depth -= size;
   return WickedEvalStatus_Ok;
@@ -218,27 +218,22 @@ WICKED_ALWAYS_INLINE WickedEvalStatus_t BinaryVec(ValidationContext& ctx) {
 
 WICKED_ALWAYS_INLINE WickedEvalStatus_t UnaryVec(ValidationContext& ctx) {
   if (!ctx.has_bytes(1)) return WickedEvalStatus_IllegalOperation;
-  uint8_t size = ctx.fetch_byte();
+  uint8_t size = ctx.fetch_byte() + 1;
   if (ctx.stack_depth < size) return WickedEvalStatus_StackUnderflow;
   return WickedEvalStatus_Ok;
 }
 
 WICKED_ALWAYS_INLINE WickedEvalStatus_t NormSqVec(ValidationContext& ctx) {
   if (!ctx.has_bytes(1)) return WickedEvalStatus_IllegalOperation;
-  uint8_t size = ctx.fetch_byte();
+  uint8_t size = ctx.fetch_byte() + 1;
   if (ctx.stack_depth < size) return WickedEvalStatus_StackUnderflow;
-  if (size == 0) {
-    ctx.stack_depth += 1;
-    ctx.update_max(ctx.stack_depth);
-  } else {
-    ctx.stack_depth -= (size - 1);
-  }
+  ctx.stack_depth -= (size - 1);
   return WickedEvalStatus_Ok;
 }
 
 WICKED_ALWAYS_INLINE WickedEvalStatus_t MulAddVec(ValidationContext& ctx) {
   if (!ctx.has_bytes(1)) return WickedEvalStatus_IllegalOperation;
-  uint8_t size = ctx.fetch_byte();
+  uint8_t size = ctx.fetch_byte() + 1;
   if (ctx.stack_depth < int32_t(size) * 3) return WickedEvalStatus_StackUnderflow;
   ctx.stack_depth -= int32_t(size) * 2;
   return WickedEvalStatus_Ok;
@@ -246,7 +241,7 @@ WICKED_ALWAYS_INLINE WickedEvalStatus_t MulAddVec(ValidationContext& ctx) {
 
 WICKED_ALWAYS_INLINE WickedEvalStatus_t ScaleVec(ValidationContext& ctx) {
   if (!ctx.has_bytes(1)) return WickedEvalStatus_IllegalOperation;
-  uint8_t size = ctx.fetch_byte();
+  uint8_t size = ctx.fetch_byte() + 1;
   if (ctx.stack_depth < int32_t(size) + 1) return WickedEvalStatus_StackUnderflow;
   ctx.stack_depth -= 1;
   return WickedEvalStatus_Ok;
@@ -254,7 +249,7 @@ WICKED_ALWAYS_INLINE WickedEvalStatus_t ScaleVec(ValidationContext& ctx) {
 
 WICKED_ALWAYS_INLINE WickedEvalStatus_t LerpVec(ValidationContext& ctx) {
   if (!ctx.has_bytes(1)) return WickedEvalStatus_IllegalOperation;
-  uint8_t size = ctx.fetch_byte();
+  uint8_t size = ctx.fetch_byte() + 1;
   if (ctx.stack_depth < int32_t(size) * 2 + 1) return WickedEvalStatus_StackUnderflow;
   ctx.stack_depth -= (int32_t(size) + 1);
   return WickedEvalStatus_Ok;
@@ -603,7 +598,7 @@ WICKED_ALWAYS_INLINE void MulAdd(EvalContext& ctx) {
 }
 
 WICKED_ALWAYS_INLINE void AddVec(EvalContext& ctx) {
-  uint8_t size = ctx.fetch_byte();
+  uint8_t size = ctx.fetch_byte() + 1;
   std::span<float> rhs = ctx.popv(size);
   std::span<float> lhs = ctx.peekv(size);
   for (uint8_t i = 0; i < size; ++i) {
@@ -612,7 +607,7 @@ WICKED_ALWAYS_INLINE void AddVec(EvalContext& ctx) {
 }
 
 WICKED_ALWAYS_INLINE void SubVec(EvalContext& ctx) {
-  uint8_t size = ctx.fetch_byte();
+  uint8_t size = ctx.fetch_byte() + 1;
   std::span<float> rhs = ctx.popv(size);
   std::span<float> lhs = ctx.peekv(size);
   for (uint8_t i = 0; i < size; ++i) {
@@ -621,7 +616,7 @@ WICKED_ALWAYS_INLINE void SubVec(EvalContext& ctx) {
 }
 
 WICKED_ALWAYS_INLINE void MulVec(EvalContext& ctx) {
-  uint8_t size = ctx.fetch_byte();
+  uint8_t size = ctx.fetch_byte() + 1;
   std::span<float> rhs = ctx.popv(size);
   std::span<float> lhs = ctx.peekv(size);
   for (uint8_t i = 0; i < size; ++i) {
@@ -630,7 +625,7 @@ WICKED_ALWAYS_INLINE void MulVec(EvalContext& ctx) {
 }
 
 WICKED_ALWAYS_INLINE void DivVec(EvalContext& ctx) {
-  uint8_t size = ctx.fetch_byte();
+  uint8_t size = ctx.fetch_byte() + 1;
   std::span<float> rhs = ctx.popv(size);
   std::span<float> lhs = ctx.peekv(size);
   for (uint8_t i = 0; i < size; ++i) {
@@ -639,7 +634,7 @@ WICKED_ALWAYS_INLINE void DivVec(EvalContext& ctx) {
 }
 
 WICKED_ALWAYS_INLINE void NegVec(EvalContext& ctx) {
-  uint8_t size = ctx.fetch_byte();
+  uint8_t size = ctx.fetch_byte() + 1;
   std::span<float> v = ctx.peekv(size);
   for (uint8_t i = 0; i < size; ++i) {
     v[i] = -v[i];
@@ -647,7 +642,7 @@ WICKED_ALWAYS_INLINE void NegVec(EvalContext& ctx) {
 }
 
 WICKED_ALWAYS_INLINE void InvVec(EvalContext& ctx) {
-  uint8_t size = ctx.fetch_byte();
+  uint8_t size = ctx.fetch_byte() + 1;
   std::span<float> v = ctx.peekv(size);
   for (uint8_t i = 0; i < size; ++i) {
     v[i] = 1.0f / v[i];
@@ -655,7 +650,7 @@ WICKED_ALWAYS_INLINE void InvVec(EvalContext& ctx) {
 }
 
 WICKED_ALWAYS_INLINE void NormSqVec(EvalContext& ctx) {
-  uint8_t size = ctx.fetch_byte();
+  uint8_t size = ctx.fetch_byte() + 1;
   std::span<float> v = ctx.popv(size);
   float result = 0;
   for (uint8_t i = 0; i < size; ++i) {
@@ -665,7 +660,7 @@ WICKED_ALWAYS_INLINE void NormSqVec(EvalContext& ctx) {
 }
 
 WICKED_ALWAYS_INLINE void SumVec(EvalContext& ctx) {
-  uint8_t size = ctx.fetch_byte();
+  uint8_t size = ctx.fetch_byte() + 1;
   std::span<float> v = ctx.popv(size);
   float result = 0;
   for (uint8_t i = 0; i < size; ++i) {
@@ -675,7 +670,7 @@ WICKED_ALWAYS_INLINE void SumVec(EvalContext& ctx) {
 }
 
 WICKED_ALWAYS_INLINE void MulAddVec(EvalContext& ctx) {
-  uint8_t size = ctx.fetch_byte();
+  uint8_t size = ctx.fetch_byte() + 1;
   std::span<float> c = ctx.popv(size);
   std::span<float> b = ctx.popv(size);
   std::span<float> a = ctx.peekv(size);
@@ -685,7 +680,7 @@ WICKED_ALWAYS_INLINE void MulAddVec(EvalContext& ctx) {
 }
 
 WICKED_ALWAYS_INLINE void ScaleVec(EvalContext& ctx) {
-  uint8_t size = ctx.fetch_byte();
+  uint8_t size = ctx.fetch_byte() + 1;
   std::span<float> v = ctx.popv(size);
   float scalar = ctx.pop();
   std::span<float> result = ctx.allocv(size);
@@ -695,7 +690,7 @@ WICKED_ALWAYS_INLINE void ScaleVec(EvalContext& ctx) {
 }
 
 WICKED_ALWAYS_INLINE void LerpVec(EvalContext& ctx) {
-  uint8_t size = ctx.fetch_byte();
+  uint8_t size = ctx.fetch_byte() + 1;
   std::span<float> v1 = ctx.popv(size);
   std::span<float> v0 = ctx.popv(size);
   float t = ctx.pop();

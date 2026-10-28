@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"errors"
+	"fmt"
 	"math"
 	"testing"
 
@@ -847,6 +848,46 @@ func TestValidateStackOverflow(t *testing.T) {
 	_, _, _, err := expr.Validate(math.MaxUint16)
 	if !errors.Is(err, postfix.ErrStackOverflow) {
 		t.Errorf("got %v, want %v", err, postfix.ErrStackOverflow)
+	}
+}
+
+func TestVectorBuilderSizeValidation(t *testing.T) {
+	assertPanics := func(name string, f func()) {
+		t.Helper()
+		defer func() {
+			if r := recover(); r == nil {
+				t.Errorf("%s: expected panic, but did not panic", name)
+			}
+		}()
+		f()
+	}
+
+	for _, invalidSize := range []int{0, -1, 256} {
+		assertPanics(fmt.Sprintf("AddVec(%d)", invalidSize), func() { postfix.MakeBuilder().AddVec(invalidSize) })
+		assertPanics(fmt.Sprintf("SubVec(%d)", invalidSize), func() { postfix.MakeBuilder().SubVec(invalidSize) })
+		assertPanics(fmt.Sprintf("MulVec(%d)", invalidSize), func() { postfix.MakeBuilder().MulVec(invalidSize) })
+		assertPanics(fmt.Sprintf("DivVec(%d)", invalidSize), func() { postfix.MakeBuilder().DivVec(invalidSize) })
+		assertPanics(fmt.Sprintf("NegVec(%d)", invalidSize), func() { postfix.MakeBuilder().NegVec(invalidSize) })
+		assertPanics(fmt.Sprintf("InvVec(%d)", invalidSize), func() { postfix.MakeBuilder().InvVec(invalidSize) })
+		assertPanics(fmt.Sprintf("NormSqVec(%d)", invalidSize), func() { postfix.MakeBuilder().NormSqVec(invalidSize) })
+		assertPanics(fmt.Sprintf("SumVec(%d)", invalidSize), func() { postfix.MakeBuilder().SumVec(invalidSize) })
+		assertPanics(fmt.Sprintf("MulAddVec(%d)", invalidSize), func() { postfix.MakeBuilder().MulAddVec(invalidSize) })
+		assertPanics(fmt.Sprintf("ScaleVec(%d)", invalidSize), func() { postfix.MakeBuilder().ScaleVec(invalidSize) })
+		assertPanics(fmt.Sprintf("LerpVec(%d)", invalidSize), func() { postfix.MakeBuilder().LerpVec(invalidSize) })
+	}
+
+	// Verify size - 1 is encoded
+	expr := postfix.MakeBuilder().AddVec(3).Build()
+	if len(expr.Prog) != 2 || expr.Prog[0] != uint8(postfix.Operation_AddVec) || expr.Prog[1] != 2 {
+		t.Errorf("expected Prog [Operation_AddVec, 2], got %v", expr.Prog)
+	}
+	expr1 := postfix.MakeBuilder().AddVec(1).Build()
+	if len(expr1.Prog) != 2 || expr1.Prog[1] != 0 {
+		t.Errorf("expected size 1 to encode operand 0, got %d", expr1.Prog[1])
+	}
+	expr255 := postfix.MakeBuilder().AddVec(255).Build()
+	if len(expr255.Prog) != 2 || expr255.Prog[1] != 254 {
+		t.Errorf("expected size 255 to encode operand 254, got %d", expr255.Prog[1])
 	}
 }
 

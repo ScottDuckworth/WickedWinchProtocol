@@ -470,67 +470,100 @@ func (b *Builder) MulAdd() *Builder {
 
 // AddVec pops two vectors of the specified dimension and pushes their componentwise sum (u[N] v[N] -> (u + v)[N]).
 func (b *Builder) AddVec(size int) *Builder {
-	b.expr.Prog = append(b.expr.Prog, uint8(Operation_AddVec), uint8(size))
+	if size < 1 || size > 255 {
+		panic(fmt.Sprintf("AddVec size (%d) must be in range [1, 255]", size))
+	}
+	b.expr.Prog = append(b.expr.Prog, uint8(Operation_AddVec), uint8(size-1))
 	return b
 }
 
 // SubVec pops vector rhs and vector lhs and pushes their componentwise difference (u[N] v[N] -> (u - v)[N]).
 func (b *Builder) SubVec(size int) *Builder {
-	b.expr.Prog = append(b.expr.Prog, uint8(Operation_SubVec), uint8(size))
+	if size < 1 || size > 255 {
+		panic(fmt.Sprintf("SubVec size (%d) must be in range [1, 255]", size))
+	}
+	b.expr.Prog = append(b.expr.Prog, uint8(Operation_SubVec), uint8(size-1))
 	return b
 }
 
 // MulVec pops two vectors of the specified dimension and pushes their componentwise product (u[N] v[N] -> (u * v)[N]).
 func (b *Builder) MulVec(size int) *Builder {
-	b.expr.Prog = append(b.expr.Prog, uint8(Operation_MulVec), uint8(size))
+	if size < 1 || size > 255 {
+		panic(fmt.Sprintf("MulVec size (%d) must be in range [1, 255]", size))
+	}
+	b.expr.Prog = append(b.expr.Prog, uint8(Operation_MulVec), uint8(size-1))
 	return b
 }
 
 // DivVec pops vector rhs and vector lhs and pushes componentwise lhs / rhs (u[N] v[N] -> (u / v)[N]).
 func (b *Builder) DivVec(size int) *Builder {
-	b.expr.Prog = append(b.expr.Prog, uint8(Operation_DivVec), uint8(size))
+	if size < 1 || size > 255 {
+		panic(fmt.Sprintf("DivVec size (%d) must be in range [1, 255]", size))
+	}
+	b.expr.Prog = append(b.expr.Prog, uint8(Operation_DivVec), uint8(size-1))
 	return b
 }
 
 // NegVec negates each component of a vector on the stack (v[N] -> (-v)[N]).
 func (b *Builder) NegVec(size int) *Builder {
-	b.expr.Prog = append(b.expr.Prog, uint8(Operation_NegVec), uint8(size))
+	if size < 1 || size > 255 {
+		panic(fmt.Sprintf("NegVec size (%d) must be in range [1, 255]", size))
+	}
+	b.expr.Prog = append(b.expr.Prog, uint8(Operation_NegVec), uint8(size-1))
 	return b
 }
 
 // InvVec inverts each component of a vector on the stack (v[N] -> (1 / v)[N]).
 func (b *Builder) InvVec(size int) *Builder {
-	b.expr.Prog = append(b.expr.Prog, uint8(Operation_InvVec), uint8(size))
+	if size < 1 || size > 255 {
+		panic(fmt.Sprintf("InvVec size (%d) must be in range [1, 255]", size))
+	}
+	b.expr.Prog = append(b.expr.Prog, uint8(Operation_InvVec), uint8(size-1))
 	return b
 }
 
 // NormSqVec pops a vector and pushes the scalar squared Euclidean norm ||v||^2 (v[N] -> ||v||^2).
 func (b *Builder) NormSqVec(size int) *Builder {
-	b.expr.Prog = append(b.expr.Prog, uint8(Operation_NormSqVec), uint8(size))
+	if size < 1 || size > 255 {
+		panic(fmt.Sprintf("NormSqVec size (%d) must be in range [1, 255]", size))
+	}
+	b.expr.Prog = append(b.expr.Prog, uint8(Operation_NormSqVec), uint8(size-1))
 	return b
 }
 
 // SumVec pops a vector and pushes the scalar sum of its components (v[N] -> sum(v)).
 func (b *Builder) SumVec(size int) *Builder {
-	b.expr.Prog = append(b.expr.Prog, uint8(Operation_SumVec), uint8(size))
+	if size < 1 || size > 255 {
+		panic(fmt.Sprintf("SumVec size (%d) must be in range [1, 255]", size))
+	}
+	b.expr.Prog = append(b.expr.Prog, uint8(Operation_SumVec), uint8(size-1))
 	return b
 }
 
 // MulAddVec pops vectors c, b, a of the specified dimension and pushes a*b + c componentwise (a[N] b[N] c[N] -> (a * b + c)[N]).
 func (b *Builder) MulAddVec(size int) *Builder {
-	b.expr.Prog = append(b.expr.Prog, uint8(Operation_MulAddVec), uint8(size))
+	if size < 1 || size > 255 {
+		panic(fmt.Sprintf("MulAddVec size (%d) must be in range [1, 255]", size))
+	}
+	b.expr.Prog = append(b.expr.Prog, uint8(Operation_MulAddVec), uint8(size-1))
 	return b
 }
 
 // ScaleVec pops vector vec and scalar factor and pushes factor * vec (v[N] s -> (s * v)[N]).
 func (b *Builder) ScaleVec(size int) *Builder {
-	b.expr.Prog = append(b.expr.Prog, uint8(Operation_ScaleVec), uint8(size))
+	if size < 1 || size > 255 {
+		panic(fmt.Sprintf("ScaleVec size (%d) must be in range [1, 255]", size))
+	}
+	b.expr.Prog = append(b.expr.Prog, uint8(Operation_ScaleVec), uint8(size-1))
 	return b
 }
 
 // LerpVec pops vector v1, vector v0, and scalar t and pushes the linear interpolation (v0[N] v1[N] t -> ((1 - t)*v0 + t*v1)[N]).
 func (b *Builder) LerpVec(size int) *Builder {
-	b.expr.Prog = append(b.expr.Prog, uint8(Operation_LerpVec), uint8(size))
+	if size < 1 || size > 255 {
+		panic(fmt.Sprintf("LerpVec size (%d) must be in range [1, 255]", size))
+	}
+	b.expr.Prog = append(b.expr.Prog, uint8(Operation_LerpVec), uint8(size-1))
 	return b
 }
 
@@ -756,7 +789,7 @@ func (expr *Expression) Validate(initialStackLen int) (minCapacity, finalStackLe
 			if avail() < 1 {
 				return 0, 0, nil, ErrIllegalOperation
 			}
-			size := fetchByte()
+			size := fetchByte() + 1
 			if stackLen < size*2 {
 				return 0, 0, nil, ErrStackUnderflow
 			}
@@ -765,7 +798,7 @@ func (expr *Expression) Validate(initialStackLen int) (minCapacity, finalStackLe
 			if avail() < 1 {
 				return 0, 0, nil, ErrIllegalOperation
 			}
-			size := fetchByte()
+			size := fetchByte() + 1
 			if stackLen < size {
 				return 0, 0, nil, ErrStackUnderflow
 			}
@@ -773,21 +806,16 @@ func (expr *Expression) Validate(initialStackLen int) (minCapacity, finalStackLe
 			if avail() < 1 {
 				return 0, 0, nil, ErrIllegalOperation
 			}
-			size := fetchByte()
+			size := fetchByte() + 1
 			if stackLen < size {
 				return 0, 0, nil, ErrStackUnderflow
 			}
-			if size == 0 {
-				stackLen += 1
-				updateMax(stackLen)
-			} else {
-				stackLen = stackLen - size + 1
-			}
+			stackLen = stackLen - size + 1
 		case Operation_MulAddVec:
 			if avail() < 1 {
 				return 0, 0, nil, ErrIllegalOperation
 			}
-			size := fetchByte()
+			size := fetchByte() + 1
 			if stackLen < size*3 {
 				return 0, 0, nil, ErrStackUnderflow
 			}
@@ -796,7 +824,7 @@ func (expr *Expression) Validate(initialStackLen int) (minCapacity, finalStackLe
 			if avail() < 1 {
 				return 0, 0, nil, ErrIllegalOperation
 			}
-			size := fetchByte()
+			size := fetchByte() + 1
 			if stackLen < size+1 {
 				return 0, 0, nil, ErrStackUnderflow
 			}
@@ -805,7 +833,7 @@ func (expr *Expression) Validate(initialStackLen int) (minCapacity, finalStackLe
 			if avail() < 1 {
 				return 0, 0, nil, ErrIllegalOperation
 			}
-			size := fetchByte()
+			size := fetchByte() + 1
 			if stackLen < size*2+1 {
 				return 0, 0, nil, ErrStackUnderflow
 			}
@@ -1036,47 +1064,47 @@ func (expr *Expression) Evaluate(stack []float64) []float64 {
 			a := pop()
 			stack = append(stack, a*b+c)
 		case Operation_AddVec:
-			size := fetchByte()
+			size := fetchByte() + 1
 			rhs := popv(size)
 			lhs := popv(size)
 			for i := range size {
 				stack = append(stack, lhs[i]+rhs[i])
 			}
 		case Operation_SubVec:
-			size := fetchByte()
+			size := fetchByte() + 1
 			rhs := popv(size)
 			lhs := popv(size)
 			for i := range size {
 				stack = append(stack, lhs[i]-rhs[i])
 			}
 		case Operation_MulVec:
-			size := fetchByte()
+			size := fetchByte() + 1
 			rhs := popv(size)
 			lhs := popv(size)
 			for i := range size {
 				stack = append(stack, lhs[i]*rhs[i])
 			}
 		case Operation_DivVec:
-			size := fetchByte()
+			size := fetchByte() + 1
 			rhs := popv(size)
 			lhs := popv(size)
 			for i := range size {
 				stack = append(stack, lhs[i]/rhs[i])
 			}
 		case Operation_NegVec:
-			size := fetchByte()
+			size := fetchByte() + 1
 			vec := popv(size)
 			for i := range size {
 				stack = append(stack, -vec[i])
 			}
 		case Operation_InvVec:
-			size := fetchByte()
+			size := fetchByte() + 1
 			vec := popv(size)
 			for i := range size {
 				stack = append(stack, 1.0/vec[i])
 			}
 		case Operation_NormSqVec:
-			size := fetchByte()
+			size := fetchByte() + 1
 			vec := popv(size)
 			var result float64
 			for i := range size {
@@ -1084,7 +1112,7 @@ func (expr *Expression) Evaluate(stack []float64) []float64 {
 			}
 			stack = append(stack, result)
 		case Operation_SumVec:
-			size := fetchByte()
+			size := fetchByte() + 1
 			vec := popv(size)
 			var result float64
 			for i := range size {
@@ -1092,7 +1120,7 @@ func (expr *Expression) Evaluate(stack []float64) []float64 {
 			}
 			stack = append(stack, result)
 		case Operation_MulAddVec:
-			size := fetchByte()
+			size := fetchByte() + 1
 			c := popv(size)
 			b := popv(size)
 			a := popv(size)
@@ -1100,14 +1128,14 @@ func (expr *Expression) Evaluate(stack []float64) []float64 {
 				stack = append(stack, a[i]*b[i]+c[i])
 			}
 		case Operation_ScaleVec:
-			size := fetchByte()
+			size := fetchByte() + 1
 			vec := popv(size)
 			scalar := pop()
 			for i := range size {
 				stack = append(stack, scalar*vec[i])
 			}
 		case Operation_LerpVec:
-			size := fetchByte()
+			size := fetchByte() + 1
 			v1 := popv(size)
 			v0 := popv(size)
 			t := pop()
