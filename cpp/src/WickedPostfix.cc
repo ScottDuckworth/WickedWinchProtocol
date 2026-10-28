@@ -37,8 +37,7 @@ extern "C" const char* WickedPostfixOpToString(WickedPostfixOp_t op) {
     case WickedPostfixOp_Mul:       return "Mul";
     case WickedPostfixOp_Div:       return "Div";
     case WickedPostfixOp_Pow:       return "Pow";
-    case WickedPostfixOp_Ipow:      return "Ipow";
-    case WickedPostfixOp_MulAdd:    return "MulAdd";
+    case WickedPostfixOp_Atan2:     return "Atan2";
     case WickedPostfixOp_Neg:       return "Neg";
     case WickedPostfixOp_Abs:       return "Abs";
     case WickedPostfixOp_Inv:       return "Inv";
@@ -50,19 +49,20 @@ extern "C" const char* WickedPostfixOpToString(WickedPostfixOp_t op) {
     case WickedPostfixOp_Tan:       return "Tan";
     case WickedPostfixOp_Asin:      return "Asin";
     case WickedPostfixOp_Acos:      return "Acos";
-    case WickedPostfixOp_Atan2:     return "Atan2";
+    case WickedPostfixOp_Ipow:      return "Ipow";
+    case WickedPostfixOp_MulAdd:    return "MulAdd";
     case WickedPostfixOp_AddVec:    return "AddVec";
     case WickedPostfixOp_SubVec:    return "SubVec";
     case WickedPostfixOp_MulVec:    return "MulVec";
-    case WickedPostfixOp_MulAddVec: return "MulAddVec";
-    case WickedPostfixOp_ScaleVec:  return "ScaleVec";
     case WickedPostfixOp_DivVec:    return "DivVec";
     case WickedPostfixOp_NegVec:    return "NegVec";
     case WickedPostfixOp_InvVec:    return "InvVec";
     case WickedPostfixOp_NormSqVec: return "NormSqVec";
     case WickedPostfixOp_SumVec:    return "SumVec";
-    case WickedPostfixOp_LerpVec:    return "LerpVec";
-    case WickedPostfixOp_MulMat:     return "MulMat";
+    case WickedPostfixOp_MulAddVec: return "MulAddVec";
+    case WickedPostfixOp_ScaleVec:  return "ScaleVec";
+    case WickedPostfixOp_LerpVec:   return "LerpVec";
+    case WickedPostfixOp_MulMat:    return "MulMat";
     case WickedPostfixOp_Polynomial: return "Polynomial";
   }
   return "UNKNOWN";
@@ -190,6 +190,11 @@ WICKED_ALWAYS_INLINE WickedEvalStatus_t BinaryOp(ValidationContext& ctx) {
   return WickedEvalStatus_Ok;
 }
 
+WICKED_ALWAYS_INLINE WickedEvalStatus_t UnaryOp(ValidationContext& ctx) {
+  if (ctx.stack_depth < 1) return WickedEvalStatus_StackUnderflow;
+  return WickedEvalStatus_Ok;
+}
+
 WICKED_ALWAYS_INLINE WickedEvalStatus_t Ipow(ValidationContext& ctx) {
   if (!ctx.has_bytes(1)) return WickedEvalStatus_IllegalOperation;
   ctx.skip(1);
@@ -203,16 +208,31 @@ WICKED_ALWAYS_INLINE WickedEvalStatus_t MulAdd(ValidationContext& ctx) {
   return WickedEvalStatus_Ok;
 }
 
-WICKED_ALWAYS_INLINE WickedEvalStatus_t UnaryOp(ValidationContext& ctx) {
-  if (ctx.stack_depth < 1) return WickedEvalStatus_StackUnderflow;
-  return WickedEvalStatus_Ok;
-}
-
 WICKED_ALWAYS_INLINE WickedEvalStatus_t BinaryVec(ValidationContext& ctx) {
   if (!ctx.has_bytes(1)) return WickedEvalStatus_IllegalOperation;
   uint8_t size = ctx.fetch_byte();
   if (ctx.stack_depth < int32_t(size) * 2) return WickedEvalStatus_StackUnderflow;
   ctx.stack_depth -= size;
+  return WickedEvalStatus_Ok;
+}
+
+WICKED_ALWAYS_INLINE WickedEvalStatus_t UnaryVec(ValidationContext& ctx) {
+  if (!ctx.has_bytes(1)) return WickedEvalStatus_IllegalOperation;
+  uint8_t size = ctx.fetch_byte();
+  if (ctx.stack_depth < size) return WickedEvalStatus_StackUnderflow;
+  return WickedEvalStatus_Ok;
+}
+
+WICKED_ALWAYS_INLINE WickedEvalStatus_t NormSqVec(ValidationContext& ctx) {
+  if (!ctx.has_bytes(1)) return WickedEvalStatus_IllegalOperation;
+  uint8_t size = ctx.fetch_byte();
+  if (ctx.stack_depth < size) return WickedEvalStatus_StackUnderflow;
+  if (size == 0) {
+    ctx.stack_depth += 1;
+    ctx.update_max(ctx.stack_depth);
+  } else {
+    ctx.stack_depth -= (size - 1);
+  }
   return WickedEvalStatus_Ok;
 }
 
@@ -232,30 +252,11 @@ WICKED_ALWAYS_INLINE WickedEvalStatus_t ScaleVec(ValidationContext& ctx) {
   return WickedEvalStatus_Ok;
 }
 
-WICKED_ALWAYS_INLINE WickedEvalStatus_t NegVec(ValidationContext& ctx) {
+WICKED_ALWAYS_INLINE WickedEvalStatus_t LerpVec(ValidationContext& ctx) {
   if (!ctx.has_bytes(1)) return WickedEvalStatus_IllegalOperation;
   uint8_t size = ctx.fetch_byte();
-  if (ctx.stack_depth < size) return WickedEvalStatus_StackUnderflow;
-  return WickedEvalStatus_Ok;
-}
-
-WICKED_ALWAYS_INLINE WickedEvalStatus_t InvVec(ValidationContext& ctx) {
-  if (!ctx.has_bytes(1)) return WickedEvalStatus_IllegalOperation;
-  uint8_t size = ctx.fetch_byte();
-  if (ctx.stack_depth < size) return WickedEvalStatus_StackUnderflow;
-  return WickedEvalStatus_Ok;
-}
-
-WICKED_ALWAYS_INLINE WickedEvalStatus_t NormSqVec(ValidationContext& ctx) {
-  if (!ctx.has_bytes(1)) return WickedEvalStatus_IllegalOperation;
-  uint8_t size = ctx.fetch_byte();
-  if (ctx.stack_depth < size) return WickedEvalStatus_StackUnderflow;
-  if (size == 0) {
-    ctx.stack_depth += 1;
-    ctx.update_max(ctx.stack_depth);
-  } else {
-    ctx.stack_depth -= (size - 1);
-  }
+  if (ctx.stack_depth < int32_t(size) * 2 + 1) return WickedEvalStatus_StackUnderflow;
+  ctx.stack_depth -= (int32_t(size) + 1);
   return WickedEvalStatus_Ok;
 }
 
@@ -312,14 +313,6 @@ WICKED_ALWAYS_INLINE WickedEvalStatus_t Polynomial(ValidationContext& ctx) {
   return WickedEvalStatus_Ok;
 }
 
-WICKED_ALWAYS_INLINE WickedEvalStatus_t LerpVec(ValidationContext& ctx) {
-  if (!ctx.has_bytes(1)) return WickedEvalStatus_IllegalOperation;
-  uint8_t size = ctx.fetch_byte();
-  if (ctx.stack_depth < int32_t(size) * 2 + 1) return WickedEvalStatus_StackUnderflow;
-  ctx.stack_depth -= (int32_t(size) + 1);
-  return WickedEvalStatus_Ok;
-}
-
 }  // namespace validate
 }  // namespace
 
@@ -351,8 +344,6 @@ extern "C" WickedEvalStatus_t WickedPostfixValidate(const uint8_t* prog_data, ui
       case WickedPostfixOp_Div:
       case WickedPostfixOp_Pow:
       case WickedPostfixOp_Atan2:     status = validate::BinaryOp(ctx); break;
-      case WickedPostfixOp_Ipow:      status = validate::Ipow(ctx); break;
-      case WickedPostfixOp_MulAdd:    status = validate::MulAdd(ctx); break;
       case WickedPostfixOp_Neg:
       case WickedPostfixOp_Abs:
       case WickedPostfixOp_Inv:
@@ -364,18 +355,20 @@ extern "C" WickedEvalStatus_t WickedPostfixValidate(const uint8_t* prog_data, ui
       case WickedPostfixOp_Tan:
       case WickedPostfixOp_Asin:
       case WickedPostfixOp_Acos:      status = validate::UnaryOp(ctx); break;
+      case WickedPostfixOp_Ipow:      status = validate::Ipow(ctx); break;
+      case WickedPostfixOp_MulAdd:    status = validate::MulAdd(ctx); break;
       case WickedPostfixOp_AddVec:
       case WickedPostfixOp_SubVec:
       case WickedPostfixOp_MulVec:
       case WickedPostfixOp_DivVec:    status = validate::BinaryVec(ctx); break;
+      case WickedPostfixOp_NegVec:
+      case WickedPostfixOp_InvVec:    status = validate::UnaryVec(ctx); break;
+      case WickedPostfixOp_NormSqVec:
+      case WickedPostfixOp_SumVec:    status = validate::NormSqVec(ctx); break;
       case WickedPostfixOp_MulAddVec: status = validate::MulAddVec(ctx); break;
       case WickedPostfixOp_ScaleVec:  status = validate::ScaleVec(ctx); break;
-      case WickedPostfixOp_NegVec:    status = validate::NegVec(ctx); break;
-      case WickedPostfixOp_InvVec:    status = validate::InvVec(ctx); break;
-      case WickedPostfixOp_NormSqVec:
-      case WickedPostfixOp_SumVec:     status = validate::NormSqVec(ctx); break;
-      case WickedPostfixOp_LerpVec:    status = validate::LerpVec(ctx); break;
-      case WickedPostfixOp_MulMat:     status = validate::MulMat(ctx); break;
+      case WickedPostfixOp_LerpVec:   status = validate::LerpVec(ctx); break;
+      case WickedPostfixOp_MulMat:    status = validate::MulMat(ctx); break;
       case WickedPostfixOp_Polynomial: status = validate::Polynomial(ctx); break;
       default:
         return WickedEvalStatus_UndefinedOperation;
@@ -548,16 +541,9 @@ WICKED_ALWAYS_INLINE void Pow(EvalContext& ctx) {
   ctx.peek() = std::pow(ctx.peek(), b);
 }
 
-WICKED_ALWAYS_INLINE void Ipow(EvalContext& ctx) {
-  int8_t exp = static_cast<int8_t>(ctx.fetch_byte());
-  ctx.peek() = ipow(ctx.peek(), exp);
-}
-
-WICKED_ALWAYS_INLINE void MulAdd(EvalContext& ctx) {
-  float c = ctx.pop();
-  float b = ctx.pop();
-  float& top = ctx.peek();
-  top = std::fma(top, b, c);
+WICKED_ALWAYS_INLINE void Atan2(EvalContext& ctx) {
+  float x = ctx.pop();
+  ctx.peek() = std::atan2(ctx.peek(), x);
 }
 
 WICKED_ALWAYS_INLINE void Neg(EvalContext& ctx) {
@@ -604,9 +590,16 @@ WICKED_ALWAYS_INLINE void Acos(EvalContext& ctx) {
   ctx.peek() = std::acos(ctx.peek());
 }
 
-WICKED_ALWAYS_INLINE void Atan2(EvalContext& ctx) {
-  float x = ctx.pop();
-  ctx.peek() = std::atan2(ctx.peek(), x);
+WICKED_ALWAYS_INLINE void Ipow(EvalContext& ctx) {
+  int8_t exp = static_cast<int8_t>(ctx.fetch_byte());
+  ctx.peek() = ipow(ctx.peek(), exp);
+}
+
+WICKED_ALWAYS_INLINE void MulAdd(EvalContext& ctx) {
+  float c = ctx.pop();
+  float b = ctx.pop();
+  float& top = ctx.peek();
+  top = std::fma(top, b, c);
 }
 
 WICKED_ALWAYS_INLINE void AddVec(EvalContext& ctx) {
@@ -633,26 +626,6 @@ WICKED_ALWAYS_INLINE void MulVec(EvalContext& ctx) {
   std::span<float> lhs = ctx.peekv(size);
   for (uint8_t i = 0; i < size; ++i) {
     lhs[i] *= rhs[i];
-  }
-}
-
-WICKED_ALWAYS_INLINE void MulAddVec(EvalContext& ctx) {
-  uint8_t size = ctx.fetch_byte();
-  std::span<float> c = ctx.popv(size);
-  std::span<float> b = ctx.popv(size);
-  std::span<float> a = ctx.peekv(size);
-  for (uint8_t i = 0; i < size; ++i) {
-    a[i] = std::fma(a[i], b[i], c[i]);
-  }
-}
-
-WICKED_ALWAYS_INLINE void ScaleVec(EvalContext& ctx) {
-  uint8_t size = ctx.fetch_byte();
-  std::span<float> v = ctx.popv(size);
-  float scalar = ctx.pop();
-  std::span<float> result = ctx.allocv(size);
-  for (uint8_t i = 0; i < size; ++i) {
-    result[i] = scalar * v[i];
   }
 }
 
@@ -699,6 +672,73 @@ WICKED_ALWAYS_INLINE void SumVec(EvalContext& ctx) {
     result += v[i];
   }
   ctx.push(result);
+}
+
+WICKED_ALWAYS_INLINE void NegVec(EvalContext& ctx) {
+  uint8_t size = ctx.fetch_byte();
+  std::span<float> v = ctx.peekv(size);
+  for (uint8_t i = 0; i < size; ++i) {
+    v[i] = -v[i];
+  }
+}
+
+WICKED_ALWAYS_INLINE void InvVec(EvalContext& ctx) {
+  uint8_t size = ctx.fetch_byte();
+  std::span<float> v = ctx.peekv(size);
+  for (uint8_t i = 0; i < size; ++i) {
+    v[i] = 1.0f / v[i];
+  }
+}
+
+WICKED_ALWAYS_INLINE void NormSqVec(EvalContext& ctx) {
+  uint8_t size = ctx.fetch_byte();
+  std::span<float> v = ctx.popv(size);
+  float result = 0;
+  for (uint8_t i = 0; i < size; ++i) {
+    result = std::fma(v[i], v[i], result);
+  }
+  ctx.push(result);
+}
+
+WICKED_ALWAYS_INLINE void SumVec(EvalContext& ctx) {
+  uint8_t size = ctx.fetch_byte();
+  std::span<float> v = ctx.popv(size);
+  float result = 0;
+  for (uint8_t i = 0; i < size; ++i) {
+    result += v[i];
+  }
+  ctx.push(result);
+}
+
+WICKED_ALWAYS_INLINE void MulAddVec(EvalContext& ctx) {
+  uint8_t size = ctx.fetch_byte();
+  std::span<float> c = ctx.popv(size);
+  std::span<float> b = ctx.popv(size);
+  std::span<float> a = ctx.peekv(size);
+  for (uint8_t i = 0; i < size; ++i) {
+    a[i] = std::fma(a[i], b[i], c[i]);
+  }
+}
+
+WICKED_ALWAYS_INLINE void ScaleVec(EvalContext& ctx) {
+  uint8_t size = ctx.fetch_byte();
+  std::span<float> v = ctx.popv(size);
+  float scalar = ctx.pop();
+  std::span<float> result = ctx.allocv(size);
+  for (uint8_t i = 0; i < size; ++i) {
+    result[i] = scalar * v[i];
+  }
+}
+
+WICKED_ALWAYS_INLINE void LerpVec(EvalContext& ctx) {
+  uint8_t size = ctx.fetch_byte();
+  std::span<float> v1 = ctx.popv(size);
+  std::span<float> v0 = ctx.popv(size);
+  float t = ctx.pop();
+  std::span<float> result = ctx.allocv(size);
+  for (uint8_t i = 0; i < size; ++i) {
+    result[i] = std::fma(t, v1[i] - v0[i], v0[i]);
+  }
 }
 
 WICKED_ALWAYS_INLINE void MulMat(EvalContext& ctx) {
@@ -848,17 +888,6 @@ WICKED_ALWAYS_INLINE void Polynomial(EvalContext& ctx) {
   }
 }
 
-WICKED_ALWAYS_INLINE void LerpVec(EvalContext& ctx) {
-  uint8_t size = ctx.fetch_byte();
-  std::span<float> v1 = ctx.popv(size);
-  std::span<float> v0 = ctx.popv(size);
-  float t = ctx.pop();
-  std::span<float> result = ctx.allocv(size);
-  for (uint8_t i = 0; i < size; ++i) {
-    result[i] = std::fma(t, v1[i] - v0[i], v0[i]);
-  }
-}
-
 }  // namespace ops
 }  // namespace
 
@@ -886,8 +915,7 @@ extern "C" void WickedPostfixEvaluate(const uint8_t* prog_data, uint16_t prog_si
       case WickedPostfixOp_Mul:       ops::Mul(ctx); break;
       case WickedPostfixOp_Div:       ops::Div(ctx); break;
       case WickedPostfixOp_Pow:       ops::Pow(ctx); break;
-      case WickedPostfixOp_Ipow:      ops::Ipow(ctx); break;
-      case WickedPostfixOp_MulAdd:    ops::MulAdd(ctx); break;
+      case WickedPostfixOp_Atan2:     ops::Atan2(ctx); break;
       case WickedPostfixOp_Neg:       ops::Neg(ctx); break;
       case WickedPostfixOp_Abs:       ops::Abs(ctx); break;
       case WickedPostfixOp_Inv:       ops::Inv(ctx); break;
@@ -899,19 +927,20 @@ extern "C" void WickedPostfixEvaluate(const uint8_t* prog_data, uint16_t prog_si
       case WickedPostfixOp_Tan:       ops::Tan(ctx); break;
       case WickedPostfixOp_Asin:      ops::Asin(ctx); break;
       case WickedPostfixOp_Acos:      ops::Acos(ctx); break;
-      case WickedPostfixOp_Atan2:     ops::Atan2(ctx); break;
-      case WickedPostfixOp_AddVec:     ops::AddVec(ctx); break;
-      case WickedPostfixOp_SubVec:     ops::SubVec(ctx); break;
-      case WickedPostfixOp_MulVec:     ops::MulVec(ctx); break;
-      case WickedPostfixOp_MulAddVec:  ops::MulAddVec(ctx); break;
-      case WickedPostfixOp_ScaleVec:   ops::ScaleVec(ctx); break;
-      case WickedPostfixOp_DivVec:     ops::DivVec(ctx); break;
-      case WickedPostfixOp_NegVec:     ops::NegVec(ctx); break;
-      case WickedPostfixOp_InvVec:     ops::InvVec(ctx); break;
-      case WickedPostfixOp_NormSqVec:  ops::NormSqVec(ctx); break;
-      case WickedPostfixOp_SumVec:     ops::SumVec(ctx); break;
-      case WickedPostfixOp_LerpVec:    ops::LerpVec(ctx); break;
-      case WickedPostfixOp_MulMat:     ops::MulMat(ctx); break;
+      case WickedPostfixOp_Ipow:      ops::Ipow(ctx); break;
+      case WickedPostfixOp_MulAdd:    ops::MulAdd(ctx); break;
+      case WickedPostfixOp_AddVec:    ops::AddVec(ctx); break;
+      case WickedPostfixOp_SubVec:    ops::SubVec(ctx); break;
+      case WickedPostfixOp_MulVec:    ops::MulVec(ctx); break;
+      case WickedPostfixOp_DivVec:    ops::DivVec(ctx); break;
+      case WickedPostfixOp_NegVec:    ops::NegVec(ctx); break;
+      case WickedPostfixOp_InvVec:    ops::InvVec(ctx); break;
+      case WickedPostfixOp_NormSqVec: ops::NormSqVec(ctx); break;
+      case WickedPostfixOp_SumVec:    ops::SumVec(ctx); break;
+      case WickedPostfixOp_MulAddVec: ops::MulAddVec(ctx); break;
+      case WickedPostfixOp_ScaleVec:  ops::ScaleVec(ctx); break;
+      case WickedPostfixOp_LerpVec:   ops::LerpVec(ctx); break;
+      case WickedPostfixOp_MulMat:    ops::MulMat(ctx); break;
       case WickedPostfixOp_Polynomial: ops::Polynomial(ctx); break;
       default:
         break;

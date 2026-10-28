@@ -50,34 +50,74 @@ typedef enum WickedPostfixOp {
   WickedPostfixOp_Mul       = 12,
   WickedPostfixOp_Div       = 13,
   WickedPostfixOp_Pow       = 14,
-  WickedPostfixOp_Ipow      = 15,
-  WickedPostfixOp_MulAdd    = 16,
-  WickedPostfixOp_Neg       = 17,
-  WickedPostfixOp_Abs       = 18,
-  WickedPostfixOp_Inv       = 19,
-  WickedPostfixOp_Sqrt      = 20,
-  WickedPostfixOp_Exp       = 21,
-  WickedPostfixOp_Ln        = 22,
-  WickedPostfixOp_Sin       = 23,
-  WickedPostfixOp_Cos       = 24,
-  WickedPostfixOp_Tan       = 25,
-  WickedPostfixOp_Asin      = 26,
-  WickedPostfixOp_Acos      = 27,
-  WickedPostfixOp_Atan2     = 28,
+  WickedPostfixOp_Atan2     = 15,
+  WickedPostfixOp_Neg       = 16,
+  WickedPostfixOp_Abs       = 17,
+  WickedPostfixOp_Inv       = 18,
+  WickedPostfixOp_Sqrt      = 19,
+  WickedPostfixOp_Exp       = 20,
+  WickedPostfixOp_Ln        = 21,
+  WickedPostfixOp_Sin       = 22,
+  WickedPostfixOp_Cos       = 23,
+  WickedPostfixOp_Tan       = 24,
+  WickedPostfixOp_Asin      = 25,
+  WickedPostfixOp_Acos      = 26,
+  WickedPostfixOp_Ipow      = 27,
+  WickedPostfixOp_MulAdd    = 28,
   WickedPostfixOp_AddVec    = 29,
   WickedPostfixOp_SubVec    = 30,
   WickedPostfixOp_MulVec    = 31,
-  WickedPostfixOp_MulAddVec = 32,
-  WickedPostfixOp_ScaleVec  = 33,
-  WickedPostfixOp_DivVec    = 34,
-  WickedPostfixOp_NegVec    = 35,
-  WickedPostfixOp_InvVec    = 36,
-  WickedPostfixOp_NormSqVec = 37,
-  WickedPostfixOp_SumVec    = 38,
+  WickedPostfixOp_DivVec    = 32,
+  WickedPostfixOp_NegVec    = 33,
+  WickedPostfixOp_InvVec    = 34,
+  WickedPostfixOp_NormSqVec = 35,
+  WickedPostfixOp_SumVec    = 36,
+  WickedPostfixOp_MulAddVec = 37,
+  WickedPostfixOp_ScaleVec  = 38,
   WickedPostfixOp_LerpVec   = 39,
   WickedPostfixOp_MulMat    = 40,
   WickedPostfixOp_Polynomial = 41,
 } WickedPostfixOp_t;
+
+// Returns true if op is a binary scalar operation (10..15).
+static inline bool WickedPostfixOpIsBinaryScalar(WickedPostfixOp_t op) {
+  return op >= WickedPostfixOp_Add && op <= WickedPostfixOp_Atan2;
+}
+
+// Returns true if op is a unary scalar operation (16..26).
+static inline bool WickedPostfixOpIsUnaryScalar(WickedPostfixOp_t op) {
+  return op >= WickedPostfixOp_Neg && op <= WickedPostfixOp_Acos;
+}
+
+// Returns true if op is any scalar operation (10..28).
+static inline bool WickedPostfixOpIsScalar(WickedPostfixOp_t op) {
+  return op >= WickedPostfixOp_Add && op <= WickedPostfixOp_MulAdd;
+}
+
+// Returns true if op is a binary vector operation (29..32).
+static inline bool WickedPostfixOpIsBinaryVec(WickedPostfixOp_t op) {
+  return op >= WickedPostfixOp_AddVec && op <= WickedPostfixOp_DivVec;
+}
+
+// Returns true if op is a unary vector operation (33..34).
+static inline bool WickedPostfixOpIsUnaryVec(WickedPostfixOp_t op) {
+  return op >= WickedPostfixOp_NegVec && op <= WickedPostfixOp_InvVec;
+}
+
+// Returns true if op is a vector reduction operation (35..36).
+static inline bool WickedPostfixOpIsVectorReduction(WickedPostfixOp_t op) {
+  return op >= WickedPostfixOp_NormSqVec && op <= WickedPostfixOp_SumVec;
+}
+
+// Returns true if op is a vector operation (29..39).
+static inline bool WickedPostfixOpIsVector(WickedPostfixOp_t op) {
+  return op >= WickedPostfixOp_AddVec && op <= WickedPostfixOp_LerpVec;
+}
+
+// Returns true if op takes a 1-byte size operand (29..39).
+static inline bool WickedPostfixOpHasSizeOperand(WickedPostfixOp_t op) {
+  return op >= WickedPostfixOp_AddVec && op <= WickedPostfixOp_LerpVec;
+}
 
 // Returns the string representation of an opcode.
 const char* WickedPostfixOpToString(WickedPostfixOp_t op);
@@ -225,20 +265,14 @@ class WickedPostfixWriter {
   // Pops two values and pushes their product.
   void Mul() { EmitOp(WickedPostfixOp_Mul); }
 
-  // Pops c, b, a and pushes a*b + c.
-  void MulAdd() { EmitOp(WickedPostfixOp_MulAdd); }
-
   // Pops rhs and lhs and pushes lhs / rhs.
   void Div() { EmitOp(WickedPostfixOp_Div); }
 
   // Pops rhs and lhs and pushes lhs^rhs.
   void Pow() { EmitOp(WickedPostfixOp_Pow); }
 
-  // Raises the top value to the integer exponent exp (base^exp).
-  void Ipow(int8_t exp) {
-    EmitOp(WickedPostfixOp_Ipow);
-    EmitByte(static_cast<uint8_t>(exp));
-  }
+  // Pops x and y and pushes atan2(y, x).
+  void Atan2() { EmitOp(WickedPostfixOp_Atan2); }
 
   // Negates the top value.
   void Neg() { EmitOp(WickedPostfixOp_Neg); }
@@ -273,49 +307,14 @@ class WickedPostfixWriter {
   // Arc cosine of top value.
   void Acos() { EmitOp(WickedPostfixOp_Acos); }
 
-  // Pops x and y and pushes atan2(y, x).
-  void Atan2() { EmitOp(WickedPostfixOp_Atan2); }
-
-  // Evaluates a polynomial or matrix of polynomials.
-  // Operand constraints:
-  //   - rows: 1 to 16 (number of polynomial coefficients per column, i.e. degree + 1)
-  //   - cols: 1 to 16 (number of dimensions / columns)
-  //   - coeffs.size() == rows * cols
-  void Polynomial(uint8_t rows, uint8_t cols, std::span<const float> coeffs) {
-    assert(rows >= 1 && rows <= 16);
-    assert(cols >= 1 && cols <= 16);
-    assert(coeffs.size() == static_cast<size_t>(rows) * cols);
-    EmitOp(WickedPostfixOp_Polynomial);
-    uint8_t arg = ((rows - 1) & 0x0F) | (((cols - 1) & 0x0F) << 4);
-    EmitByte(arg);
-    for (size_t i = rows; i > 0; --i) {
-      size_t row_offset = (i - 1) * cols;
-      for (size_t j = 0; j < cols; ++j) {
-        EmitFloat(coeffs[row_offset + j]);
-      }
-    }
+  // Raises the top value to the integer exponent exp (base^exp).
+  void Ipow(int8_t exp) {
+    EmitOp(WickedPostfixOp_Ipow);
+    EmitByte(static_cast<uint8_t>(exp));
   }
 
-  // Evaluates a polynomial or matrix of polynomials.
-  void Polynomial(uint8_t rows, uint8_t cols, std::initializer_list<float> coeffs) {
-    Polynomial(rows, cols, std::span<const float>(coeffs));
-  }
-
-  // Evaluates a 1D polynomial.
-  void Polynomial(std::span<const float> coeffs) {
-    Polynomial(static_cast<uint8_t>(coeffs.size()), 1, coeffs);
-  }
-
-  // Evaluates a 1D polynomial.
-  void Polynomial(std::initializer_list<float> coeffs) {
-    Polynomial(std::span<const float>(coeffs));
-  }
-
-  // Deprecated compatibility wrappers
-  void PolyVec(std::span<const float> coeffs) { Polynomial(coeffs); }
-  void PolyVec(std::initializer_list<float> coeffs) { Polynomial(coeffs); }
-  void PolyMat(uint8_t rows, uint8_t cols, std::span<const float> coeffs) { Polynomial(rows, cols, coeffs); }
-  void PolyMat(uint8_t rows, uint8_t cols, std::initializer_list<float> coeffs) { Polynomial(rows, cols, coeffs); }
+  // Pops c, b, a and pushes a*b + c.
+  void MulAdd() { EmitOp(WickedPostfixOp_MulAdd); }
 
   // Adds two vectors componentwise.
   void AddVec(uint8_t size) {
@@ -332,18 +331,6 @@ class WickedPostfixWriter {
   // Multiplies two vectors componentwise.
   void MulVec(uint8_t size) {
     EmitOp(WickedPostfixOp_MulVec);
-    EmitByte(size);
-  }
-
-  // Componentwise fused multiply-add (a*b + c).
-  void MulAddVec(uint8_t size) {
-    EmitOp(WickedPostfixOp_MulAddVec);
-    EmitByte(size);
-  }
-
-  // Scales vector by scalar (factor * vec).
-  void ScaleVec(uint8_t size) {
-    EmitOp(WickedPostfixOp_ScaleVec);
     EmitByte(size);
   }
 
@@ -374,6 +361,18 @@ class WickedPostfixWriter {
   // Pushes scalar sum of vector components.
   void SumVec(uint8_t size) {
     EmitOp(WickedPostfixOp_SumVec);
+    EmitByte(size);
+  }
+
+  // Componentwise fused multiply-add (a*b + c).
+  void MulAddVec(uint8_t size) {
+    EmitOp(WickedPostfixOp_MulAddVec);
+    EmitByte(size);
+  }
+
+  // Scales vector by scalar (factor * vec).
+  void ScaleVec(uint8_t size) {
+    EmitOp(WickedPostfixOp_ScaleVec);
     EmitByte(size);
   }
 
@@ -449,6 +448,47 @@ class WickedPostfixWriter {
   void MulMatImmediate(uint8_t arows, uint8_t brows, uint8_t bcols, std::initializer_list<float> b_matrix) {
     MulMatImmediate(arows, brows, bcols, std::span<const float>(b_matrix));
   }
+
+  // Evaluates a polynomial or matrix of polynomials.
+  // Operand constraints:
+  //   - rows: 1 to 16 (number of polynomial coefficients per column, i.e. degree + 1)
+  //   - cols: 1 to 16 (number of dimensions / columns)
+  //   - coeffs.size() == rows * cols
+  void Polynomial(uint8_t rows, uint8_t cols, std::span<const float> coeffs) {
+    assert(rows >= 1 && rows <= 16);
+    assert(cols >= 1 && cols <= 16);
+    assert(coeffs.size() == static_cast<size_t>(rows) * cols);
+    EmitOp(WickedPostfixOp_Polynomial);
+    uint8_t arg = ((rows - 1) & 0x0F) | (((cols - 1) & 0x0F) << 4);
+    EmitByte(arg);
+    for (size_t i = rows; i > 0; --i) {
+      size_t row_offset = (i - 1) * cols;
+      for (size_t j = 0; j < cols; ++j) {
+        EmitFloat(coeffs[row_offset + j]);
+      }
+    }
+  }
+
+  // Evaluates a polynomial or matrix of polynomials.
+  void Polynomial(uint8_t rows, uint8_t cols, std::initializer_list<float> coeffs) {
+    Polynomial(rows, cols, std::span<const float>(coeffs));
+  }
+
+  // Evaluates a 1D polynomial.
+  void Polynomial(std::span<const float> coeffs) {
+    Polynomial(static_cast<uint8_t>(coeffs.size()), 1, coeffs);
+  }
+
+  // Evaluates a 1D polynomial.
+  void Polynomial(std::initializer_list<float> coeffs) {
+    Polynomial(std::span<const float>(coeffs));
+  }
+
+  // Deprecated compatibility wrappers
+  void PolyVec(std::span<const float> coeffs) { Polynomial(coeffs); }
+  void PolyVec(std::initializer_list<float> coeffs) { Polynomial(coeffs); }
+  void PolyMat(uint8_t rows, uint8_t cols, std::span<const float> coeffs) { Polynomial(rows, cols, coeffs); }
+  void PolyMat(uint8_t rows, uint8_t cols, std::initializer_list<float> coeffs) { Polynomial(rows, cols, coeffs); }
 
  private:
   constexpr uint16_t prog_offset() const { return sizeof(WickedPostfixHeader); }

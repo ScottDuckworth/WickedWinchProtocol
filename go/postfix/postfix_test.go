@@ -272,18 +272,6 @@ func TestEvalPostfixExpression(t *testing.T) {
 			wantErr: postfix.ErrStackUnderflow,
 		},
 		{
-			name:      "multiply add",
-			expr:      postfix.MakeBuilder().MulAdd().Build(),
-			stack:     []float64{10, 2, 1},
-			wantStack: []float64{21},
-		},
-		{
-			name:    "multiply add underflow",
-			expr:    postfix.MakeBuilder().MulAdd().Build(),
-			stack:   []float64{1, 2},
-			wantErr: postfix.ErrStackUnderflow,
-		},
-		{
 			name:      "divide",
 			expr:      postfix.MakeBuilder().Div().Build(),
 			stack:     []float64{0, 10, 2},
@@ -296,36 +284,28 @@ func TestEvalPostfixExpression(t *testing.T) {
 			wantErr: postfix.ErrStackUnderflow,
 		},
 		{
-			name:      "ipow positive",
-			expr:      postfix.MakeBuilder().Ipow(3).Build(),
-			stack:     []float64{0, 2},
-			wantStack: []float64{0, 8},
+			name:      "power",
+			expr:      postfix.MakeBuilder().Pow().Build(),
+			stack:     []float64{0, 10, 2},
+			wantStack: []float64{0, 100},
 		},
 		{
-			name:      "ipow zero",
-			expr:      postfix.MakeBuilder().Ipow(0).Build(),
-			stack:     []float64{0, 5},
-			wantStack: []float64{0, 1},
-		},
-		{
-			name:      "ipow negative",
-			expr:      postfix.MakeBuilder().Ipow(-2).Build(),
-			stack:     []float64{0, 2},
-			wantStack: []float64{0, 0.25},
-		},
-		{
-			name:    "ipow underflow",
-			expr:    postfix.MakeBuilder().Ipow(2).Build(),
-			stack:   []float64{},
+			name:    "power underflow",
+			expr:    postfix.MakeBuilder().Pow().Build(),
+			stack:   []float64{1},
 			wantErr: postfix.ErrStackUnderflow,
 		},
 		{
-			name: "ipow truncated",
-			expr: &postfix.Expression{
-				Prog: []uint8{uint8(postfix.Operation_Ipow)},
-			},
-			stack:   []float64{2},
-			wantErr: postfix.ErrIllegalOperation,
+			name:      "atan2",
+			expr:      postfix.MakeBuilder().Atan2().Build(),
+			stack:     []float64{1, 0},
+			wantStack: []float64{math.Pi / 2},
+		},
+		{
+			name:    "atan2 underflow",
+			expr:    postfix.MakeBuilder().Atan2().Build(),
+			stack:   []float64{1},
+			wantErr: postfix.ErrStackUnderflow,
 		},
 		{
 			name:      "negate",
@@ -352,7 +332,7 @@ func TestEvalPostfixExpression(t *testing.T) {
 			wantStack: []float64{0, 1},
 		},
 		{
-			name:    "negate underflow",
+			name:    "abs underflow",
 			expr:    postfix.MakeBuilder().Abs().Build(),
 			stack:   []float64{},
 			wantErr: postfix.ErrStackUnderflow,
@@ -367,18 +347,6 @@ func TestEvalPostfixExpression(t *testing.T) {
 			name:    "inverse underflow",
 			expr:    postfix.MakeBuilder().Inv().Build(),
 			stack:   []float64{},
-			wantErr: postfix.ErrStackUnderflow,
-		},
-		{
-			name:      "power",
-			expr:      postfix.MakeBuilder().Pow().Build(),
-			stack:     []float64{0, 10, 2},
-			wantStack: []float64{0, 100},
-		},
-		{
-			name:    "power underflow",
-			expr:    postfix.MakeBuilder().Pow().Build(),
-			stack:   []float64{1},
 			wantErr: postfix.ErrStackUnderflow,
 		},
 		{
@@ -478,15 +446,47 @@ func TestEvalPostfixExpression(t *testing.T) {
 			wantErr: postfix.ErrStackUnderflow,
 		},
 		{
-			name:      "atan2",
-			expr:      postfix.MakeBuilder().Atan2().Build(),
-			stack:     []float64{1, 0},
-			wantStack: []float64{math.Pi / 2},
+			name:      "ipow positive",
+			expr:      postfix.MakeBuilder().Ipow(3).Build(),
+			stack:     []float64{0, 2},
+			wantStack: []float64{0, 8},
 		},
 		{
-			name:    "atan2 underflow",
-			expr:    postfix.MakeBuilder().Atan2().Build(),
-			stack:   []float64{1},
+			name:      "ipow zero",
+			expr:      postfix.MakeBuilder().Ipow(0).Build(),
+			stack:     []float64{0, 5},
+			wantStack: []float64{0, 1},
+		},
+		{
+			name:      "ipow negative",
+			expr:      postfix.MakeBuilder().Ipow(-2).Build(),
+			stack:     []float64{0, 2},
+			wantStack: []float64{0, 0.25},
+		},
+		{
+			name:    "ipow underflow",
+			expr:    postfix.MakeBuilder().Ipow(2).Build(),
+			stack:   []float64{},
+			wantErr: postfix.ErrStackUnderflow,
+		},
+		{
+			name: "ipow truncated",
+			expr: &postfix.Expression{
+				Prog: []uint8{uint8(postfix.Operation_Ipow)},
+			},
+			stack:   []float64{2},
+			wantErr: postfix.ErrIllegalOperation,
+		},
+		{
+			name:      "multiply add",
+			expr:      postfix.MakeBuilder().MulAdd().Build(),
+			stack:     []float64{10, 2, 1},
+			wantStack: []float64{21},
+		},
+		{
+			name:    "multiply add underflow",
+			expr:    postfix.MakeBuilder().MulAdd().Build(),
+			stack:   []float64{1, 2},
 			wantErr: postfix.ErrStackUnderflow,
 		},
 		{
@@ -526,6 +526,72 @@ func TestEvalPostfixExpression(t *testing.T) {
 			wantErr: postfix.ErrStackUnderflow,
 		},
 		{
+			name:      "divide vector 3",
+			expr:      postfix.MakeBuilder().DivVec(3).Build(),
+			stack:     []float64{6, 8, -10, 2, 4, 5},
+			wantStack: []float64{3, 2, -2},
+		},
+		{
+			name:    "divide vector underflow",
+			expr:    postfix.MakeBuilder().DivVec(3).Build(),
+			stack:   []float64{6, 8, -10, 2, 4},
+			wantErr: postfix.ErrStackUnderflow,
+		},
+		{
+			name:      "negate vector 3",
+			expr:      postfix.MakeBuilder().NegVec(3).Build(),
+			stack:     []float64{1, 2, -3},
+			wantStack: []float64{-1, -2, 3},
+		},
+		{
+			name:    "negate vector underflow",
+			expr:    postfix.MakeBuilder().NegVec(3).Build(),
+			stack:   []float64{1, 2},
+			wantErr: postfix.ErrStackUnderflow,
+		},
+		{
+			name:      "invert vector 3",
+			expr:      postfix.MakeBuilder().InvVec(3).Build(),
+			stack:     []float64{2, 4, -0.5},
+			wantStack: []float64{0.5, 0.25, -2},
+		},
+		{
+			name:    "invert vector underflow",
+			expr:    postfix.MakeBuilder().InvVec(3).Build(),
+			stack:   []float64{2, 4},
+			wantErr: postfix.ErrStackUnderflow,
+		},
+		{
+			name:      "norm squared vector 2",
+			expr:      postfix.MakeBuilder().NormSqVec(2).Build(),
+			stack:     []float64{3, 4},
+			wantStack: []float64{25},
+		},
+		{
+			name:      "norm squared and sqrt vector 2",
+			expr:      postfix.MakeBuilder().NormSqVec(2).Sqrt().Build(),
+			stack:     []float64{3, 4},
+			wantStack: []float64{5},
+		},
+		{
+			name:    "norm squared vector underflow",
+			expr:    postfix.MakeBuilder().NormSqVec(2).Build(),
+			stack:   []float64{3},
+			wantErr: postfix.ErrStackUnderflow,
+		},
+		{
+			name:      "sum vector 3",
+			expr:      postfix.MakeBuilder().SumVec(3).Build(),
+			stack:     []float64{1, 2.5, -0.5},
+			wantStack: []float64{3.0},
+		},
+		{
+			name:    "sum vector underflow",
+			expr:    postfix.MakeBuilder().SumVec(3).Build(),
+			stack:   []float64{1, 2},
+			wantErr: postfix.ErrStackUnderflow,
+		},
+		{
 			name:      "multiply add vector 3",
 			expr:      postfix.MakeBuilder().MulAddVec(3).Build(),
 			stack:     []float64{1, 2, 3, 4, 5, 6, 7, 8, 9},
@@ -562,70 +628,46 @@ func TestEvalPostfixExpression(t *testing.T) {
 			wantErr: postfix.ErrStackUnderflow,
 		},
 		{
-			name:      "divide vector 3",
-			expr:      postfix.MakeBuilder().DivVec(3).Build(),
-			stack:     []float64{6, 8, -10, 2, 4, 5},
-			wantStack: []float64{3, 2, -2},
+			name:      "lerp 1d 0",
+			expr:      postfix.MakeBuilder().LerpVec(1).Build(),
+			stack:     []float64{0, 1, 2},
+			wantStack: []float64{1},
 		},
 		{
-			name:    "divide vector underflow",
-			expr:      postfix.MakeBuilder().DivVec(3).Build(),
-			stack:   []float64{6, 8, -10, 2, 4},
+			name:      "lerp 1d 1",
+			expr:      postfix.MakeBuilder().LerpVec(1).Build(),
+			stack:     []float64{1, 1, 2},
+			wantStack: []float64{2},
+		},
+		{
+			name:      "lerp 1d 0.5",
+			expr:      postfix.MakeBuilder().LerpVec(1).Build(),
+			stack:     []float64{0.5, 1, 2},
+			wantStack: []float64{1.5},
+		},
+		{
+			name:      "lerp 3d 0.5",
+			expr:      postfix.MakeBuilder().LerpVec(3).Build(),
+			stack:     []float64{0.5, 1, 2, 3, 4, 5, 6},
+			wantStack: []float64{2.5, 3.5, 4.5},
+		},
+		{
+			name:    "lerp underflow",
+			expr:    postfix.MakeBuilder().LerpVec(1).Build(),
+			stack:   []float64{0.5, 1},
 			wantErr: postfix.ErrStackUnderflow,
 		},
 		{
-			name:      "negate vector 3",
-			expr:      postfix.MakeBuilder().NegVec(3).Build(),
-			stack:     []float64{1, 2, -3},
-			wantStack: []float64{-1, -2, 3},
+			name:      "push 1 lerp 3d 0.5",
+			expr:      postfix.MakeBuilder().Push(4, 5, 6).LerpVec(3).Build(),
+			stack:     []float64{0.5, 1, 2, 3},
+			wantStack: []float64{2.5, 3.5, 4.5},
 		},
 		{
-			name:    "negate vector underflow",
-			expr:    postfix.MakeBuilder().NegVec(3).Build(),
-			stack:   []float64{1, 2},
-			wantErr: postfix.ErrStackUnderflow,
-		},
-		{
-			name:      "invert vector 3",
-			expr:      postfix.MakeBuilder().InvVec(3).Build(),
-			stack:     []float64{2, 4, -0.5},
-			wantStack: []float64{0.5, 0.25, -2},
-		},
-		{
-			name:    "invert vector underflow",
-			expr:      postfix.MakeBuilder().InvVec(3).Build(),
-			stack:   []float64{2, 4},
-			wantErr: postfix.ErrStackUnderflow,
-		},
-		{
-			name:      "norm squared vector 2",
-			expr:      postfix.MakeBuilder().NormSqVec(2).Build(),
-			stack:     []float64{3, 4},
-			wantStack: []float64{25},
-		},
-		{
-			name:      "norm squared and sqrt vector 2",
-			expr:      postfix.MakeBuilder().NormSqVec(2).Sqrt().Build(),
-			stack:     []float64{3, 4},
-			wantStack: []float64{5},
-		},
-		{
-			name:    "norm squared vector underflow",
-			expr:    postfix.MakeBuilder().NormSqVec(2).Build(),
-			stack:   []float64{3},
-			wantErr: postfix.ErrStackUnderflow,
-		},
-		{
-			name:      "sum vector 3",
-			expr:      postfix.MakeBuilder().SumVec(3).Build(),
-			stack:     []float64{1, 2.5, -0.5},
-			wantStack: []float64{3.0},
-		},
-		{
-			name:    "sum vector underflow",
-			expr:    postfix.MakeBuilder().SumVec(3).Build(),
-			stack:   []float64{1, 2},
-			wantErr: postfix.ErrStackUnderflow,
+			name:      "push 2 lerp 3d 0.5",
+			expr:      postfix.MakeBuilder().Push(1, 2, 3, 4, 5, 6).LerpVec(3).Build(),
+			stack:     []float64{0.5},
+			wantStack: []float64{2.5, 3.5, 4.5},
 		},
 		{
 			name: "multiply matrix 2 3 4",
@@ -714,48 +756,6 @@ func TestEvalPostfixExpression(t *testing.T) {
 			expr:    postfix.MakeBuilder().Polynomial(3, 2, 1, 2, 3, 4, 5, 6).Build(),
 			stack:   []float64{},
 			wantErr: postfix.ErrStackUnderflow,
-		},
-		{
-			name:      "lerp 1d 0",
-			expr:      postfix.MakeBuilder().LerpVec(1).Build(),
-			stack:     []float64{0, 1, 2},
-			wantStack: []float64{1},
-		},
-		{
-			name:      "lerp 1d 1",
-			expr:      postfix.MakeBuilder().LerpVec(1).Build(),
-			stack:     []float64{1, 1, 2},
-			wantStack: []float64{2},
-		},
-		{
-			name:      "lerp 1d 0.5",
-			expr:      postfix.MakeBuilder().LerpVec(1).Build(),
-			stack:     []float64{0.5, 1, 2},
-			wantStack: []float64{1.5},
-		},
-		{
-			name:      "lerp 3d 0.5",
-			expr:      postfix.MakeBuilder().LerpVec(3).Build(),
-			stack:     []float64{0.5, 1, 2, 3, 4, 5, 6},
-			wantStack: []float64{2.5, 3.5, 4.5},
-		},
-		{
-			name:    "lerp underflow",
-			expr:    postfix.MakeBuilder().LerpVec(1).Build(),
-			stack:   []float64{0.5, 1},
-			wantErr: postfix.ErrStackUnderflow,
-		},
-		{
-			name:      "push 1 lerp 3d 0.5",
-			expr:      postfix.MakeBuilder().Push(4, 5, 6).LerpVec(3).Build(),
-			stack:     []float64{0.5, 1, 2, 3},
-			wantStack: []float64{2.5, 3.5, 4.5},
-		},
-		{
-			name:      "push 2 lerp 3d 0.5",
-			expr:      postfix.MakeBuilder().Push(1, 2, 3, 4, 5, 6).LerpVec(3).Build(),
-			stack:     []float64{0.5},
-			wantStack: []float64{2.5, 3.5, 4.5},
 		},
 	} {
 		t.Run(test.name, func(t *testing.T) {
@@ -853,5 +853,71 @@ func TestValidateStackOverflow(t *testing.T) {
 func TestOperationString(t *testing.T) {
 	if got := postfix.Operation_Ipow.String(); got != "Ipow" {
 		t.Errorf("got %q, want %q", got, "Ipow")
+	}
+}
+
+func TestOperationPredicates(t *testing.T) {
+	// Binary scalar: 10..15 (Add..Atan2)
+	if !postfix.Operation_Add.IsBinaryScalar() || !postfix.Operation_Pow.IsBinaryScalar() || !postfix.Operation_Atan2.IsBinaryScalar() {
+		t.Errorf("expected Add, Pow, Atan2 to be binary scalar")
+	}
+	if postfix.Operation_Pick.IsBinaryScalar() || postfix.Operation_Neg.IsBinaryScalar() {
+		t.Errorf("expected Pick, Neg to not be binary scalar")
+	}
+
+	// Unary scalar: 16..26 (Neg..Acos)
+	if !postfix.Operation_Neg.IsUnaryScalar() || !postfix.Operation_Sqrt.IsUnaryScalar() || !postfix.Operation_Acos.IsUnaryScalar() {
+		t.Errorf("expected Neg, Sqrt, Acos to be unary scalar")
+	}
+	if postfix.Operation_Atan2.IsUnaryScalar() || postfix.Operation_Ipow.IsUnaryScalar() {
+		t.Errorf("expected Atan2, Ipow to not be unary scalar")
+	}
+
+	// Scalar: 10..28 (Add..MulAdd)
+	if !postfix.Operation_Add.IsScalar() || !postfix.Operation_Ipow.IsScalar() || !postfix.Operation_MulAdd.IsScalar() {
+		t.Errorf("expected Add, Ipow, MulAdd to be scalar")
+	}
+	if postfix.Operation_Pick.IsScalar() || postfix.Operation_AddVec.IsScalar() {
+		t.Errorf("expected Pick, AddVec to not be scalar")
+	}
+
+	// Binary vector: 29..32 (AddVec..DivVec)
+	if !postfix.Operation_AddVec.IsBinaryVec() || !postfix.Operation_DivVec.IsBinaryVec() {
+		t.Errorf("expected AddVec, DivVec to be binary vec")
+	}
+	if postfix.Operation_MulAdd.IsBinaryVec() || postfix.Operation_NegVec.IsBinaryVec() {
+		t.Errorf("expected MulAdd, NegVec to not be binary vec")
+	}
+
+	// Unary vector: 33..34 (NegVec..InvVec)
+	if !postfix.Operation_NegVec.IsUnaryVec() || !postfix.Operation_InvVec.IsUnaryVec() {
+		t.Errorf("expected NegVec, InvVec to be unary vec")
+	}
+	if postfix.Operation_DivVec.IsUnaryVec() || postfix.Operation_NormSqVec.IsUnaryVec() {
+		t.Errorf("expected DivVec, NormSqVec to not be unary vec")
+	}
+
+	// Vector reduction: 35..36 (NormSqVec..SumVec)
+	if !postfix.Operation_NormSqVec.IsVectorReduction() || !postfix.Operation_SumVec.IsVectorReduction() {
+		t.Errorf("expected NormSqVec, SumVec to be vector reduction")
+	}
+	if postfix.Operation_InvVec.IsVectorReduction() || postfix.Operation_MulAddVec.IsVectorReduction() {
+		t.Errorf("expected InvVec, MulAddVec to not be vector reduction")
+	}
+
+	// Vector: 29..39 (AddVec..LerpVec)
+	if !postfix.Operation_AddVec.IsVector() || !postfix.Operation_LerpVec.IsVector() {
+		t.Errorf("expected AddVec, LerpVec to be vector")
+	}
+	if postfix.Operation_MulAdd.IsVector() || postfix.Operation_MulMat.IsVector() {
+		t.Errorf("expected MulAdd, MulMat to not be vector")
+	}
+
+	// Size operand: 29..39 (AddVec..LerpVec)
+	if !postfix.Operation_AddVec.HasSizeOperand() || !postfix.Operation_LerpVec.HasSizeOperand() {
+		t.Errorf("expected AddVec, LerpVec to have size operand")
+	}
+	if postfix.Operation_MulMat.HasSizeOperand() {
+		t.Errorf("expected MulMat to not have size operand")
 	}
 }

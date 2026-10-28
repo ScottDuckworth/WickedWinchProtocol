@@ -45,34 +45,74 @@ const (
 	Operation_Mul        Operation = 12
 	Operation_Div        Operation = 13
 	Operation_Pow        Operation = 14
-	Operation_Ipow       Operation = 15
-	Operation_MulAdd     Operation = 16
-	Operation_Neg        Operation = 17
-	Operation_Abs        Operation = 18
-	Operation_Inv        Operation = 19
-	Operation_Sqrt       Operation = 20
-	Operation_Exp        Operation = 21
-	Operation_Ln         Operation = 22
-	Operation_Sin        Operation = 23
-	Operation_Cos        Operation = 24
-	Operation_Tan        Operation = 25
-	Operation_Asin       Operation = 26
-	Operation_Acos       Operation = 27
-	Operation_Atan2      Operation = 28
+	Operation_Atan2      Operation = 15
+	Operation_Neg        Operation = 16
+	Operation_Abs        Operation = 17
+	Operation_Inv        Operation = 18
+	Operation_Sqrt       Operation = 19
+	Operation_Exp        Operation = 20
+	Operation_Ln         Operation = 21
+	Operation_Sin        Operation = 22
+	Operation_Cos        Operation = 23
+	Operation_Tan        Operation = 24
+	Operation_Asin       Operation = 25
+	Operation_Acos       Operation = 26
+	Operation_Ipow       Operation = 27
+	Operation_MulAdd     Operation = 28
 	Operation_AddVec     Operation = 29
 	Operation_SubVec     Operation = 30
 	Operation_MulVec     Operation = 31
-	Operation_MulAddVec  Operation = 32
-	Operation_ScaleVec   Operation = 33
-	Operation_DivVec     Operation = 34
-	Operation_NegVec     Operation = 35
-	Operation_InvVec     Operation = 36
-	Operation_NormSqVec  Operation = 37
-	Operation_SumVec     Operation = 38
+	Operation_DivVec     Operation = 32
+	Operation_NegVec     Operation = 33
+	Operation_InvVec     Operation = 34
+	Operation_NormSqVec  Operation = 35
+	Operation_SumVec     Operation = 36
+	Operation_MulAddVec  Operation = 37
+	Operation_ScaleVec   Operation = 38
 	Operation_LerpVec    Operation = 39
 	Operation_MulMat     Operation = 40
 	Operation_Polynomial Operation = 41
 )
+
+// IsBinaryScalar reports whether op is a binary scalar operation (10..15).
+func (op Operation) IsBinaryScalar() bool {
+	return op >= Operation_Add && op <= Operation_Atan2
+}
+
+// IsUnaryScalar reports whether op is a unary scalar operation (16..26).
+func (op Operation) IsUnaryScalar() bool {
+	return op >= Operation_Neg && op <= Operation_Acos
+}
+
+// IsScalar reports whether op is any scalar operation (10..28).
+func (op Operation) IsScalar() bool {
+	return op >= Operation_Add && op <= Operation_MulAdd
+}
+
+// IsBinaryVec reports whether op is a binary vector operation (29..32).
+func (op Operation) IsBinaryVec() bool {
+	return op >= Operation_AddVec && op <= Operation_DivVec
+}
+
+// IsUnaryVec reports whether op is a unary vector operation (33..34).
+func (op Operation) IsUnaryVec() bool {
+	return op >= Operation_NegVec && op <= Operation_InvVec
+}
+
+// IsVectorReduction reports whether op is a vector reduction operation (35..36).
+func (op Operation) IsVectorReduction() bool {
+	return op >= Operation_NormSqVec && op <= Operation_SumVec
+}
+
+// IsVector reports whether op is any vector operation with a size operand (29..39).
+func (op Operation) IsVector() bool {
+	return op >= Operation_AddVec && op <= Operation_LerpVec
+}
+
+// HasSizeOperand reports whether op has a 1-byte size operand (29..39).
+func (op Operation) HasSizeOperand() bool {
+	return op >= Operation_AddVec && op <= Operation_LerpVec
+}
 
 // Expression represents an immutable bytecode sequence of postfix operations.
 type Expression struct {
@@ -117,10 +157,8 @@ func (op Operation) String() string {
 		return "Div"
 	case Operation_Pow:
 		return "Pow"
-	case Operation_Ipow:
-		return "Ipow"
-	case Operation_MulAdd:
-		return "MulAdd"
+	case Operation_Atan2:
+		return "Atan2"
 	case Operation_Neg:
 		return "Neg"
 	case Operation_Abs:
@@ -143,18 +181,16 @@ func (op Operation) String() string {
 		return "Asin"
 	case Operation_Acos:
 		return "Acos"
-	case Operation_Atan2:
-		return "Atan2"
+	case Operation_Ipow:
+		return "Ipow"
+	case Operation_MulAdd:
+		return "MulAdd"
 	case Operation_AddVec:
 		return "AddVec"
 	case Operation_SubVec:
 		return "SubVec"
 	case Operation_MulVec:
 		return "MulVec"
-	case Operation_MulAddVec:
-		return "MulAddVec"
-	case Operation_ScaleVec:
-		return "ScaleVec"
 	case Operation_DivVec:
 		return "DivVec"
 	case Operation_NegVec:
@@ -165,6 +201,10 @@ func (op Operation) String() string {
 		return "NormSqVec"
 	case Operation_SumVec:
 		return "SumVec"
+	case Operation_MulAddVec:
+		return "MulAddVec"
+	case Operation_ScaleVec:
+		return "ScaleVec"
 	case Operation_LerpVec:
 		return "LerpVec"
 	case Operation_MulMat:
@@ -332,21 +372,21 @@ func (b *Builder) Mul() *Builder {
 	return b
 }
 
-// MulAdd pops c, b, a and pushes a*b + c.
-func (b *Builder) MulAdd() *Builder {
-	b.expr.Prog = append(b.expr.Prog, uint8(Operation_MulAdd))
-	return b
-}
-
 // Div pops rhs and lhs and pushes lhs / rhs.
 func (b *Builder) Div() *Builder {
 	b.expr.Prog = append(b.expr.Prog, uint8(Operation_Div))
 	return b
 }
 
-// Ipow raises the top value on the stack to the integer exponent exp (v^exp).
-func (b *Builder) Ipow(exp int8) *Builder {
-	b.expr.Prog = append(b.expr.Prog, uint8(Operation_Ipow), uint8(exp))
+// Pow pops rhs and lhs and pushes lhs raised to the power of rhs (lhs^rhs).
+func (b *Builder) Pow() *Builder {
+	b.expr.Prog = append(b.expr.Prog, uint8(Operation_Pow))
+	return b
+}
+
+// Atan2 pops x and y and pushes atan2(y, x).
+func (b *Builder) Atan2() *Builder {
+	b.expr.Prog = append(b.expr.Prog, uint8(Operation_Atan2))
 	return b
 }
 
@@ -365,12 +405,6 @@ func (b *Builder) Abs() *Builder {
 // Inv inverts the top value on the stack (1 / v).
 func (b *Builder) Inv() *Builder {
 	b.expr.Prog = append(b.expr.Prog, uint8(Operation_Inv))
-	return b
-}
-
-// Pow pops rhs and lhs and pushes lhs raised to the power of rhs (lhs^rhs).
-func (b *Builder) Pow() *Builder {
-	b.expr.Prog = append(b.expr.Prog, uint8(Operation_Pow))
 	return b
 }
 
@@ -422,43 +456,82 @@ func (b *Builder) Acos() *Builder {
 	return b
 }
 
-// Atan2 pops x and y and pushes atan2(y, x).
-func (b *Builder) Atan2() *Builder {
-	b.expr.Prog = append(b.expr.Prog, uint8(Operation_Atan2))
+// Ipow raises the top value on the stack to the integer exponent exp (v^exp).
+func (b *Builder) Ipow(exp int8) *Builder {
+	b.expr.Prog = append(b.expr.Prog, uint8(Operation_Ipow), uint8(exp))
 	return b
 }
 
-// Polynomial evaluates a polynomial or matrix of polynomials using Horner's method.
-// Operand constraints:
-//   - rows: 1 to 16 (number of polynomial coefficients per column, i.e. degree + 1)
-//   - cols: 1 to 16 (number of dimensions / columns)
-//   - len(coeffs) == rows * cols
-func (b *Builder) Polynomial(rows, cols int, coeffs ...float64) *Builder {
-	if rows < 1 || rows > 16 || cols < 1 || cols > 16 {
-		panic(fmt.Sprintf("Polynomial rows (%d) and cols (%d) must be in range [1, 16]", rows, cols))
-	}
-	if len(coeffs) != rows*cols {
-		panic("invalid number of coefficients for Polynomial")
-	}
-	arg := uint8((rows-1)&0x0F) | (uint8((cols-1)&0x0F) << 4)
-	b.expr.Prog = append(b.expr.Prog, uint8(Operation_Polynomial), arg)
-	for i := rows - 1; i >= 0; i-- {
-		rowOffset := i * cols
-		for j := range cols {
-			b.expr.Prog = binary.LittleEndian.AppendUint32(b.expr.Prog, math.Float32bits(float32(coeffs[rowOffset+j])))
-		}
-	}
+// MulAdd pops c, b, a and pushes a*b + c.
+func (b *Builder) MulAdd() *Builder {
+	b.expr.Prog = append(b.expr.Prog, uint8(Operation_MulAdd))
 	return b
 }
 
-// PolyVec is a convenience method that evaluates a 1D polynomial via Operation_Polynomial.
-func (b *Builder) PolyVec(coeffs ...float64) *Builder {
-	return b.Polynomial(len(coeffs), 1, coeffs...)
+// AddVec pops two vectors of the specified dimension and pushes their componentwise sum.
+func (b *Builder) AddVec(size int) *Builder {
+	b.expr.Prog = append(b.expr.Prog, uint8(Operation_AddVec), uint8(size))
+	return b
 }
 
-// PolyMat is an alias for Polynomial.
-func (b *Builder) PolyMat(rows, cols int, coeffs ...float64) *Builder {
-	return b.Polynomial(rows, cols, coeffs...)
+// SubVec pops vector rhs and vector lhs and pushes their componentwise difference (lhs - rhs).
+func (b *Builder) SubVec(size int) *Builder {
+	b.expr.Prog = append(b.expr.Prog, uint8(Operation_SubVec), uint8(size))
+	return b
+}
+
+// MulVec pops two vectors of the specified dimension and pushes their componentwise product.
+func (b *Builder) MulVec(size int) *Builder {
+	b.expr.Prog = append(b.expr.Prog, uint8(Operation_MulVec), uint8(size))
+	return b
+}
+
+// DivVec pops vector rhs and vector lhs and pushes componentwise lhs / rhs.
+func (b *Builder) DivVec(size int) *Builder {
+	b.expr.Prog = append(b.expr.Prog, uint8(Operation_DivVec), uint8(size))
+	return b
+}
+
+// NegVec negates each component of a vector on the stack.
+func (b *Builder) NegVec(size int) *Builder {
+	b.expr.Prog = append(b.expr.Prog, uint8(Operation_NegVec), uint8(size))
+	return b
+}
+
+// InvVec inverts each component of a vector on the stack (1 / v[i]).
+func (b *Builder) InvVec(size int) *Builder {
+	b.expr.Prog = append(b.expr.Prog, uint8(Operation_InvVec), uint8(size))
+	return b
+}
+
+// NormSqVec pops a vector and pushes the scalar squared Euclidean norm ||v||^2.
+func (b *Builder) NormSqVec(size int) *Builder {
+	b.expr.Prog = append(b.expr.Prog, uint8(Operation_NormSqVec), uint8(size))
+	return b
+}
+
+// SumVec pops a vector and pushes the scalar sum of its components.
+func (b *Builder) SumVec(size int) *Builder {
+	b.expr.Prog = append(b.expr.Prog, uint8(Operation_SumVec), uint8(size))
+	return b
+}
+
+// MulAddVec pops vectors c, b, a of the specified dimension and pushes a*b + c componentwise.
+func (b *Builder) MulAddVec(size int) *Builder {
+	b.expr.Prog = append(b.expr.Prog, uint8(Operation_MulAddVec), uint8(size))
+	return b
+}
+
+// ScaleVec pops vector vec and scalar factor and pushes factor * vec.
+func (b *Builder) ScaleVec(size int) *Builder {
+	b.expr.Prog = append(b.expr.Prog, uint8(Operation_ScaleVec), uint8(size))
+	return b
+}
+
+// LerpVec pops vector v1, vector v0, and scalar t and pushes the linear interpolation (1-t)*v0 + t*v1.
+func (b *Builder) LerpVec(size int) *Builder {
+	b.expr.Prog = append(b.expr.Prog, uint8(Operation_LerpVec), uint8(size))
+	return b
 }
 
 func packMulMat(arows, brows, bcols int, immediate bool) uint8 {
@@ -506,72 +579,6 @@ func unpackMulMat(arg uint8) (arows, brows, bcols int, immediate bool) {
 	return
 }
 
-// AddVec pops two vectors of the specified dimension and pushes their componentwise sum.
-func (b *Builder) AddVec(size int) *Builder {
-	b.expr.Prog = append(b.expr.Prog, uint8(Operation_AddVec), uint8(size))
-	return b
-}
-
-// SubVec pops vector rhs and vector lhs and pushes their componentwise difference (lhs - rhs).
-func (b *Builder) SubVec(size int) *Builder {
-	b.expr.Prog = append(b.expr.Prog, uint8(Operation_SubVec), uint8(size))
-	return b
-}
-
-// MulVec pops two vectors of the specified dimension and pushes their componentwise product.
-func (b *Builder) MulVec(size int) *Builder {
-	b.expr.Prog = append(b.expr.Prog, uint8(Operation_MulVec), uint8(size))
-	return b
-}
-
-// MulAddVec pops vectors c, b, a of the specified dimension and pushes a*b + c componentwise.
-func (b *Builder) MulAddVec(size int) *Builder {
-	b.expr.Prog = append(b.expr.Prog, uint8(Operation_MulAddVec), uint8(size))
-	return b
-}
-
-// ScaleVec pops vector vec and scalar factor and pushes factor * vec.
-func (b *Builder) ScaleVec(size int) *Builder {
-	b.expr.Prog = append(b.expr.Prog, uint8(Operation_ScaleVec), uint8(size))
-	return b
-}
-
-// DivVec pops vector rhs and vector lhs and pushes componentwise lhs / rhs.
-func (b *Builder) DivVec(size int) *Builder {
-	b.expr.Prog = append(b.expr.Prog, uint8(Operation_DivVec), uint8(size))
-	return b
-}
-
-// NegVec negates each component of a vector on the stack.
-func (b *Builder) NegVec(size int) *Builder {
-	b.expr.Prog = append(b.expr.Prog, uint8(Operation_NegVec), uint8(size))
-	return b
-}
-
-// InvVec inverts each component of a vector on the stack (1 / v[i]).
-func (b *Builder) InvVec(size int) *Builder {
-	b.expr.Prog = append(b.expr.Prog, uint8(Operation_InvVec), uint8(size))
-	return b
-}
-
-// NormSqVec pops a vector and pushes the scalar squared Euclidean norm ||v||^2.
-func (b *Builder) NormSqVec(size int) *Builder {
-	b.expr.Prog = append(b.expr.Prog, uint8(Operation_NormSqVec), uint8(size))
-	return b
-}
-
-// SumVec pops a vector and pushes the scalar sum of its components.
-func (b *Builder) SumVec(size int) *Builder {
-	b.expr.Prog = append(b.expr.Prog, uint8(Operation_SumVec), uint8(size))
-	return b
-}
-
-// LerpVec pops vector v1, vector v0, and scalar t and pushes the linear interpolation (1-t)*v0 + t*v1.
-func (b *Builder) LerpVec(size int) *Builder {
-	b.expr.Prog = append(b.expr.Prog, uint8(Operation_LerpVec), uint8(size))
-	return b
-}
-
 // MulMat encodes a matrix multiplication C = A * B, where A is (arows x brows) and B is (brows x bcols).
 // Operand constraints:
 //   - arows: 1 to 4
@@ -601,6 +608,39 @@ func (b *Builder) MulMatImmediate(arows, brows, bcols int, bMatrix ...float64) *
 		b.expr.Prog = binary.LittleEndian.AppendUint32(b.expr.Prog, math.Float32bits(float32(f)))
 	}
 	return b
+}
+
+// Polynomial evaluates a polynomial or matrix of polynomials using Horner's method.
+// Operand constraints:
+//   - rows: 1 to 16 (number of polynomial coefficients per column, i.e. degree + 1)
+//   - cols: 1 to 16 (number of dimensions / columns)
+//   - len(coeffs) == rows * cols
+func (b *Builder) Polynomial(rows, cols int, coeffs ...float64) *Builder {
+	if rows < 1 || rows > 16 || cols < 1 || cols > 16 {
+		panic(fmt.Sprintf("Polynomial rows (%d) and cols (%d) must be in range [1, 16]", rows, cols))
+	}
+	if len(coeffs) != rows*cols {
+		panic("invalid number of coefficients for Polynomial")
+	}
+	arg := uint8((rows-1)&0x0F) | (uint8((cols-1)&0x0F) << 4)
+	b.expr.Prog = append(b.expr.Prog, uint8(Operation_Polynomial), arg)
+	for i := rows - 1; i >= 0; i-- {
+		rowOffset := i * cols
+		for j := range cols {
+			b.expr.Prog = binary.LittleEndian.AppendUint32(b.expr.Prog, math.Float32bits(float32(coeffs[rowOffset+j])))
+		}
+	}
+	return b
+}
+
+// PolyVec is a convenience method that evaluates a 1D polynomial via Operation_Polynomial.
+func (b *Builder) PolyVec(coeffs ...float64) *Builder {
+	return b.Polynomial(len(coeffs), 1, coeffs...)
+}
+
+// PolyMat is an alias for Polynomial.
+func (b *Builder) PolyMat(rows, cols int, coeffs ...float64) *Builder {
+	return b.Polynomial(rows, cols, coeffs...)
 }
 
 // Validate performs static analysis of the bytecode against an initial stack length,
@@ -696,6 +736,10 @@ func (expr *Expression) Validate(initialStackLen int) (minCapacity, finalStackLe
 				return 0, 0, nil, ErrStackUnderflow
 			}
 			stackLen -= 1
+		case Operation_Neg, Operation_Abs, Operation_Inv, Operation_Sqrt, Operation_Exp, Operation_Ln, Operation_Sin, Operation_Cos, Operation_Tan, Operation_Asin, Operation_Acos:
+			if stackLen < 1 {
+				return 0, 0, nil, ErrStackUnderflow
+			}
 		case Operation_Ipow:
 			if avail() < 1 {
 				return 0, 0, nil, ErrIllegalOperation
@@ -709,10 +753,6 @@ func (expr *Expression) Validate(initialStackLen int) (minCapacity, finalStackLe
 				return 0, 0, nil, ErrStackUnderflow
 			}
 			stackLen -= 2
-		case Operation_Neg, Operation_Abs, Operation_Inv, Operation_Sqrt, Operation_Exp, Operation_Ln, Operation_Sin, Operation_Cos, Operation_Tan, Operation_Asin, Operation_Acos:
-			if stackLen < 1 {
-				return 0, 0, nil, ErrStackUnderflow
-			}
 		case Operation_AddVec, Operation_SubVec, Operation_MulVec, Operation_DivVec:
 			if avail() < 1 {
 				return 0, 0, nil, ErrIllegalOperation
@@ -722,24 +762,6 @@ func (expr *Expression) Validate(initialStackLen int) (minCapacity, finalStackLe
 				return 0, 0, nil, ErrStackUnderflow
 			}
 			stackLen -= size
-		case Operation_MulAddVec:
-			if avail() < 1 {
-				return 0, 0, nil, ErrIllegalOperation
-			}
-			size := fetchByte()
-			if stackLen < size*3 {
-				return 0, 0, nil, ErrStackUnderflow
-			}
-			stackLen -= size * 2
-		case Operation_ScaleVec:
-			if avail() < 1 {
-				return 0, 0, nil, ErrIllegalOperation
-			}
-			size := fetchByte()
-			if stackLen < size+1 {
-				return 0, 0, nil, ErrStackUnderflow
-			}
-			stackLen -= 1
 		case Operation_NegVec, Operation_InvVec:
 			if avail() < 1 {
 				return 0, 0, nil, ErrIllegalOperation
@@ -762,6 +784,33 @@ func (expr *Expression) Validate(initialStackLen int) (minCapacity, finalStackLe
 			} else {
 				stackLen = stackLen - size + 1
 			}
+		case Operation_MulAddVec:
+			if avail() < 1 {
+				return 0, 0, nil, ErrIllegalOperation
+			}
+			size := fetchByte()
+			if stackLen < size*3 {
+				return 0, 0, nil, ErrStackUnderflow
+			}
+			stackLen -= size * 2
+		case Operation_ScaleVec:
+			if avail() < 1 {
+				return 0, 0, nil, ErrIllegalOperation
+			}
+			size := fetchByte()
+			if stackLen < size+1 {
+				return 0, 0, nil, ErrStackUnderflow
+			}
+			stackLen -= 1
+		case Operation_LerpVec:
+			if avail() < 1 {
+				return 0, 0, nil, ErrIllegalOperation
+			}
+			size := fetchByte()
+			if stackLen < size*2+1 {
+				return 0, 0, nil, ErrStackUnderflow
+			}
+			stackLen -= size + 1
 		case Operation_MulMat:
 			if avail() < 1 {
 				return 0, 0, nil, ErrIllegalOperation
@@ -808,15 +857,6 @@ func (expr *Expression) Validate(initialStackLen int) (minCapacity, finalStackLe
 			}
 			stackLen = stackLen - 1 + cols
 			updateMax(stackLen)
-		case Operation_LerpVec:
-			if avail() < 1 {
-				return 0, 0, nil, ErrIllegalOperation
-			}
-			size := fetchByte()
-			if stackLen < size*2+1 {
-				return 0, 0, nil, ErrStackUnderflow
-			}
-			stackLen -= size + 1
 		default:
 			return 0, 0, nil, ErrUndefinedOperation
 		}
@@ -950,15 +990,10 @@ func (expr *Expression) Evaluate(stack []float64) []float64 {
 			rhs := pop()
 			lhs := pop()
 			stack = append(stack, math.Pow(lhs, rhs))
-		case Operation_Ipow:
-			exp := int8(fetchByte())
-			v := pop()
-			stack = append(stack, ipow(v, int(exp)))
-		case Operation_MulAdd:
-			c := pop()
-			b := pop()
-			a := pop()
-			stack = append(stack, a*b+c)
+		case Operation_Atan2:
+			x := pop()
+			y := pop()
+			stack = append(stack, math.Atan2(y, x))
 		case Operation_Neg:
 			v := pop()
 			stack = append(stack, -v)
@@ -992,10 +1027,15 @@ func (expr *Expression) Evaluate(stack []float64) []float64 {
 		case Operation_Acos:
 			v := pop()
 			stack = append(stack, math.Acos(v))
-		case Operation_Atan2:
-			x := pop()
-			y := pop()
-			stack = append(stack, math.Atan2(y, x))
+		case Operation_Ipow:
+			exp := int8(fetchByte())
+			v := pop()
+			stack = append(stack, ipow(v, int(exp)))
+		case Operation_MulAdd:
+			c := pop()
+			b := pop()
+			a := pop()
+			stack = append(stack, a*b+c)
 		case Operation_AddVec:
 			size := fetchByte()
 			rhs := popv(size)
@@ -1016,21 +1056,6 @@ func (expr *Expression) Evaluate(stack []float64) []float64 {
 			lhs := popv(size)
 			for i := range size {
 				stack = append(stack, lhs[i]*rhs[i])
-			}
-		case Operation_MulAddVec:
-			size := fetchByte()
-			c := popv(size)
-			b := popv(size)
-			a := popv(size)
-			for i := range size {
-				stack = append(stack, a[i]*b[i]+c[i])
-			}
-		case Operation_ScaleVec:
-			size := fetchByte()
-			vec := popv(size)
-			scalar := pop()
-			for i := range size {
-				stack = append(stack, scalar*vec[i])
 			}
 		case Operation_DivVec:
 			size := fetchByte()
@@ -1067,6 +1092,29 @@ func (expr *Expression) Evaluate(stack []float64) []float64 {
 				result += vec[i]
 			}
 			stack = append(stack, result)
+		case Operation_MulAddVec:
+			size := fetchByte()
+			c := popv(size)
+			b := popv(size)
+			a := popv(size)
+			for i := range size {
+				stack = append(stack, a[i]*b[i]+c[i])
+			}
+		case Operation_ScaleVec:
+			size := fetchByte()
+			vec := popv(size)
+			scalar := pop()
+			for i := range size {
+				stack = append(stack, scalar*vec[i])
+			}
+		case Operation_LerpVec:
+			size := fetchByte()
+			v1 := popv(size)
+			v0 := popv(size)
+			t := pop()
+			for i := range size {
+				stack = append(stack, (1-t)*v0[i]+t*v1[i])
+			}
 		case Operation_MulMat:
 			arg := fetchByte()
 			arows, brows, bcols, immediate := unpackMulMat(uint8(arg))
@@ -1116,14 +1164,6 @@ func (expr *Expression) Evaluate(stack []float64) []float64 {
 					}
 				}
 				stack = append(stack, result...)
-			}
-		case Operation_LerpVec:
-			size := fetchByte()
-			v1 := popv(size)
-			v0 := popv(size)
-			t := pop()
-			for i := range size {
-				stack = append(stack, (1-t)*v0[i]+t*v1[i])
 			}
 		}
 	}
