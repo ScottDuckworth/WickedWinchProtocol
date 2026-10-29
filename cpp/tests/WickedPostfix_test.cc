@@ -77,7 +77,20 @@ TEST(EvalTest, Empty) {
 
 TEST(EvalTest, Push) {
   WickedPostfixWriter writer;
-  writer.Push({1, 2});
+  writer.Push(42.0f);
+  EXPECT_EQ(writer.prog_size(), 5);
+  auto buffer = writer.Write();
+
+  TestEval eval(4, {1});
+  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval));
+  EXPECT_EQ(WickedPostfixValidate(&eval, 2), WickedEvalStatus_Ok);
+  WickedPostfixEvaluate(&eval);
+  EXPECT_THAT(eval.stack(), ElementsAre(1, 42));
+}
+
+TEST(EvalTest, PushVec) {
+  WickedPostfixWriter writer;
+  writer.PushVec({1, 2});
   EXPECT_EQ(writer.prog_size(), 10);
   auto buffer = writer.Write();
 
@@ -88,24 +101,11 @@ TEST(EvalTest, Push) {
   EXPECT_THAT(eval.stack(), ElementsAre(42, 1, 2));
 }
 
-TEST(EvalTest, PushSingle) {
-  WickedPostfixWriter writer;
-  writer.Push(42.0f);
-  EXPECT_EQ(writer.prog_size(), 6);
-  auto buffer = writer.Write();
-
-  TestEval eval(4, {1});
-  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval));
-  EXPECT_EQ(WickedPostfixValidate(&eval, 2), WickedEvalStatus_Ok);
-  WickedPostfixEvaluate(&eval);
-  EXPECT_THAT(eval.stack(), ElementsAre(1, 42));
-}
-
 TEST(EvalTest, PushMany) {
   WickedPostfixWriter writer;
-  writer.Push({1, 2});
-  writer.Push({3});
-  EXPECT_EQ(writer.prog_size(), 16);
+  writer.PushVec({1, 2});
+  writer.Push(3.0f);
+  EXPECT_EQ(writer.prog_size(), 15);
   auto buffer = writer.Write();
 
   TestEval eval(4, {42});
@@ -125,11 +125,21 @@ TEST(EvalTest, PushIntUnderflow) {
   EXPECT_EQ(WickedPostfixValidate(&eval, 0), WickedEvalStatus_IllegalOperation);
 }
 
-TEST(EvalTest, PushDataUnderflow) {
+TEST(EvalTest, PushVecIntUnderflow) {
   WickedPostfixWriter writer;
-  writer.EmitOp(WickedPostfixOp_Push);
-  writer.EmitByte(2);
-  writer.EmitFloat(1);
+  writer.EmitOp(WickedPostfixOp_PushVec);
+  auto buffer = writer.Write();
+
+  TestEval eval(4, {42});
+  EXPECT_TRUE(WickedPostfixRead(buffer.data(), buffer.size(), &eval));
+  EXPECT_EQ(WickedPostfixValidate(&eval, 0), WickedEvalStatus_IllegalOperation);
+}
+
+TEST(EvalTest, PushVecDataUnderflow) {
+  WickedPostfixWriter writer;
+  writer.EmitOp(WickedPostfixOp_PushVec);
+  writer.EmitByte(1);  // size = 2, needs 8 bytes
+  writer.EmitFloat(1);  // only 4 bytes provided
   auto buffer = writer.Write();
 
   TestEval eval(4, {42});
@@ -1463,7 +1473,7 @@ TEST(EvalTest, PolyDataUnderflow) {
 
 TEST(EvalTest, UnexpectedStackSize) {
   WickedPostfixWriter writer;
-  writer.Push({1, 2});
+  writer.PushVec({1, 2});
   auto buffer = writer.Write();
 
   TestEval eval(4, {42});
@@ -1475,7 +1485,7 @@ TEST(EvalTest, UnexpectedStackSize) {
 
 TEST(EvalTest, DirectValidateAndEvaluate) {
   WickedPostfixWriter writer;
-  writer.Push({1, 2});
+  writer.PushVec({1, 2});
   auto buffer = writer.Write();
 
   const uint8_t* prog_data = nullptr;
@@ -1509,7 +1519,7 @@ TEST(EvalTest, StackCapacityExceedsUint16) {
 
 TEST(EvalTest, ReadUnsafe) {
   WickedPostfixWriter writer;
-  writer.Push({1.0f, 2.0f});
+  writer.PushVec({1.0f, 2.0f});
   auto buffer = writer.Write();
 
   const uint8_t* safe_prog_data = nullptr;
@@ -1528,7 +1538,7 @@ TEST(EvalTest, ReadUnsafe) {
 
 TEST(EvalTest, ReadUnaligned) {
   WickedPostfixWriter writer;
-  writer.Push({1.0f, 2.0f});
+  writer.PushVec({1.0f, 2.0f});
   auto buffer = writer.Write();
 
   std::vector<uint8_t> unaligned_buffer(buffer.size() + 1);
@@ -1556,6 +1566,8 @@ TEST(EvalTest, HeaderPacked) {
 }
 
 TEST(EvalTest, OpToString) {
+  EXPECT_STREQ(WickedPostfixOpToString(WickedPostfixOp_Push), "Push");
+  EXPECT_STREQ(WickedPostfixOpToString(WickedPostfixOp_PushVec), "PushVec");
   EXPECT_STREQ(WickedPostfixOpToString(WickedPostfixOp_Ipow), "Ipow");
   EXPECT_STREQ(WickedPostfixOpToString(WickedPostfixOp_Poly), "Poly");
 }
@@ -1582,31 +1594,33 @@ TEST(EvalTest, Predicates) {
   EXPECT_FALSE(WickedPostfixOpIsScalar(WickedPostfixOp_Pick));
   EXPECT_FALSE(WickedPostfixOpIsScalar(WickedPostfixOp_AddVec));
 
-  // Binary vector: 29..32 (AddVec..DivVec)
+  // Binary vector: 30..33 (AddVec..DivVec)
   EXPECT_TRUE(WickedPostfixOpIsBinaryVec(WickedPostfixOp_AddVec));
   EXPECT_TRUE(WickedPostfixOpIsBinaryVec(WickedPostfixOp_DivVec));
   EXPECT_FALSE(WickedPostfixOpIsBinaryVec(WickedPostfixOp_MulAdd));
   EXPECT_FALSE(WickedPostfixOpIsBinaryVec(WickedPostfixOp_NegVec));
 
-  // Unary vector: 33..34 (NegVec..InvVec)
+  // Unary vector: 34..35 (NegVec..InvVec)
   EXPECT_TRUE(WickedPostfixOpIsUnaryVec(WickedPostfixOp_NegVec));
   EXPECT_TRUE(WickedPostfixOpIsUnaryVec(WickedPostfixOp_InvVec));
   EXPECT_FALSE(WickedPostfixOpIsUnaryVec(WickedPostfixOp_DivVec));
   EXPECT_FALSE(WickedPostfixOpIsUnaryVec(WickedPostfixOp_NormSqVec));
 
-  // Vector reduction: 35..36 (NormSqVec..SumVec)
+  // Vector reduction: 36..37 (NormSqVec..SumVec)
   EXPECT_TRUE(WickedPostfixOpIsVectorReduction(WickedPostfixOp_NormSqVec));
   EXPECT_TRUE(WickedPostfixOpIsVectorReduction(WickedPostfixOp_SumVec));
   EXPECT_FALSE(WickedPostfixOpIsVectorReduction(WickedPostfixOp_InvVec));
   EXPECT_FALSE(WickedPostfixOpIsVectorReduction(WickedPostfixOp_MulAddVec));
 
-  // Vector: 29..39 (AddVec..LerpVec)
+  // Vector: 29..40 (PushVec..LerpVec)
+  EXPECT_TRUE(WickedPostfixOpIsVector(WickedPostfixOp_PushVec));
   EXPECT_TRUE(WickedPostfixOpIsVector(WickedPostfixOp_AddVec));
   EXPECT_TRUE(WickedPostfixOpIsVector(WickedPostfixOp_LerpVec));
   EXPECT_FALSE(WickedPostfixOpIsVector(WickedPostfixOp_MulAdd));
   EXPECT_FALSE(WickedPostfixOpIsVector(WickedPostfixOp_MulMat));
 
-  // Size operand: 29..39 (AddVec..LerpVec)
+  // Size operand: 29..40 (PushVec..LerpVec)
+  EXPECT_TRUE(WickedPostfixOpHasSizeOperand(WickedPostfixOp_PushVec));
   EXPECT_TRUE(WickedPostfixOpHasSizeOperand(WickedPostfixOp_AddVec));
   EXPECT_TRUE(WickedPostfixOpHasSizeOperand(WickedPostfixOp_LerpVec));
   EXPECT_FALSE(WickedPostfixOpHasSizeOperand(WickedPostfixOp_MulMat));

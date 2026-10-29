@@ -59,19 +59,20 @@ const (
 	Operation_Acos       Operation = 26
 	Operation_Ipow       Operation = 27
 	Operation_MulAdd     Operation = 28
-	Operation_AddVec     Operation = 29
-	Operation_SubVec     Operation = 30
-	Operation_MulVec     Operation = 31
-	Operation_DivVec     Operation = 32
-	Operation_NegVec     Operation = 33
-	Operation_InvVec     Operation = 34
-	Operation_NormSqVec  Operation = 35
-	Operation_SumVec     Operation = 36
-	Operation_MulAddVec  Operation = 37
-	Operation_ScaleVec   Operation = 38
-	Operation_LerpVec    Operation = 39
-	Operation_MulMat     Operation = 40
-	Operation_Poly       Operation = 41
+	Operation_PushVec    Operation = 29
+	Operation_AddVec     Operation = 30
+	Operation_SubVec     Operation = 31
+	Operation_MulVec     Operation = 32
+	Operation_DivVec     Operation = 33
+	Operation_NegVec     Operation = 34
+	Operation_InvVec     Operation = 35
+	Operation_NormSqVec  Operation = 36
+	Operation_SumVec     Operation = 37
+	Operation_MulAddVec  Operation = 38
+	Operation_ScaleVec   Operation = 39
+	Operation_LerpVec    Operation = 40
+	Operation_MulMat     Operation = 41
+	Operation_Poly       Operation = 42
 )
 
 // IsBinaryScalar reports whether op is a binary scalar operation (10..15).
@@ -89,29 +90,29 @@ func (op Operation) IsScalar() bool {
 	return op >= Operation_Add && op <= Operation_MulAdd
 }
 
-// IsBinaryVec reports whether op is a binary vector operation (29..32).
+// IsBinaryVec reports whether op is a binary vector operation (30..33).
 func (op Operation) IsBinaryVec() bool {
 	return op >= Operation_AddVec && op <= Operation_DivVec
 }
 
-// IsUnaryVec reports whether op is a unary vector operation (33..34).
+// IsUnaryVec reports whether op is a unary vector operation (34..35).
 func (op Operation) IsUnaryVec() bool {
 	return op >= Operation_NegVec && op <= Operation_InvVec
 }
 
-// IsVectorReduction reports whether op is a vector reduction operation (35..36).
+// IsVectorReduction reports whether op is a vector reduction operation (36..37).
 func (op Operation) IsVectorReduction() bool {
 	return op >= Operation_NormSqVec && op <= Operation_SumVec
 }
 
-// IsVector reports whether op is any vector operation with a size operand (29..39).
+// IsVector reports whether op is any vector operation with a size operand (29..40).
 func (op Operation) IsVector() bool {
-	return op >= Operation_AddVec && op <= Operation_LerpVec
+	return op >= Operation_PushVec && op <= Operation_LerpVec
 }
 
-// HasSizeOperand reports whether op has a 1-byte size operand (29..39).
+// HasSizeOperand reports whether op has a 1-byte size operand (29..40).
 func (op Operation) HasSizeOperand() bool {
-	return op >= Operation_AddVec && op <= Operation_LerpVec
+	return op >= Operation_PushVec && op <= Operation_LerpVec
 }
 
 // Expression represents an immutable bytecode sequence of postfix operations.
@@ -185,6 +186,8 @@ func (op Operation) String() string {
 		return "Ipow"
 	case Operation_MulAdd:
 		return "MulAdd"
+	case Operation_PushVec:
+		return "PushVec"
 	case Operation_AddVec:
 		return "AddVec"
 	case Operation_SubVec:
@@ -281,10 +284,23 @@ func (b *Builder) Build() *Expression {
 	return &b.expr
 }
 
-// Push appends an Operation_Push instruction with the given 32-bit float literals ( -> literals...).
-func (b *Builder) Push(literals ...float64) *Builder {
-	b.expr.Prog = append(b.expr.Prog, uint8(Operation_Push), uint8(len(literals)))
-	for _, v := range literals {
+// Push appends an Operation_Push instruction for a single 32-bit float literal ( -> value).
+func (b *Builder) Push(v float64) *Builder {
+	b.expr.Prog = append(b.expr.Prog, uint8(Operation_Push))
+	b.expr.Prog = binary.LittleEndian.AppendUint32(b.expr.Prog, math.Float32bits(float32(v)))
+	return b
+}
+
+// PushVec appends an Operation_PushVec instruction with the given 32-bit float vector literals ( -> values...).
+func (b *Builder) PushVec(values ...float64) *Builder {
+	if len(values) == 0 {
+		return b
+	}
+	if len(values) > 255 {
+		panic(fmt.Sprintf("PushVec size (%d) exceeds maximum of 255", len(values)))
+	}
+	b.expr.Prog = append(b.expr.Prog, uint8(Operation_PushVec), uint8(len(values)-1))
+	for _, v := range values {
 		b.expr.Prog = binary.LittleEndian.AppendUint32(b.expr.Prog, math.Float32bits(float32(v)))
 	}
 	return b
@@ -667,15 +683,23 @@ func (expr *Expression) Validate(initialStackLen int) (minCapacity, finalStackLe
 		case Operation_Undefined:
 			return 0, 0, nil, ErrUndefinedOperation
 		case Operation_Push:
+			if avail() < 4 {
+				return 0, 0, nil, ErrIllegalOperation
+			}
+			pc += 4
+			stackLen += 1
+			updateMax(stackLen)
+		case Operation_PushVec:
 			if avail() < 1 {
 				return 0, 0, nil, ErrIllegalOperation
 			}
-			n := fetchByte()
-			if avail() < n*4 {
+			size := fetchByte() + 1
+			byteCount := size * 4
+			if avail() < byteCount {
 				return 0, 0, nil, ErrIllegalOperation
 			}
-			pc += n * 4
-			stackLen += n
+			pc += byteCount
+			stackLen += size
 			updateMax(stackLen)
 		case Operation_Drop:
 			if stackLen < 1 {
@@ -915,8 +939,10 @@ func (expr *Expression) Evaluate(stack []float64) []float64 {
 		op := Operation(fetchByte())
 		switch op {
 		case Operation_Push:
-			n := fetchByte()
-			for range n {
+			stack = append(stack, fetchFloat())
+		case Operation_PushVec:
+			size := int(fetchByte()) + 1
+			for range size {
 				stack = append(stack, fetchFloat())
 			}
 		case Operation_Drop:

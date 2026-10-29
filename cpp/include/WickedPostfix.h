@@ -64,19 +64,20 @@ typedef enum WickedPostfixOp {
   WickedPostfixOp_Acos      = 26,
   WickedPostfixOp_Ipow      = 27,
   WickedPostfixOp_MulAdd    = 28,
-  WickedPostfixOp_AddVec    = 29,
-  WickedPostfixOp_SubVec    = 30,
-  WickedPostfixOp_MulVec    = 31,
-  WickedPostfixOp_DivVec    = 32,
-  WickedPostfixOp_NegVec    = 33,
-  WickedPostfixOp_InvVec    = 34,
-  WickedPostfixOp_NormSqVec = 35,
-  WickedPostfixOp_SumVec    = 36,
-  WickedPostfixOp_MulAddVec = 37,
-  WickedPostfixOp_ScaleVec  = 38,
-  WickedPostfixOp_LerpVec   = 39,
-  WickedPostfixOp_MulMat    = 40,
-  WickedPostfixOp_Poly      = 41,
+  WickedPostfixOp_PushVec   = 29,
+  WickedPostfixOp_AddVec    = 30,
+  WickedPostfixOp_SubVec    = 31,
+  WickedPostfixOp_MulVec    = 32,
+  WickedPostfixOp_DivVec    = 33,
+  WickedPostfixOp_NegVec    = 34,
+  WickedPostfixOp_InvVec    = 35,
+  WickedPostfixOp_NormSqVec = 36,
+  WickedPostfixOp_SumVec    = 37,
+  WickedPostfixOp_MulAddVec = 38,
+  WickedPostfixOp_ScaleVec  = 39,
+  WickedPostfixOp_LerpVec   = 40,
+  WickedPostfixOp_MulMat    = 41,
+  WickedPostfixOp_Poly      = 42,
 } WickedPostfixOp_t;
 
 // Returns true if op is a binary scalar operation (10..15).
@@ -94,29 +95,29 @@ static inline bool WickedPostfixOpIsScalar(WickedPostfixOp_t op) {
   return op >= WickedPostfixOp_Add && op <= WickedPostfixOp_MulAdd;
 }
 
-// Returns true if op is a binary vector operation (29..32).
+// Returns true if op is a binary vector operation (30..33).
 static inline bool WickedPostfixOpIsBinaryVec(WickedPostfixOp_t op) {
   return op >= WickedPostfixOp_AddVec && op <= WickedPostfixOp_DivVec;
 }
 
-// Returns true if op is a unary vector operation (33..34).
+// Returns true if op is a unary vector operation (34..35).
 static inline bool WickedPostfixOpIsUnaryVec(WickedPostfixOp_t op) {
   return op >= WickedPostfixOp_NegVec && op <= WickedPostfixOp_InvVec;
 }
 
-// Returns true if op is a vector reduction operation (35..36).
+// Returns true if op is a vector reduction operation (36..37).
 static inline bool WickedPostfixOpIsVectorReduction(WickedPostfixOp_t op) {
   return op >= WickedPostfixOp_NormSqVec && op <= WickedPostfixOp_SumVec;
 }
 
-// Returns true if op is a vector operation (29..39).
+// Returns true if op is a vector operation (29..40).
 static inline bool WickedPostfixOpIsVector(WickedPostfixOp_t op) {
-  return op >= WickedPostfixOp_AddVec && op <= WickedPostfixOp_LerpVec;
+  return op >= WickedPostfixOp_PushVec && op <= WickedPostfixOp_LerpVec;
 }
 
-// Returns true if op takes a 1-byte size operand (29..39).
+// Returns true if op takes a 1-byte size operand (29..40).
 static inline bool WickedPostfixOpHasSizeOperand(WickedPostfixOp_t op) {
-  return op >= WickedPostfixOp_AddVec && op <= WickedPostfixOp_LerpVec;
+  return op >= WickedPostfixOp_PushVec && op <= WickedPostfixOp_LerpVec;
 }
 
 // Returns the string representation of an opcode.
@@ -198,20 +199,22 @@ class WickedPostfixWriter {
   // Pushes a single float literal onto the stack ( -> value).
   void Push(float value) {
     EmitOp(WickedPostfixOp_Push);
-    EmitByte(1);
     EmitFloat(value);
   }
 
   // Pushes multiple float literals onto the stack ( -> values...).
-  void Push(std::span<const float> values) {
-    EmitOp(WickedPostfixOp_Push);
-    EmitByte(static_cast<uint8_t>(values.size()));
+  // Operand constraints:
+  //   - values.size(): 1 to 255
+  void PushVec(std::span<const float> values) {
+    assert(values.size() >= 1 && values.size() <= 255);
+    EmitOp(WickedPostfixOp_PushVec);
+    EmitByte(static_cast<uint8_t>(values.size() - 1));
     for (float value : values) EmitFloat(value);
   }
 
   // Pushes multiple float literals onto the stack ( -> values...).
-  void Push(std::initializer_list<float> values) {
-    Push(std::span<const float>(values));
+  void PushVec(std::initializer_list<float> values) {
+    PushVec(std::span<const float>(values));
   }
 
   // Drops the top value from the stack (a -> ).

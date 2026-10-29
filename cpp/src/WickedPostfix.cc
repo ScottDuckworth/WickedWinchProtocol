@@ -51,6 +51,7 @@ extern "C" const char* WickedPostfixOpToString(WickedPostfixOp_t op) {
     case WickedPostfixOp_Acos:      return "Acos";
     case WickedPostfixOp_Ipow:      return "Ipow";
     case WickedPostfixOp_MulAdd:    return "MulAdd";
+    case WickedPostfixOp_PushVec:   return "PushVec";
     case WickedPostfixOp_AddVec:    return "AddVec";
     case WickedPostfixOp_SubVec:    return "SubVec";
     case WickedPostfixOp_MulVec:    return "MulVec";
@@ -117,12 +118,20 @@ struct ValidationContext {
 namespace validate {
 
 WICKED_ALWAYS_INLINE WickedEvalStatus_t Push(ValidationContext& ctx) {
+  if (!ctx.has_bytes(sizeof(float))) return WickedEvalStatus_IllegalOperation;
+  ctx.skip(sizeof(float));
+  ctx.stack_depth += 1;
+  ctx.update_max(ctx.stack_depth);
+  return WickedEvalStatus_Ok;
+}
+
+WICKED_ALWAYS_INLINE WickedEvalStatus_t PushVec(ValidationContext& ctx) {
   if (!ctx.has_bytes(1)) return WickedEvalStatus_IllegalOperation;
-  uint8_t n = ctx.fetch_byte();
-  uint16_t byte_count = uint16_t(n) * sizeof(float);
+  uint8_t size = ctx.fetch_byte() + 1;
+  uint16_t byte_count = uint16_t(size) * sizeof(float);
   if (!ctx.has_bytes(byte_count)) return WickedEvalStatus_IllegalOperation;
   ctx.skip(byte_count);
-  ctx.stack_depth += n;
+  ctx.stack_depth += size;
   ctx.update_max(ctx.stack_depth);
   return WickedEvalStatus_Ok;
 }
@@ -335,6 +344,7 @@ extern "C" WickedEvalStatus_t WickedPostfixValidate(const uint8_t* prog_data, ui
       case WickedPostfixOp_Acos:      status = validate::UnaryOp(ctx); break;
       case WickedPostfixOp_Ipow:      status = validate::Ipow(ctx); break;
       case WickedPostfixOp_MulAdd:    status = validate::MulAdd(ctx); break;
+      case WickedPostfixOp_PushVec:   status = validate::PushVec(ctx); break;
       case WickedPostfixOp_AddVec:
       case WickedPostfixOp_SubVec:
       case WickedPostfixOp_MulVec:
@@ -439,10 +449,14 @@ WICKED_ALWAYS_INLINE static float ipow(float base, int exp) {
 namespace ops {
 
 WICKED_ALWAYS_INLINE void Push(EvalContext& ctx) {
-  uint8_t n = ctx.fetch_byte();
-  size_t bytes = n * sizeof(float);
+  ctx.push(ctx.fetch_float());
+}
+
+WICKED_ALWAYS_INLINE void PushVec(EvalContext& ctx) {
+  uint8_t size = ctx.fetch_byte() + 1;
+  size_t bytes = size * sizeof(float);
   std::memcpy(ctx.sp, ctx.pc, bytes);
-  ctx.sp += n;
+  ctx.sp += size;
   ctx.pc += bytes;
 }
 
@@ -829,6 +843,7 @@ extern "C" void WickedPostfixEvaluate(const uint8_t* prog_data, uint16_t prog_si
       case WickedPostfixOp_Acos:      ops::Acos(ctx); break;
       case WickedPostfixOp_Ipow:      ops::Ipow(ctx); break;
       case WickedPostfixOp_MulAdd:    ops::MulAdd(ctx); break;
+      case WickedPostfixOp_PushVec:   ops::PushVec(ctx); break;
       case WickedPostfixOp_AddVec:    ops::AddVec(ctx); break;
       case WickedPostfixOp_SubVec:    ops::SubVec(ctx); break;
       case WickedPostfixOp_MulVec:    ops::MulVec(ctx); break;

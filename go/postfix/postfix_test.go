@@ -85,7 +85,7 @@ func TestEvalPostfixExpression(t *testing.T) {
 		},
 		{
 			name:      "push 0",
-			expr:      postfix.MakeBuilder().Push().Build(),
+			expr:      postfix.MakeBuilder().PushVec().Build(),
 			stack:     []float64{0},
 			wantStack: []float64{0},
 		},
@@ -97,21 +97,28 @@ func TestEvalPostfixExpression(t *testing.T) {
 		},
 		{
 			name:      "push 2",
-			expr:      postfix.MakeBuilder().Push(1, 2).Build(),
+			expr:      postfix.MakeBuilder().PushVec(1, 2).Build(),
 			stack:     []float64{0},
 			wantStack: []float64{0, 1, 2},
 		},
 		{
-			name: "push int literals underflow",
+			name: "push float literal underflow",
 			expr: &postfix.Expression{
-				Prog: []uint8{uint8(postfix.Operation_Push)},
+				Prog: []uint8{uint8(postfix.Operation_Push), 1, 2},
 			},
 			wantErr: postfix.ErrIllegalOperation,
 		},
 		{
-			name: "push float literals underflow",
+			name: "pushvec count underflow",
 			expr: &postfix.Expression{
-				Prog: []uint8{uint8(postfix.Operation_Push), 1},
+				Prog: []uint8{uint8(postfix.Operation_PushVec)},
+			},
+			wantErr: postfix.ErrIllegalOperation,
+		},
+		{
+			name: "pushvec float literals underflow",
+			expr: &postfix.Expression{
+				Prog: []uint8{uint8(postfix.Operation_PushVec), 0, 1, 2},
 			},
 			wantErr: postfix.ErrIllegalOperation,
 		},
@@ -606,13 +613,13 @@ func TestEvalPostfixExpression(t *testing.T) {
 		},
 		{
 			name:      "push 1 multiply add vector 3 implicit",
-			expr:      postfix.MakeBuilder().Push(7, 8, 9).MulAddVec(3).Build(),
+			expr:      postfix.MakeBuilder().PushVec(7, 8, 9).MulAddVec(3).Build(),
 			stack:     []float64{1, 2, 3, 4, 5, 6},
 			wantStack: []float64{1*4 + 7, 2*5 + 8, 3*6 + 9},
 		},
 		{
 			name:      "push 2 multiply add vector 3 implicit",
-			expr:      postfix.MakeBuilder().Push(4, 5, 6, 7, 8, 9).MulAddVec(3).Build(),
+			expr:      postfix.MakeBuilder().PushVec(4, 5, 6, 7, 8, 9).MulAddVec(3).Build(),
 			stack:     []float64{1, 2, 3},
 			wantStack: []float64{1*4 + 7, 2*5 + 8, 3*6 + 9},
 		},
@@ -765,7 +772,7 @@ func TestEvalPostfixExpression(t *testing.T) {
 func TestValidateAndEvaluate(t *testing.T) {
 	// Push 1, 2 to an initial stack of [42]. Initial length = 1.
 	// Expected final stack is [42, 1, 2], final length = 3, minCapacity = 3.
-	expr := postfix.MakeBuilder().Push(1, 2).Build()
+	expr := postfix.MakeBuilder().PushVec(1, 2).Build()
 
 	minCapacity, finalStackLen, _, err := postfix.Validate(expr, 1)
 	if err != nil {
@@ -879,6 +886,12 @@ func TestVectorBuilderSizeValidation(t *testing.T) {
 }
 
 func TestOperationString(t *testing.T) {
+	if got := postfix.Operation_Push.String(); got != "Push" {
+		t.Errorf("got %q, want %q", got, "Push")
+	}
+	if got := postfix.Operation_PushVec.String(); got != "PushVec" {
+		t.Errorf("got %q, want %q", got, "PushVec")
+	}
 	if got := postfix.Operation_Ipow.String(); got != "Ipow" {
 		t.Errorf("got %q, want %q", got, "Ipow")
 	}
@@ -912,7 +925,7 @@ func TestOperationPredicates(t *testing.T) {
 		t.Errorf("expected Pick, AddVec to not be scalar")
 	}
 
-	// Binary vector: 29..32 (AddVec..DivVec)
+	// Binary vector: 30..33 (AddVec..DivVec)
 	if !postfix.Operation_AddVec.IsBinaryVec() || !postfix.Operation_DivVec.IsBinaryVec() {
 		t.Errorf("expected AddVec, DivVec to be binary vec")
 	}
@@ -920,7 +933,7 @@ func TestOperationPredicates(t *testing.T) {
 		t.Errorf("expected MulAdd, NegVec to not be binary vec")
 	}
 
-	// Unary vector: 33..34 (NegVec..InvVec)
+	// Unary vector: 34..35 (NegVec..InvVec)
 	if !postfix.Operation_NegVec.IsUnaryVec() || !postfix.Operation_InvVec.IsUnaryVec() {
 		t.Errorf("expected NegVec, InvVec to be unary vec")
 	}
@@ -928,7 +941,7 @@ func TestOperationPredicates(t *testing.T) {
 		t.Errorf("expected DivVec, NormSqVec to not be unary vec")
 	}
 
-	// Vector reduction: 35..36 (NormSqVec..SumVec)
+	// Vector reduction: 36..37 (NormSqVec..SumVec)
 	if !postfix.Operation_NormSqVec.IsVectorReduction() || !postfix.Operation_SumVec.IsVectorReduction() {
 		t.Errorf("expected NormSqVec, SumVec to be vector reduction")
 	}
@@ -936,17 +949,17 @@ func TestOperationPredicates(t *testing.T) {
 		t.Errorf("expected InvVec, MulAddVec to not be vector reduction")
 	}
 
-	// Vector: 29..39 (AddVec..LerpVec)
-	if !postfix.Operation_AddVec.IsVector() || !postfix.Operation_LerpVec.IsVector() {
-		t.Errorf("expected AddVec, LerpVec to be vector")
+	// Vector: 29..40 (PushVec..LerpVec)
+	if !postfix.Operation_PushVec.IsVector() || !postfix.Operation_AddVec.IsVector() || !postfix.Operation_LerpVec.IsVector() {
+		t.Errorf("expected PushVec, AddVec, LerpVec to be vector")
 	}
 	if postfix.Operation_MulAdd.IsVector() || postfix.Operation_MulMat.IsVector() {
 		t.Errorf("expected MulAdd, MulMat to not be vector")
 	}
 
-	// Size operand: 29..39 (AddVec..LerpVec)
-	if !postfix.Operation_AddVec.HasSizeOperand() || !postfix.Operation_LerpVec.HasSizeOperand() {
-		t.Errorf("expected AddVec, LerpVec to have size operand")
+	// Size operand: 29..40 (PushVec..LerpVec)
+	if !postfix.Operation_PushVec.HasSizeOperand() || !postfix.Operation_AddVec.HasSizeOperand() || !postfix.Operation_LerpVec.HasSizeOperand() {
+		t.Errorf("expected PushVec, AddVec, LerpVec to have size operand")
 	}
 	if postfix.Operation_MulMat.HasSizeOperand() {
 		t.Errorf("expected MulMat to not have size operand")

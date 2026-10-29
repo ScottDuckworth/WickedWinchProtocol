@@ -41,7 +41,7 @@ func TestPathReadWrite(t *testing.T) {
 				Segments: []*postfix.PathSegment{
 					{
 						StartTime: 1000,
-						Expr:      postfix.MakeBuilder().Push(1, 2, 3).Build(),
+						Expr:      postfix.MakeBuilder().PushVec(1, 2, 3).Build(),
 					},
 				},
 			},
@@ -53,7 +53,7 @@ func TestPathReadWrite(t *testing.T) {
 				Segments: []*postfix.PathSegment{
 					{
 						StartTime: 1000,
-						Expr:      postfix.MakeBuilder().Drop().Push(3, 2, 1).Build(),
+						Expr:      postfix.MakeBuilder().Drop().PushVec(3, 2, 1).Build(),
 					},
 				},
 			},

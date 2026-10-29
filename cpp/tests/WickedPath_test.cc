@@ -53,7 +53,7 @@ TEST(PathEvalTest, Eval) {
   segment = writer.add_segments();
   segment->start_time = 2000;
   segment->expr.Drop();
-  segment->expr.Push(std::array<float, 1>{99});
+  segment->expr.Push(99.0f);
   auto buffer = writer.Write();
 
   TestEval eval;
@@ -111,7 +111,7 @@ TEST(PathEvalTest, UnexpectedStackSize) {
   WickedPathSegmentWriter* segment = writer.add_segments();
   segment->start_time = 0;
   // Initial stack is 1, push 2 more -> final stack is 3 (expected 1)
-  segment->expr.Push(std::array<float, 2>{1, 2});
+  segment->expr.PushVec(std::array<float, 2>{1, 2});
   auto buffer = writer.Write();
   EXPECT_EQ(WickedPathValidate(buffer.data(), buffer.size(), 8), WickedEvalStatus_UnexpectedStackSize);
 }
@@ -121,7 +121,7 @@ TEST(PathEvalTest, InsufficientStackCapacity) {
   WickedPathSegmentWriter* segment = writer.add_segments();
   segment->start_time = 0;
   // Initial stack is 1, push 2 floats (depth 3), then drop 2 floats (depth back to 1)
-  segment->expr.Push(std::array<float, 2>{1, 2});
+  segment->expr.PushVec(std::array<float, 2>{1, 2});
   segment->expr.Drop();
   segment->expr.Drop();
   auto buffer = writer.Write();
@@ -145,12 +145,12 @@ TEST(PathEvalTest, SegmentAt) {
   segment = writer.add_segments();
   segment->start_time = 1000;
   segment->expr.Drop();
-  segment->expr.Push(std::array<float, 1>{42});
+  segment->expr.Push(42.0f);
 
   segment = writer.add_segments();
   segment->start_time = 2000;
   segment->expr.Drop();
-  segment->expr.Push(std::array<float, 1>{99});
+  segment->expr.Push(99.0f);
 
   auto buffer = writer.Write();
   EXPECT_EQ(WickedPathValidate(buffer.data(), buffer.size(), 8), WickedEvalStatus_Ok);
