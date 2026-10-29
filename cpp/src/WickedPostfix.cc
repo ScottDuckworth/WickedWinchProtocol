@@ -31,7 +31,8 @@ extern "C" const char* WickedPostfixOpToString(WickedPostfixOp_t op) {
     case WickedPostfixOp_Tuck:      return "Tuck";
     case WickedPostfixOp_Nip:       return "Nip";
     case WickedPostfixOp_Rot:       return "Rot";
-    case WickedPostfixOp_Pick:      return "Pick";
+    case WickedPostfixOp_Copy:      return "Copy";
+    case WickedPostfixOp_Move:      return "Move";
     case WickedPostfixOp_Add:       return "Add";
     case WickedPostfixOp_Sub:       return "Sub";
     case WickedPostfixOp_Mul:       return "Mul";
@@ -179,17 +180,23 @@ WICKED_ALWAYS_INLINE WickedEvalStatus_t Rot(ValidationContext& ctx) {
   return WickedEvalStatus_Ok;
 }
 
-WICKED_ALWAYS_INLINE WickedEvalStatus_t Pick(ValidationContext& ctx) {
+WICKED_ALWAYS_INLINE WickedEvalStatus_t Copy(ValidationContext& ctx) {
   if (!ctx.has_bytes(1)) return WickedEvalStatus_IllegalOperation;
   uint8_t arg = ctx.fetch_byte();
   uint8_t offset = arg & 0x1F;
-  bool move = (arg & 0x20) != 0;
-  uint8_t size = ((arg >> 6) & 0x03) + 1;
+  uint8_t size = (arg >> 5) + 1;
   if (ctx.stack_depth < int32_t(offset) + size) return WickedEvalStatus_StackUnderflow;
-  if (!move) {
-    ctx.stack_depth += size;
-    ctx.update_max(ctx.stack_depth);
-  }
+  ctx.stack_depth += size;
+  ctx.update_max(ctx.stack_depth);
+  return WickedEvalStatus_Ok;
+}
+
+WICKED_ALWAYS_INLINE WickedEvalStatus_t Move(ValidationContext& ctx) {
+  if (!ctx.has_bytes(1)) return WickedEvalStatus_IllegalOperation;
+  uint8_t arg = ctx.fetch_byte();
+  uint8_t offset = arg & 0x1F;
+  uint8_t size = (arg >> 5) + 1;
+  if (ctx.stack_depth < int32_t(offset) + size) return WickedEvalStatus_StackUnderflow;
   return WickedEvalStatus_Ok;
 }
 
@@ -324,7 +331,8 @@ extern "C" WickedEvalStatus_t WickedPostfixValidate(const uint8_t* prog_data, ui
       case WickedPostfixOp_Tuck:      status = validate::Tuck(ctx); break;
       case WickedPostfixOp_Nip:       status = validate::Nip(ctx); break;
       case WickedPostfixOp_Rot:       status = validate::Rot(ctx); break;
-      case WickedPostfixOp_Pick:      status = validate::Pick(ctx); break;
+      case WickedPostfixOp_Copy:      status = validate::Copy(ctx); break;
+      case WickedPostfixOp_Move:      status = validate::Move(ctx); break;
       case WickedPostfixOp_Add:
       case WickedPostfixOp_Sub:
       case WickedPostfixOp_Mul:
@@ -495,17 +503,19 @@ WICKED_ALWAYS_INLINE void Rot(EvalContext& ctx) {
   ctx.sp[-1] = b;
 }
 
-WICKED_ALWAYS_INLINE void Pick(EvalContext& ctx) {
+WICKED_ALWAYS_INLINE void Copy(EvalContext& ctx) {
   uint8_t arg = ctx.fetch_byte();
   uint8_t offset = arg & 0x1F;
-  bool move = (arg & 0x20) != 0;
-  uint8_t size = ((arg >> 6) & 0x03) + 1;
-  if (move) {
-    std::rotate(ctx.sp - offset - size, ctx.sp - offset, ctx.sp);
-  } else {
-    std::copy_n(ctx.sp - offset - size, size, ctx.sp);
-    ctx.sp += size;
-  }
+  uint8_t size = (arg >> 5) + 1;
+  std::copy_n(ctx.sp - offset - size, size, ctx.sp);
+  ctx.sp += size;
+}
+
+WICKED_ALWAYS_INLINE void Move(EvalContext& ctx) {
+  uint8_t arg = ctx.fetch_byte();
+  uint8_t offset = arg & 0x1F;
+  uint8_t size = (arg >> 5) + 1;
+  std::rotate(ctx.sp - offset - size, ctx.sp - offset, ctx.sp);
 }
 
 WICKED_ALWAYS_INLINE void Add(EvalContext& ctx) {
@@ -823,7 +833,8 @@ extern "C" void WickedPostfixEvaluate(const uint8_t* prog_data, uint16_t prog_si
       case WickedPostfixOp_Tuck:      ops::Tuck(ctx); break;
       case WickedPostfixOp_Nip:       ops::Nip(ctx); break;
       case WickedPostfixOp_Rot:       ops::Rot(ctx); break;
-      case WickedPostfixOp_Pick:      ops::Pick(ctx); break;
+      case WickedPostfixOp_Copy:      ops::Copy(ctx); break;
+      case WickedPostfixOp_Move:      ops::Move(ctx); break;
       case WickedPostfixOp_Add:       ops::Add(ctx); break;
       case WickedPostfixOp_Sub:       ops::Sub(ctx); break;
       case WickedPostfixOp_Mul:       ops::Mul(ctx); break;

@@ -207,39 +207,64 @@ func TestEvalPostfixExpression(t *testing.T) {
 			wantErr: postfix.ErrStackUnderflow,
 		},
 		{
-			name:      "pick copy scalar",
-			expr:      postfix.MakeBuilder().Pick(1, 1, false).Build(),
+			name:      "copy scalar",
+			expr:      postfix.MakeBuilder().Copy(1, 1).Build(),
 			stack:     []float64{10, 20, 30},
 			wantStack: []float64{10, 20, 30, 20},
 		},
 		{
-			name:      "pick copy vector",
-			expr:      postfix.MakeBuilder().Pick(1, 2, false).Build(),
+			name:      "copy vector",
+			expr:      postfix.MakeBuilder().Copy(1, 2).Build(),
 			stack:     []float64{10, 20, 30, 40},
 			wantStack: []float64{10, 20, 30, 40, 20, 30},
 		},
 		{
-			name:      "pick move scalar",
-			expr:      postfix.MakeBuilder().Pick(2, 1, true).Build(),
+			name:      "copy max size",
+			expr:      postfix.MakeBuilder().Copy(0, 8).Build(),
+			stack:     []float64{1, 2, 3, 4, 5, 6, 7, 8},
+			wantStack: []float64{1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4, 5, 6, 7, 8},
+		},
+		{
+			name:      "move scalar",
+			expr:      postfix.MakeBuilder().Move(2, 1).Build(),
 			stack:     []float64{10, 20, 30, 40},
 			wantStack: []float64{10, 30, 40, 20},
 		},
 		{
-			name:      "pick move vector",
-			expr:      postfix.MakeBuilder().Pick(1, 2, true).Build(),
+			name:      "move vector",
+			expr:      postfix.MakeBuilder().Move(1, 2).Build(),
 			stack:     []float64{10, 20, 30, 40},
 			wantStack: []float64{10, 40, 20, 30},
 		},
 		{
-			name:    "pick stack underflow",
-			expr:    postfix.MakeBuilder().Pick(2, 2, false).Build(),
+			name:      "move max size",
+			expr:      postfix.MakeBuilder().Move(1, 8).Build(),
+			stack:     []float64{1, 2, 3, 4, 5, 6, 7, 8, 9},
+			wantStack: []float64{9, 1, 2, 3, 4, 5, 6, 7, 8},
+		},
+		{
+			name:    "copy stack underflow",
+			expr:    postfix.MakeBuilder().Copy(2, 2).Build(),
 			stack:   []float64{10, 20, 30},
 			wantErr: postfix.ErrStackUnderflow,
 		},
 		{
-			name: "pick int literals underflow",
+			name: "copy int literals underflow",
 			expr: &postfix.Expression{
-				Prog: []uint8{uint8(postfix.Operation_Pick)},
+				Prog: []uint8{uint8(postfix.Operation_Copy)},
+			},
+			wantErr: postfix.ErrIllegalOperation,
+		},
+		{
+			name:    "move stack underflow",
+			expr:    postfix.MakeBuilder().Move(2, 2).Build(),
+			stack:   []float64{10, 20, 30},
+			wantErr: postfix.ErrStackUnderflow,
+		},
+		{
+			name: "move int literals underflow",
+			expr: &postfix.Expression{
+				Prog: []uint8{uint8(postfix.Operation_Move)},
 			},
 			wantErr: postfix.ErrIllegalOperation,
 		},
@@ -889,6 +914,12 @@ func TestOperationString(t *testing.T) {
 	if got := postfix.Operation_Push.String(); got != "Push" {
 		t.Errorf("got %q, want %q", got, "Push")
 	}
+	if got := postfix.Operation_Copy.String(); got != "Copy" {
+		t.Errorf("got %q, want %q", got, "Copy")
+	}
+	if got := postfix.Operation_Move.String(); got != "Move" {
+		t.Errorf("got %q, want %q", got, "Move")
+	}
 	if got := postfix.Operation_PushVec.String(); got != "PushVec" {
 		t.Errorf("got %q, want %q", got, "PushVec")
 	}
@@ -901,15 +932,15 @@ func TestOperationString(t *testing.T) {
 }
 
 func TestOperationPredicates(t *testing.T) {
-	// Binary scalar: 10..15 (Add..Atan2)
+	// Binary scalar: 11..16 (Add..Atan2)
 	if !postfix.Operation_Add.IsBinaryScalar() || !postfix.Operation_Pow.IsBinaryScalar() || !postfix.Operation_Atan2.IsBinaryScalar() {
 		t.Errorf("expected Add, Pow, Atan2 to be binary scalar")
 	}
-	if postfix.Operation_Pick.IsBinaryScalar() || postfix.Operation_Neg.IsBinaryScalar() {
-		t.Errorf("expected Pick, Neg to not be binary scalar")
+	if postfix.Operation_Move.IsBinaryScalar() || postfix.Operation_Neg.IsBinaryScalar() {
+		t.Errorf("expected Move, Neg to not be binary scalar")
 	}
 
-	// Unary scalar: 16..26 (Neg..Acos)
+	// Unary scalar: 17..27 (Neg..Acos)
 	if !postfix.Operation_Neg.IsUnaryScalar() || !postfix.Operation_Sqrt.IsUnaryScalar() || !postfix.Operation_Acos.IsUnaryScalar() {
 		t.Errorf("expected Neg, Sqrt, Acos to be unary scalar")
 	}
@@ -917,15 +948,15 @@ func TestOperationPredicates(t *testing.T) {
 		t.Errorf("expected Atan2, Ipow to not be unary scalar")
 	}
 
-	// Scalar: 10..28 (Add..MulAdd)
+	// Scalar: 11..29 (Add..MulAdd)
 	if !postfix.Operation_Add.IsScalar() || !postfix.Operation_Ipow.IsScalar() || !postfix.Operation_MulAdd.IsScalar() {
 		t.Errorf("expected Add, Ipow, MulAdd to be scalar")
 	}
-	if postfix.Operation_Pick.IsScalar() || postfix.Operation_AddVec.IsScalar() {
-		t.Errorf("expected Pick, AddVec to not be scalar")
+	if postfix.Operation_Copy.IsScalar() || postfix.Operation_AddVec.IsScalar() {
+		t.Errorf("expected Copy, AddVec to not be scalar")
 	}
 
-	// Binary vector: 30..33 (AddVec..DivVec)
+	// Binary vector: 31..34 (AddVec..DivVec)
 	if !postfix.Operation_AddVec.IsBinaryVec() || !postfix.Operation_DivVec.IsBinaryVec() {
 		t.Errorf("expected AddVec, DivVec to be binary vec")
 	}
@@ -933,7 +964,7 @@ func TestOperationPredicates(t *testing.T) {
 		t.Errorf("expected MulAdd, NegVec to not be binary vec")
 	}
 
-	// Unary vector: 34..35 (NegVec..InvVec)
+	// Unary vector: 35..36 (NegVec..InvVec)
 	if !postfix.Operation_NegVec.IsUnaryVec() || !postfix.Operation_InvVec.IsUnaryVec() {
 		t.Errorf("expected NegVec, InvVec to be unary vec")
 	}
@@ -941,7 +972,7 @@ func TestOperationPredicates(t *testing.T) {
 		t.Errorf("expected DivVec, NormSqVec to not be unary vec")
 	}
 
-	// Vector reduction: 36..37 (NormSqVec..SumVec)
+	// Vector reduction: 37..38 (NormSqVec..SumVec)
 	if !postfix.Operation_NormSqVec.IsVectorReduction() || !postfix.Operation_SumVec.IsVectorReduction() {
 		t.Errorf("expected NormSqVec, SumVec to be vector reduction")
 	}
@@ -949,7 +980,7 @@ func TestOperationPredicates(t *testing.T) {
 		t.Errorf("expected InvVec, MulAddVec to not be vector reduction")
 	}
 
-	// Vector: 29..40 (PushVec..LerpVec)
+	// Vector: 30..41 (PushVec..LerpVec)
 	if !postfix.Operation_PushVec.IsVector() || !postfix.Operation_AddVec.IsVector() || !postfix.Operation_LerpVec.IsVector() {
 		t.Errorf("expected PushVec, AddVec, LerpVec to be vector")
 	}
@@ -957,7 +988,7 @@ func TestOperationPredicates(t *testing.T) {
 		t.Errorf("expected MulAdd, MulMat to not be vector")
 	}
 
-	// Size operand: 29..40 (PushVec..LerpVec)
+	// Size operand: 30..41 (PushVec..LerpVec)
 	if !postfix.Operation_PushVec.HasSizeOperand() || !postfix.Operation_AddVec.HasSizeOperand() || !postfix.Operation_LerpVec.HasSizeOperand() {
 		t.Errorf("expected PushVec, AddVec, LerpVec to have size operand")
 	}
