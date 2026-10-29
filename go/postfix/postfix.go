@@ -629,6 +629,20 @@ func (b *Builder) MulMat(rows, cols int, matrix ...float64) *Builder {
 }
 
 // Poly evaluates a polynomial or matrix of polynomials for scalar t (t -> P(t)[cols]).
+//
+// Coefficients must be provided in row-major order with INCREASING degree order:
+//   - Row 0 (coeffs[0 : cols]): degree 0 (constant terms)
+//   - Row 1 (coeffs[cols : 2*cols]): degree 1 (linear terms)
+//   - ...
+//   - Row rows-1 (coeffs[(rows-1)*cols : rows*cols]): highest degree (degree = rows - 1)
+//
+// For dimension j (0 <= j < cols):
+//   P_j(t) = coeffs[0*cols + j] + coeffs[1*cols + j]*t + ... + coeffs[(rows-1)*cols + j]*t^(rows-1)
+//
+// Note: When serializing to bytecode, Poly automatically reverses the row order
+// into decreasing degree order (highest degree first) as required by Horner's method
+// during bytecode evaluation.
+//
 // Operand constraints:
 //   - rows: 1 to 16 (number of polynomial coefficients per column, i.e. degree + 1)
 //   - cols: 1 to 16 (number of dimensions / columns)
@@ -652,11 +666,14 @@ func (b *Builder) Poly(rows, cols int, coeffs ...float64) *Builder {
 }
 
 // PolyVec is a convenience method that evaluates a 1D polynomial via Operation_Poly (t -> P(t)).
+// Coefficients must be provided in INCREASING degree order:
+// coeffs[0] is degree 0 (constant), coeffs[1] is degree 1, ..., coeffs[N-1] is degree N-1.
 func (b *Builder) PolyVec(coeffs ...float64) *Builder {
 	return b.Poly(len(coeffs), 1, coeffs...)
 }
 
 // PolyMat is an alias for Poly (t -> P(t)[cols]).
+// Coefficients must be provided in row-major order with INCREASING degree order.
 func (b *Builder) PolyMat(rows, cols int, coeffs ...float64) *Builder {
 	return b.Poly(rows, cols, coeffs...)
 }
